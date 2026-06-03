@@ -1,0 +1,28 @@
+# Java
+target/
+*.class
+
+# IDE
+.idea/
+.project
+.classpath
+.settings/
+.vscode/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+
+# Maven Wrapper
+.mvn/wrapper/maven-wrapper.jar
+
+# Config Repo Secrets
+config-repo/application-prod.yml
+config-repo/*-prod.yml

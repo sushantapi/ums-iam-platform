@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: USER-SERVICE
+
+  config:
+    import: optional:configserver:http://localhost:8888
+
+jwt:
+  public-key-path: keys/public.pem

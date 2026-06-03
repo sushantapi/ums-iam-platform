@@ -1,0 +1,133 @@
+package com.ums.user.service.impl;
+
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.stereotype.Service;
+
+import com.ums.events.constants.RabbitMQConstants;
+import com.ums.events.event.user.UserRegisteredEvent;
+import com.ums.user.dto.UpdateProfileRequest;
+import com.ums.user.dto.UserProfileResponse;
+import com.ums.user.entity.UserProfile;
+import com.ums.user.exception.UserNotFoundException;
+import com.ums.user.mapper.UserMapper;
+import com.ums.user.repository.UserProfileRepository;
+import com.ums.user.service.UserService;
+
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class UserServiceImpl implements UserService {
+
+	private final UserProfileRepository userProfileRepository;
+
+	private final UserMapper userMapper;
+
+//	private final UserRepository userRepository;
+
+	/**
+	 * Get Current Logged-In User
+	 */
+	@Override
+	public UserProfileResponse getCurrentUser(String email) {
+
+		UserProfile profile = getUserProfileByEmail(email);
+
+		return userMapper.mapToUserProfileResponse(profile);
+	}
+
+	/**
+	 * Update User Profile
+	 */
+	@Override
+	public UserProfileResponse updateProfile(String email, UpdateProfileRequest request) {
+
+		UserProfile profile = getUserProfileByEmail(email);
+
+		updateProfileFields(profile, request);
+
+		UserProfile updatedProfile = userProfileRepository.save(profile);
+
+		return userMapper.mapToUserProfileResponse(updatedProfile);
+	}
+
+	/**
+	 * Fetch User Profile By Email
+	 */
+	private UserProfile getUserProfileByEmail(String email) {
+
+		return userProfileRepository.findByEmail(email)
+				.orElseThrow(() -> new UserNotFoundException("User profile not found with email: " + email));
+	}
+
+	/**
+	 * Update Profile Fields
+	 */
+	private void updateProfileFields(UserProfile profile, UpdateProfileRequest request) {
+
+		profile.setFirstName(request.getFirstName());
+		profile.setLastName(request.getLastName());
+		profile.setMobile(request.getMobile());
+		profile.setAddress(request.getAddress());
+		profile.setCity(request.getCity());
+		profile.setState(request.getState());
+		profile.setCountry(request.getCountry());
+		profile.setZipCode(request.getZipCode());
+	}
+
+	/*
+	 * @Override public void createUserProfile(CreateUserProfileRequest request) {
+	 * 
+	 * UserProfile profile =
+	 * UserProfile.builder().firstName(request.getFirstName()).lastName(request.
+	 * getLastName())
+	 * .email(request.getEmail()).mobile(request.getMobile()).build();
+	 * 
+	 * userProfileRepository.save(profile); }
+	 */
+
+	@RabbitListener(queues = RabbitMQConstants.PROFILE_USER_REGISTERED_QUEUE)
+	public void createProfile(UserRegisteredEvent event) {
+
+		System.out.println("EVENT RECEIVED = " + event);
+
+		if (userProfileRepository.existsById(event.getUserId())) {
+			return;
+		}
+
+		UserProfile profile = UserProfile.builder().userId(event.getUserId()).email(event.getEmail())
+				.firstName(event.getFirstName()).lastName(event.getLastName()).build();
+
+		userProfileRepository.save(profile);
+
+		System.out.println("PROFILE SAVED");
+	}
+
+	@Override
+	public UserProfileResponse getUserById(UUID userId) {
+
+		UserProfile profile = userProfileRepository.findById(userId)
+				.orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
+
+		return userMapper.mapToUserProfileResponse(profile);
+	}
+
+	@Override
+	public void deleteProfile(String email) {
+
+		UserProfile profile = getUserProfileByEmail(email);
+
+		userProfileRepository.delete(profile);
+	}
+
+	@Override
+	public List<UserProfileResponse> getAllUsers() {
+
+		return userProfileRepository.findAll().stream().map(profile -> userMapper.mapToUserProfileResponse(profile))
+				.toList();
+	}
+
+}

@@ -1,0 +1,9 @@
+#server:
+#  port: 8083
+#
+#spring:
+#  application:
+#    name: AUTHORIZATION-SERVICE
+#
+#jwt:
+#  public-key-path: keys/public_key.pem
