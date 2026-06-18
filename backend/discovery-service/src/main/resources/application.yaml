@@ -1,17 +1,27 @@
-server:
-  port: 8761
+#server:
+#  port: 8761
+#
+#spring:
+#  application:
+#    name: discovery-service
+#
+#eureka:
+#  client:
+#    register-with-eureka: false
+#    fetch-registry: false
+#
+#management:
+#  endpoints:
+#    web:
+#      exposure:
+#        include: health,info
 
 spring:
   application:
-    name: DISCOVERY-SERVICE
+    name: discovery-service
 
-eureka:
-  client:
-    register-with-eureka: false
-    fetch-registry: false
+  profiles:
+    active: dev
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
+  config:
+    import: configserver:http://localhost:8888

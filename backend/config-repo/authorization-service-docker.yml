@@ -1,0 +1,23 @@
+server:
+  port: 8082
+
+spring:
+  datasource:
+    url: jdbc:mysql://host.docker.internal:3306/authz_db
+    username: root
+    password: root
+
+  rabbitmq:
+    host: rabbitmq
+    port: 5672
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-service:8761/eureka/
+
+jwt:
+  public-key-path: keys/public_key.pem
+  issuer: ums-iam-platform
+  access-token-expiry-ms: 900000
+  refresh-token-expiry-ms: 604800000

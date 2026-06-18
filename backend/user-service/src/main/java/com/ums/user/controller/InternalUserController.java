@@ -1,33 +1,3 @@
-/*
- * package com.ums.user.controller;
- * 
- * import java.util.List;
- * 
- * import org.springframework.web.bind.annotation.*;
- * 
- * import com.ums.user.dto.CreateUserProfileRequest; import
- * com.ums.user.dto.UserProfileResponse; import
- * com.ums.user.service.UserService;
- * 
- * import lombok.RequiredArgsConstructor;
- * 
- * @RestController
- * 
- * @RequestMapping("/api/v1/internal/users")
- * 
- * @RequiredArgsConstructor public class InternalUserController {
- * 
- * private final UserService userService;
- * 
- * @PostMapping public void createUserProfile(@RequestBody
- * CreateUserProfileRequest request) {
- * 
- * userService.createUserProfile(request); }
- * 
- * @GetMapping public List<UserProfileResponse> getAllUsers() {
- * 
- * return userService.getAllUsers(); } }
- */
 package com.ums.user.controller;
 
 import java.util.UUID;

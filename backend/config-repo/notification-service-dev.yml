@@ -1,0 +1,30 @@
+server:
+  port: 8085
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/notification_db
+    username: root
+    password: root
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: sushant843120@gmail.com
+    password: qkskvewfhzkvezjv
+
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true

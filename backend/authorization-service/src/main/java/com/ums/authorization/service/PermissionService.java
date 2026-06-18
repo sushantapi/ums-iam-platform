@@ -1,12 +1,17 @@
 package com.ums.authorization.service;
 
-import com.ums.authorization.entity.Permission;
-
 import java.util.List;
+import java.util.UUID;
+
+import com.ums.authorization.entity.Permission;
 
 public interface PermissionService {
 
-	Permission createPermission(Permission permission);
+	Permission create(Permission permission);
 
-	List<Permission> getAllPermissions();
+	List<Permission> getAll();
+
+	Permission getById(UUID id);
+
+	void delete(UUID id);
 }

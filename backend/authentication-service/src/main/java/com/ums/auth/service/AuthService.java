@@ -1,8 +1,10 @@
 package com.ums.auth.service;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -10,10 +12,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ums.auth.client.AuthorizationClient;
 import com.ums.auth.dto.LoginRequest;
 import com.ums.auth.dto.RefreshTokenRequest;
 import com.ums.auth.dto.RegisterRequest;
 import com.ums.auth.dto.TokenResponse;
+import com.ums.auth.dto.UserAuthorizationResponse;
 import com.ums.auth.entity.Role;
 import com.ums.auth.entity.Session;
 import com.ums.auth.entity.User;
@@ -23,7 +27,9 @@ import com.ums.auth.repository.RoleRepository;
 import com.ums.auth.repository.SessionRepository;
 import com.ums.auth.repository.UserRepository;
 import com.ums.events.constants.RabbitMQConstants;
+import com.ums.events.event.AuditEvent;
 import com.ums.events.event.user.UserRegisteredEvent;
+import com.ums.events.publisher.AuditPublisher;
 
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,8 +47,13 @@ public class AuthService {
 	private final UserRepository userRepository;
 	private final RoleRepository roleRepository;
 	private final PasswordEncoder passwordEncoder;
+
+	private final AuditPublisher auditPublisher;
+
+	private final AuthorizationClient authorizationClient;
+
 	private final JwtService jwtService;
-	private final AuditService auditService;
+
 	private final SessionRepository sessionRepository;
 	private final TokenBlacklistService blacklistService;
 
@@ -69,15 +80,21 @@ public class AuthService {
 
 		User savedUser = userRepository.save(user);
 
+		authorizationClient.assignDefaultRole(savedUser.getId());
+
 		UserRegisteredEvent event = UserRegisteredEvent.builder().userId(savedUser.getId()).email(savedUser.getEmail())
 				.firstName(savedUser.getFirstName()).lastName(savedUser.getLastName()).build();
 
 		rabbitTemplate.convertAndSend(RabbitMQConstants.USER_EXCHANGE, RabbitMQConstants.USER_REGISTERED_ROUTING_KEY,
 				event);
 
-		String refreshToken = jwtService.generateRefreshToken(savedUser.getId().toString());
+		publishAuditEvent(AuditEvent.builder().eventType("auth.registration.completed")
+				.serviceName("authentication-service").userId(savedUser.getId().toString())
+				.userEmail(savedUser.getEmail()).action("REGISTER").entityType("USER")
+				.entityId(savedUser.getId().toString()).details("User registered successfully").ipAddress(ipAddress)
+				.timestamp(LocalDateTime.now()).build());
 
-		auditService.log(savedUser.getId(), "REGISTER", ipAddress, "SUCCESS");
+		String refreshToken = jwtService.generateRefreshToken(savedUser.getId().toString());
 
 		log.info("User registered successfully: {}", savedUser.getEmail());
 
@@ -91,7 +108,9 @@ public class AuthService {
 
 		User user = userRepository.findByEmail(email).orElseThrow(() -> {
 
-			auditService.logAnonymous("LOGIN_FAILED", ipAddress, email);
+			publishAuditEvent(AuditEvent.builder().eventType("auth.login.failed").serviceName("authentication-service")
+					.userEmail(email).action("LOGIN").entityType("USER").details("Email not found").ipAddress(ipAddress)
+					.timestamp(LocalDateTime.now()).build());
 
 			return new AuthException("Invalid credentials", "INVALID_CREDENTIALS");
 		});
@@ -128,7 +147,10 @@ public class AuthService {
 		sessionRepository.save(session);
 		userRepository.save(user);
 
-		auditService.log(user.getId(), "LOGIN_SUCCESS", ipAddress, "SUCCESS");
+		publishAuditEvent(AuditEvent.builder().eventType("auth.login.succeeded").serviceName("authentication-service")
+				.userId(user.getId().toString()).userEmail(user.getEmail()).action("LOGIN").entityType("USER")
+				.entityId(user.getId().toString()).details("User logged in successfully").ipAddress(ipAddress)
+				.timestamp(LocalDateTime.now()).build());
 
 		log.info("Login successful: {}", email);
 
@@ -155,14 +177,46 @@ public class AuthService {
 
 		userRepository.save(user);
 
-		auditService.log(user.getId(), "LOGIN_FAILED", ipAddress, "FAILED");
+		publishAuditEvent(AuditEvent.builder().eventType("auth.login.failed").serviceName("authentication-service")
+				.userId(user.getId().toString()).userEmail(user.getEmail()).action("LOGIN").entityType("USER")
+				.entityId(user.getId().toString()).details("Invalid password").ipAddress(ipAddress)
+				.timestamp(LocalDateTime.now()).build());
 	}
+
+	/*
+	 * private TokenResponse buildTokenResponse(User user, String refreshToken) {
+	 * 
+	 * Set<String> roles =
+	 * user.getRoles().stream().map(Role::getName).collect(Collectors.toSet());
+	 * 
+	 * String accessToken = jwtService.generateAccessToken(user.getId().toString(),
+	 * user.getEmail(), roles);
+	 * 
+	 * return
+	 * TokenResponse.builder().accessToken(accessToken).refreshToken(refreshToken).
+	 * tokenType("Bearer") .expiresIn(jwtService.getAccessTokenExpiryMs() /
+	 * 1000).userId(user.getId().toString()) .email(user.getEmail()).build(); }
+	 */
 
 	private TokenResponse buildTokenResponse(User user, String refreshToken) {
 
-		Set<String> roles = user.getRoles().stream().map(Role::getName).collect(Collectors.toSet());
+		UserAuthorizationResponse authorization;
 
-		String accessToken = jwtService.generateAccessToken(user.getId().toString(), user.getEmail(), roles);
+		try {
+			authorization = authorizationClient.getAuthorization(user.getId());
+		} catch (Exception ex) {
+
+			log.error("Failed to fetch authorization", ex);
+
+			authorization = UserAuthorizationResponse.builder().roles(List.of()).permissions(List.of()).build();
+		}
+
+		Set<String> roles = new HashSet<>(authorization.getRoles());
+
+		Set<String> permissions = new HashSet<>(authorization.getPermissions());
+
+		String accessToken = jwtService.generateAccessToken(user.getId().toString(), user.getEmail(), roles,
+				permissions);
 
 		return TokenResponse.builder().accessToken(accessToken).refreshToken(refreshToken).tokenType("Bearer")
 				.expiresIn(jwtService.getAccessTokenExpiryMs() / 1000).userId(user.getId().toString())
@@ -233,9 +287,27 @@ public class AuthService {
 
 			blacklistService.blacklist(jti, ttl);
 
+			publishAuditEvent(AuditEvent.builder().eventType("auth.logout.completed")
+					.serviceName("authentication-service").userId(claims.getSubject()).action("LOGOUT")
+					.entityType("SESSION").entityId(jti).details("User logged out successfully")
+					.ipAddress(request.getRemoteAddr()).timestamp(LocalDateTime.now()).build());
+
+			log.info("User logged out successfully. UserId={}", claims.getSubject());
+
 		} catch (Exception ex) {
 
-			log.warn("Redis unavailable. Skipping blacklist.");
+			log.error("Logout failed", ex);
+
+			throw new AuthException("Logout failed", "LOGOUT_FAILED");
+		}
+	}
+
+	private void publishAuditEvent(AuditEvent event) {
+
+		try {
+			auditPublisher.publish(event);
+		} catch (Exception ex) {
+			log.error("Failed to publish audit event", ex);
 		}
 	}
 

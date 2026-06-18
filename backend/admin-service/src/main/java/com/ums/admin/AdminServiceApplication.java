@@ -2,14 +2,13 @@ package com.ums.admin;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.ComponentScan;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 
-@SpringBootApplication
-@ComponentScan(basePackages = { "com.ums.user", "com.ums.security" })
+@SpringBootApplication(scanBasePackages = { "com.ums.admin", "com.ums.security" })
+@EnableFeignClients
 public class AdminServiceApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(AdminServiceApplication.class, args);
 	}
-
 }

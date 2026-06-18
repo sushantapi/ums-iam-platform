@@ -22,7 +22,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "user_roles", uniqueConstraints = { @UniqueConstraint(columnNames = { "user_id", "role_id" }) })
+@Table(name = "user_roles", uniqueConstraints = {
+		@UniqueConstraint(name = "uk_user_role_scope", columnNames = { "user_id", "role_id", "scope_type",
+				"scope_id" }) })
 @Getter
 @Setter
 @NoArgsConstructor
@@ -44,6 +46,22 @@ public class UserRole {
 	@Column(name = "assigned_by")
 	private UUID assignedBy;
 
+	@Builder.Default
+	@Column(name = "scope_type", nullable = false, length = 30)
+	private String scopeType = "PLATFORM";
+
+	@Builder.Default
+	@Column(name = "scope_id", nullable = false, length = 36)
+	private String scopeId = "*";
+
+	@Column(name = "expires_at")
+	private LocalDateTime expiresAt;
+
+	@Builder.Default
+	@Column(nullable = false)
+	private Boolean active = true;
+
 	@CreationTimestamp
+	@Column(nullable = false, updatable = false)
 	private LocalDateTime assignedAt;
 }

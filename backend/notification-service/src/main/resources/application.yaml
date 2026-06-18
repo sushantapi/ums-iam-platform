@@ -1,76 +1,28 @@
-server:
-  port: 8085
+#spring:
+#  application:
+#    name: NOTIFICATION-SERVICE
+#
+#  profiles:
+#    active: dev
+#
+#  config:
+#    import: optional:configserver:http://localhost:8888
+#spring:
+#  application:
+#    name: notification-service
+#
+#  profiles:
+#    active: docker
+#
+#  config:
+#    import: optional:configserver:http://config-service:8888
 
 spring:
   application:
-    name: NOTIFICATION-SERVICE
+    name: notification-service
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 
   config:
-    import: optional:configserver:http://localhost:8888
-
-  datasource:
-    url: jdbc:mysql://localhost:3306/notification_db?createDatabaseIfNotExist=true&serverTimezone=UTC
-    username: root
-    password: root
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
-
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: sushant843120@gmail.com
-    password: qkskvewfhzkvezjv
-
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: "*"
-
-  endpoint:
-    health:
-      show-details: always
-
-  health:
-    redis:
-      enabled: false
-
-jwt:
-  public-key-path: keys/public.pem
-
-logging:
-  level:
-    root: INFO
-
-    com.ums.notification: DEBUG
-
-    org.springframework.amqp: DEBUG
-    org.springframework.amqp.rabbit: DEBUG
-
-    org.springframework.web: INFO
-    org.hibernate.SQL: DEBUG
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}

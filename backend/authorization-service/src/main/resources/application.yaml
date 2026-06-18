@@ -7,3 +7,13 @@
 #
 #jwt:
 #  public-key-path: keys/public_key.pem
+
+#spring:
+#  application:
+#    name: authorization-service
+#
+#  profiles:
+#    active: ${SPRING_PROFILES_ACTIVE:dev}
+#
+#  config:
+#    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}

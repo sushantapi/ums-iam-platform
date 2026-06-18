@@ -7,20 +7,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import com.ums.admin.dto.response.UserSummaryResponse;
 
-@FeignClient(name = "user-service")
+@FeignClient(name = "user-service", contextId = "userClient")
 public interface UserServiceClient {
 
 	@GetMapping("/api/v1/internal/users")
 	List<UserSummaryResponse> getAllUsers();
-
-	/*
-	 * @GetMapping("/api/v1/internal/users/{id}") UserDetailResponse
-	 * getUserById(@PathVariable Long id);
-	 * 
-	 * @PatchMapping("/api/v1/internal/users/{id}/block") void
-	 * blockUser(@PathVariable Long id);
-	 * 
-	 * @PatchMapping("/api/v1/internal/users/{id}/activate") void
-	 * activateUser(@PathVariable Long id);
-	 */
 }

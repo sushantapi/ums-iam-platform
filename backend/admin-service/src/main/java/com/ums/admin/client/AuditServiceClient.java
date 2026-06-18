@@ -7,9 +7,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import com.ums.admin.dto.response.AuditLogResponse;
 
-@FeignClient(name = "audit-service")
+@FeignClient(name = "audit-service", contextId = "auditClient")
 public interface AuditServiceClient {
 
-    @GetMapping("/internal/audit/logs")
-    List<AuditLogResponse> getAuditLogs();
+	@GetMapping("/internal/audit/logs")
+	List<AuditLogResponse> getAuditLogs();
 }

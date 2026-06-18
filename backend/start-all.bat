@@ -43,11 +43,7 @@ REM =====================================================
 REM STEP 3 - AUTHORIZATION SERVICE
 REM =====================================================
 
-echo.
-echo Starting Authorization Service...
-start "AUTHORIZATION-SERVICE" cmd /k "cd /d E:\ums-iam-platform\backend\authorization-service && mvnw spring-boot:run"
 
-timeout /t 8 /nobreak > nul
 
 REM =====================================================
 REM STEP 4 - ORGANIZATION SERVICE
@@ -58,11 +54,7 @@ REM =====================================================
 REM STEP 5 - ADMIN SERVICE
 REM =====================================================
 
-echo.
-echo Starting Admin Service...
-start "ADMIN-SERVICE" cmd /k "cd /d E:\ums-iam-platform\backend\admin-service && mvnw spring-boot:run"
 
-timeout /t 8 /nobreak > nul
 
 REM =====================================================
 REM STEP 6 - API GATEWAY

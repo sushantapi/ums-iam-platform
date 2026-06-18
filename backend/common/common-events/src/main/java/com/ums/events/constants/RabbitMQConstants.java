@@ -13,6 +13,10 @@ public final class RabbitMQConstants {
 
 	public static final String ORGANIZATION_EXCHANGE = "organization.exchange";
 
+	public static final String ROLE_ASSIGNED = "role.assigned";
+
+	public static final String ROLE_ASSIGNED_QUEUE = "role.assigned.queue";
+
 	/*
 	 * =========================== Routing Keys ===========================
 	 */
@@ -43,5 +47,15 @@ public final class RabbitMQConstants {
 	 */
 
 	public static final String ORGANIZATION_CREATED_QUEUE = "organization.created.queue";
+
+	/*
+	 * Audit Constants
+	 */
+
+	public static final String AUDIT_EXCHANGE = "audit.exchange";
+
+	public static final String AUDIT_QUEUE = "audit.queue";
+
+	public static final String AUDIT_ROUTING_KEY = "audit.#";
 
 }
