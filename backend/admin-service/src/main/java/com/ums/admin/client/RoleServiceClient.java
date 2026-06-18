@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import com.ums.admin.dto.request.AssignRoleRequest;
 
-@FeignClient(name = "role-service")
+@FeignClient(name = "authorization-service", contextId = "roleClient")
 public interface RoleServiceClient {
 
 	@PostMapping("/internal/roles/assign")

@@ -14,7 +14,7 @@ import com.ums.authorization.service.AuthorizationService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/internal/users")
+@RequestMapping("/api/v1/internal/users")
 @RequiredArgsConstructor
 public class InternalAuthorizationController {
 

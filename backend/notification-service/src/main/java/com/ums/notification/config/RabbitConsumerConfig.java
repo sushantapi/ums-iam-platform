@@ -130,7 +130,9 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.ums.events.constants.ExchangeConstants;
 import com.ums.events.constants.RabbitMQConstants;
+import com.ums.events.constants.RoutingKeyConstants;
 
 @Configuration
 public class RabbitConsumerConfig {
@@ -159,13 +161,6 @@ public class RabbitConsumerConfig {
 	}
 
 	@Bean
-	public Binding notificationBinding(Queue notificationUserRegisteredQueue, TopicExchange userExchange) {
-
-		return BindingBuilder.bind(notificationUserRegisteredQueue).to(userExchange)
-				.with(RabbitMQConstants.USER_REGISTERED_ROUTING_KEY);
-	}
-
-	@Bean
 	public TopicExchange organizationExchange() {
 		return new TopicExchange(RabbitMQConstants.ORGANIZATION_EXCHANGE);
 	}
@@ -182,6 +177,22 @@ public class RabbitConsumerConfig {
 
 		return BindingBuilder.bind(notificationOrganizationCreatedQueue).to(organizationExchange)
 				.with(RabbitMQConstants.ORGANIZATION_CREATED_ROUTING_KEY);
+	}
+
+	@Bean
+	public Queue roleAssignedQueue() {
+		return new Queue(RabbitMQConstants.ROLE_ASSIGNED_QUEUE);
+	}
+
+	@Bean
+	public TopicExchange authExchange() {
+		return new TopicExchange(ExchangeConstants.AUTH_EXCHANGE);
+	}
+
+	@Bean
+	public Binding roleAssignedBinding(Queue roleAssignedQueue, TopicExchange authExchange) {
+
+		return BindingBuilder.bind(roleAssignedQueue).to(authExchange).with(RoutingKeyConstants.ROLE_ASSIGNED);
 	}
 
 }

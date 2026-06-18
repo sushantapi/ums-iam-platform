@@ -1,6 +1,7 @@
 package com.ums.user.service.impl;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -16,10 +17,13 @@ import com.ums.user.mapper.UserMapper;
 import com.ums.user.repository.UserProfileRepository;
 import com.ums.user.service.UserService;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserServiceImpl implements UserService {
 
 	private final UserProfileRepository userProfileRepository;
@@ -90,11 +94,13 @@ public class UserServiceImpl implements UserService {
 	 */
 
 	@RabbitListener(queues = RabbitMQConstants.PROFILE_USER_REGISTERED_QUEUE)
+	@Transactional
 	public void createProfile(UserRegisteredEvent event) {
 
-		System.out.println("EVENT RECEIVED = " + event);
+		Optional<UserProfile> existing = userProfileRepository.findByEmail(event.getEmail());
 
-		if (userProfileRepository.existsById(event.getUserId())) {
+		if (existing.isPresent()) {
+			log.info("Profile already exists for {}", event.getEmail());
 			return;
 		}
 
@@ -102,8 +108,6 @@ public class UserServiceImpl implements UserService {
 				.firstName(event.getFirstName()).lastName(event.getLastName()).build();
 
 		userProfileRepository.save(profile);
-
-		System.out.println("PROFILE SAVED");
 	}
 
 	@Override

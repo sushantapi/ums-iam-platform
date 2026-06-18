@@ -1,0 +1,127 @@
+version: '3.8'
+
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: auth_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  discovery-service:
+    image: discovery-service:1.0
+    container_name: discovery-service
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+
+  config-service:
+    image: config-service:1.0
+    container_name: config-service
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./backend/config-repo:/config-repo
+
+  authentication-service:
+    image: authentication-service:1.0
+    container_name: authentication-service
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVER_URL: http://config-service:8888
+    depends_on:
+      - mysql
+      - rabbitmq
+      - config-service
+      - discovery-service
+
+  user-service:
+    image: user-service:1.0
+    container_name: user-service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVER_URL: http://config-service:8888
+    depends_on:
+      - mysql
+      - rabbitmq
+      - config-service
+      - discovery-service
+
+  authorization-service:
+    image: authorization-service:1.0
+    container_name: authorization-service
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVER_URL: http://config-service:8888
+    depends_on:
+      - mysql
+      - config-service
+      - discovery-service
+
+  notification-service:
+    image: notification-service:1.0
+    container_name: notification-service
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVER_URL: http://config-service:8888
+    depends_on:
+      - rabbitmq
+      - config-service
+      - discovery-service
+
+  organization-service:
+    image: organization-service:1.0
+    container_name: organization-service
+    restart: unless-stopped
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVER_URL: http://config-service:8888
+    depends_on:
+      - mysql
+      - config-service
+      - discovery-service
+
+  api-gateway:
+    image: api-gateway:1.0
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVER_URL: http://config-service:8888
+    depends_on:
+      - config-service
+      - discovery-service
+
+volumes:
+  mysql_data:

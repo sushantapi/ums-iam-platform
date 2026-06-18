@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -30,15 +31,25 @@ public class Role {
 	@GeneratedValue(strategy = GenerationType.UUID)
 	private UUID id;
 
-	@Column(nullable = false, unique = true)
+	@Column(nullable = false, unique = true, length = 50)
 	private String name;
 
 	@Column(columnDefinition = "TEXT")
 	private String description;
 
-	@Column(name = "is_system")
-	private Boolean isSystem = true;
+	@Builder.Default
+	@Column(name = "is_system", nullable = false)
+	private Boolean isSystem = false;
+
+	@Builder.Default
+	@Column(nullable = false)
+	private Boolean active = true;
 
 	@CreationTimestamp
+	@Column(nullable = false, updatable = false)
 	private LocalDateTime createdAt;
+
+	@UpdateTimestamp
+	@Column(nullable = false)
+	private LocalDateTime updatedAt;
 }

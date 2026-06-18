@@ -1,6 +1,5 @@
 package com.ums.authorization.controller;
 
-import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,8 +10,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ums.authorization.dto.AssignPermissionRequest;
 import com.ums.authorization.dto.AssignRoleRequest;
 import com.ums.authorization.dto.PermissionCheckResponse;
+import com.ums.authorization.dto.UserAuthorizationResponse;
+import com.ums.authorization.dto.UserPermissionsResponse;
 import com.ums.authorization.service.AuthorizationService;
 
 import lombok.RequiredArgsConstructor;
@@ -31,9 +33,15 @@ public class AuthorizationController {
 	}
 
 	@GetMapping("/users/{id}/permissions")
-	public Set<String> getUserPermissions(@PathVariable UUID id) {
+	public UserPermissionsResponse getUserPermissions(@PathVariable UUID id) {
 
 		return authorizationService.getUserPermissions(id);
+	}
+
+	@PostMapping("/assign-permission")
+	public String assignPermission(@RequestBody AssignPermissionRequest request) {
+
+		return authorizationService.assignPermission(request);
 	}
 
 	@GetMapping("/check")
@@ -50,6 +58,12 @@ public class AuthorizationController {
 				.allowed(allowed)
 
 				.build();
+	}
+
+	@GetMapping("/internal/users/{userId}/authorization")
+	public UserAuthorizationResponse getAuthorization(@PathVariable UUID userId) {
+
+		return authorizationService.getUserAuthorization(userId);
 	}
 
 }

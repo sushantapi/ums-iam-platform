@@ -69,11 +69,24 @@ public class JwtService {
 		}
 	}
 
-	public String generateAccessToken(String userId, String email, Set<String> roles) {
+	/*
+	 * public String generateAccessToken(String userId, String email, Set<String>
+	 * roles) {
+	 * 
+	 * return
+	 * Jwts.builder().id(UUID.randomUUID().toString()).subject(userId).issuer(issuer
+	 * ).issuedAt(new Date()) .expiration(new Date(System.currentTimeMillis() +
+	 * accessTokenExpiryMs)).claim("email", email) .claim("roles",
+	 * roles).claim("type", "ACCESS").signWith(privateKey,
+	 * Jwts.SIG.RS256).compact(); }
+	 */
+
+	public String generateAccessToken(String userId, String email, Set<String> roles, Set<String> permissions) {
 
 		return Jwts.builder().id(UUID.randomUUID().toString()).subject(userId).issuer(issuer).issuedAt(new Date())
 				.expiration(new Date(System.currentTimeMillis() + accessTokenExpiryMs)).claim("email", email)
-				.claim("roles", roles).claim("type", "ACCESS").signWith(privateKey, Jwts.SIG.RS256).compact();
+				.claim("roles", roles).claim("permissions", permissions).claim("type", "ACCESS")
+				.signWith(privateKey, Jwts.SIG.RS256).compact();
 	}
 
 	public String generateRefreshToken(String userId) {

@@ -43,5 +43,6 @@ public class RolePermission {
 	private Permission permission;
 
 	@CreationTimestamp
+	@jakarta.persistence.Column(nullable = false, updatable = false)
 	private LocalDateTime assignedAt;
 }

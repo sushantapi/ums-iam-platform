@@ -1,6 +1,7 @@
 package com.ums.authorization.dto;
 
 import java.util.List;
+import java.util.UUID;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,6 +15,8 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 public class UserAuthorizationResponse {
+
+	private UUID userId;
 
 	private List<String> roles;
 

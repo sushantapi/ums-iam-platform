@@ -1,12 +1,15 @@
 package com.ums.authorization.service.impl;
 
-import com.ums.authorization.entity.Role;
-import com.ums.authorization.repository.RoleRepository;
-import com.ums.authorization.service.RoleService;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import com.ums.authorization.entity.Role;
+import com.ums.authorization.exception.RoleNotFoundException;
+import com.ums.authorization.repository.RoleRepository;
+import com.ums.authorization.service.RoleService;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +32,7 @@ public class RoleServiceImpl implements RoleService {
 	@Override
 	public Role getRoleByName(String roleName) {
 
-		return roleRepository.findByName(roleName).orElseThrow(() -> new RuntimeException("Role not found"));
+		return roleRepository.findByNameIgnoreCase(roleName)
+				.orElseThrow(() -> new RoleNotFoundException("Role not found"));
 	}
 }

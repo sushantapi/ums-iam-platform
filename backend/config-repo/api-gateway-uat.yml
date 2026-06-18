@@ -1,0 +1,13 @@
+server:
+  port: 8080
+
+jwt:
+  public-key-path: keys/public.pem
+
+spring:
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
