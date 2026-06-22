@@ -10,8 +10,10 @@ public class DashboardServiceImpl implements DashboardService {
 
 	@Override
 	public DashboardResponse getDashboardSummary() {
-
-		return DashboardResponse.builder().totalUsers(100).activeUsers(90).blockedUsers(10).activeSessions(40)
-				.todayLogins(25).build();
+		return new DashboardResponse(
+				new DashboardResponse.UserMetrics(0, 0, 0, 0),
+				new DashboardResponse.OrganizationMetrics(0, 0, 0),
+				new DashboardResponse.RoleMetrics(0),
+				new DashboardResponse.AuditMetrics(0, 0));
 	}
 }

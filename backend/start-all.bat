@@ -64,6 +64,20 @@ echo.
 echo Starting API Gateway...
 start "API-GATEWAY" cmd /k "cd /d E:\ums-iam-platform\backend\api-gateway && mvnw spring-boot:run"
 
+echo Waiting for API Gateway...
+timeout /t 15 /nobreak > nul
+
+REM =====================================================
+REM STEP 7 - NOTIFICATION SERVICE
+REM =====================================================
+
+echo.
+echo Starting Notification Service...
+start "NOTIFICATION-SERVICE" cmd /k "cd /d E:\ums-iam-platform\backend\notification-service && mvnw spring-boot:run"
+
+echo Waiting for Notification Service...
+timeout /t 15 /nobreak > nul
+
 echo.
 echo ==========================================
 echo     All Services Startup Triggered

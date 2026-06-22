@@ -13,6 +13,8 @@ public final class RabbitMQConstants {
 
 	public static final String ORGANIZATION_EXCHANGE = "organization.exchange";
 
+	public static final String AUTH_EXCHANGE = "auth.exchange";
+
 	public static final String ROLE_ASSIGNED = "role.assigned";
 
 	public static final String ROLE_ASSIGNED_QUEUE = "role.assigned.queue";
@@ -24,6 +26,12 @@ public final class RabbitMQConstants {
 	public static final String USER_REGISTERED_ROUTING_KEY = "user.registered";
 
 	public static final String ORGANIZATION_CREATED_ROUTING_KEY = "organization.created";
+
+	public static final String EMAIL_VERIFICATION_ROUTING_KEY = "auth.email.verification.requested";
+
+	public static final String PASSWORD_RESET_ROUTING_KEY = "auth.password.reset.requested";
+
+	public static final String MFA_OTP_ROUTING_KEY = "auth.mfa.otp.requested";
 
 	/*
 	 * =========================== Profile Service Queues
@@ -40,6 +48,12 @@ public final class RabbitMQConstants {
 	public static final String NOTIFICATION_USER_REGISTERED_QUEUE = "notification.user.registered.queue";
 
 	public static final String NOTIFICATION_ORGANIZATION_CREATED_QUEUE = "notification.organization.created.queue";
+
+	public static final String NOTIFICATION_EMAIL_VERIFICATION_QUEUE = "notification.email.verification.queue";
+
+	public static final String NOTIFICATION_PASSWORD_RESET_QUEUE = "notification.password.reset.queue";
+
+	public static final String NOTIFICATION_MFA_OTP_QUEUE = "notification.mfa.otp.queue";
 
 	/*
 	 * =========================== Organization Service Queues

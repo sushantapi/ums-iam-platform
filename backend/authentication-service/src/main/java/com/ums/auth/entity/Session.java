@@ -44,7 +44,15 @@ public class Session {
 
 	private String deviceInfo;
 
+	private String client;
+
+	private UUID organizationId;
+
 	private Instant expiresAt;
+
+	private Instant lastSeenAt;
+
+	private Instant revokedAt;
 
 	@Builder.Default
 	private boolean revoked = false;

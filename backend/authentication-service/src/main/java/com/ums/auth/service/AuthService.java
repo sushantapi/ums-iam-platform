@@ -96,6 +96,11 @@ public class AuthService {
 
 		String refreshToken = jwtService.generateRefreshToken(savedUser.getId().toString());
 
+		Session session = Session.builder().user(savedUser).refreshTokenHash(hash(refreshToken)).ipAddress(ipAddress)
+				.lastSeenAt(Instant.now())
+				.expiresAt(Instant.now().plusMillis(jwtService.getRefreshTokenExpiryMs())).build();
+		sessionRepository.save(session);
+
 		log.info("User registered successfully: {}", savedUser.getEmail());
 
 		return buildTokenResponse(savedUser, refreshToken);
@@ -142,6 +147,9 @@ public class AuthService {
 
 		Session session = Session.builder().user(user).refreshTokenHash(hash(refreshToken)).ipAddress(ipAddress)
 				.deviceInfo(request.getDeviceInfo())
+				.client(request.getClient())
+				.organizationId(request.getOrganizationId())
+				.lastSeenAt(Instant.now())
 				.expiresAt(Instant.now().plusMillis(jwtService.getRefreshTokenExpiryMs())).build();
 
 		sessionRepository.save(session);
@@ -248,6 +256,8 @@ public class AuthService {
 		String newRefreshToken = jwtService.generateRefreshToken(user.getId().toString());
 
 		session.setRefreshTokenHash(hash(newRefreshToken));
+
+		session.setLastSeenAt(Instant.now());
 
 		session.setExpiresAt(Instant.now().plusMillis(jwtService.getRefreshTokenExpiryMs()));
 

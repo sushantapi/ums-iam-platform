@@ -2,6 +2,8 @@ package com.ums.notification.entity;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.CreationTimestamp;
+
 import com.ums.notification.enums.NotificationChannel;
 import com.ums.notification.enums.NotificationStatus;
 import com.ums.notification.enums.NotificationType;
@@ -56,8 +58,10 @@ public class NotificationEvent {
 	@Lob
 	private String errorMessage;
 
-	private Integer retryCount;
+	@Builder.Default
+	private Integer retryCount = 0;
 
+	@CreationTimestamp
 	private LocalDateTime createdAt;
 
 	private LocalDateTime processedAt;

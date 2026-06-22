@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import com.ums.notification.entity.NotificationEvent;
 import com.ums.notification.service.NotificationEventService;
+import com.ums.notification.service.EmailService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,8 +18,11 @@ import lombok.extern.slf4j.Slf4j;
 public class NotificationRetryScheduler {
 
 	private final NotificationEventService eventService;
+	private final EmailService emailService;
 
-	@Scheduled(fixedDelay = 300000)
+	@Scheduled(
+			fixedDelayString = "${notification.retry.fixed-delay-ms:300000}",
+			initialDelayString = "${notification.retry.initial-delay-ms:30000}")
 	public void retryFailedNotifications() {
 
 		log.info("Checking failed notifications");
@@ -33,9 +37,7 @@ public class NotificationRetryScheduler {
 
 				log.info("Retrying event {}", event.getId());
 
-				// TODO: invoke strategy
-
-				eventService.markProcessed(event.getId());
+				emailService.retry(event);
 
 			} catch (Exception ex) {
 

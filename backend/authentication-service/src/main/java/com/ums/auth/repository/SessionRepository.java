@@ -5,10 +5,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import com.ums.auth.entity.Session;
 
-public interface SessionRepository extends JpaRepository<Session, UUID> {
+public interface SessionRepository extends JpaRepository<Session, UUID>, JpaSpecificationExecutor<Session> {
 
 	Optional<Session> findByRefreshTokenHash(String refreshTokenHash);
 

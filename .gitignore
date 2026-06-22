@@ -23,6 +23,12 @@ Thumbs.db
 # Maven Wrapper
 .mvn/wrapper/maven-wrapper.jar
 
+# Node
+node_modules/
+dist/
+.vite/
+.vite-cache/
+
 # Config Repo Secrets
 config-repo/application-prod.yml
 config-repo/*-prod.yml

@@ -1,6 +1,7 @@
 package com.ums.notification.service;
 
 import com.ums.events.event.organization.OrganizationInviteEvent;
+import com.ums.notification.entity.NotificationEvent;
 
 public interface EmailService {
 
@@ -15,4 +16,6 @@ public interface EmailService {
 	void processOrganizationInvitation(OrganizationInviteEvent event);
 
 	void sendOrganizationCreatedEmail(String email, String organizationName);
+
+	void retry(NotificationEvent event);
 }

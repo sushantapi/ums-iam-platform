@@ -7,6 +7,32 @@ jwt:
 spring:
   cloud:
     gateway:
+      routes:
+        - id: authentication-public
+          uri: lb://authentication-service
+          predicates:
+            - Path=/api/v1/auth/**
+        - id: authentication-admin-sessions
+          uri: lb://authentication-service
+          predicates:
+            - Path=/api/v1/admin/sessions/**,/api/v1/admin/users/*/sessions/**
+        - id: admin-dashboard
+          uri: lb://admin-service
+          predicates:
+            - Path=/api/v1/admin/dashboard
+        - id: audit-events
+          uri: lb://audit-service
+          predicates:
+            - Path=/api/v1/audit/events/**
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins:
+              - http://127.0.0.1:5174
+              - http://localhost:5174
+            allowed-methods: "*"
+            allowed-headers: "*"
+            allow-credentials: true
       discovery:
         locator:
           enabled: true

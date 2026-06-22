@@ -40,6 +40,8 @@ public class NotificationEventServiceImpl implements NotificationEventService {
 		event.setStatus(NotificationStatus.SENT);
 
 		event.setProcessedAt(LocalDateTime.now());
+
+		event.setErrorMessage(null);
 	}
 
 	@Override
@@ -49,7 +51,7 @@ public class NotificationEventServiceImpl implements NotificationEventService {
 
 		event.setStatus(NotificationStatus.FAILED);
 
-		event.setRetryCount(event.getRetryCount() + 1);
+		event.setRetryCount((event.getRetryCount() == null ? 0 : event.getRetryCount()) + 1);
 
 		event.setErrorMessage(error);
 	}

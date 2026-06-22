@@ -87,7 +87,10 @@
 package com.ums.notification.service.impl;
 
 import java.util.Map;
+import java.util.UUID;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -96,7 +99,12 @@ import com.ums.events.event.organization.OrganizationCreatedEvent;
 import com.ums.events.event.organization.OrganizationInviteEvent;
 import com.ums.notification.service.EmailService;
 import com.ums.notification.service.NotificationAuditService;
+import com.ums.notification.service.NotificationEventService;
 import com.ums.notification.service.TemplateService;
+import com.ums.notification.entity.NotificationEvent;
+import com.ums.notification.enums.NotificationChannel;
+import com.ums.notification.enums.NotificationStatus;
+import com.ums.notification.enums.NotificationType;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -111,6 +119,10 @@ public class EmailServiceImpl implements EmailService {
 	private final TemplateService templateService;
 
 	private final NotificationAuditService auditService;
+
+	private final NotificationEventService eventService;
+
+	private final ObjectMapper objectMapper;
 
 	@Override
 	public void sendWelcomeEmail(String email, String firstName) {
@@ -137,10 +149,17 @@ public class EmailServiceImpl implements EmailService {
 	}
 
 	private void sendEmail(String templateCode, String recipientEmail, Map<String, Object> variables) {
+		NotificationEvent event = createEvent(templateCode, recipientEmail, variables);
+		deliver(event, variables);
+	}
 
-		String subject = templateService.getSubject(templateCode);
+	private void deliver(NotificationEvent event, Map<String, Object> variables) {
+		String templateCode = event.getTemplateCode();
+		String recipientEmail = event.getRecipientEmail();
+		String subject = templateCode;
 
 		try {
+			subject = templateService.getSubject(templateCode);
 
 			log.info("Sending {} email to {}", templateCode, recipientEmail);
 
@@ -155,6 +174,7 @@ public class EmailServiceImpl implements EmailService {
 			mailSender.send(message);
 
 			auditService.logSuccess(templateCode, recipientEmail, subject);
+			eventService.markProcessed(event.getId());
 
 			log.info("{} email sent successfully to {}", templateCode, recipientEmail);
 
@@ -163,8 +183,40 @@ public class EmailServiceImpl implements EmailService {
 			log.error("Failed to send {} email to {}", templateCode, recipientEmail, ex);
 
 			auditService.logFailure(templateCode, recipientEmail, subject, ex.getMessage());
+			eventService.markFailed(event.getId(), ex.getMessage());
+		}
+	}
 
-			throw ex;
+	private NotificationEvent createEvent(
+			String templateCode,
+			String recipientEmail,
+			Map<String, Object> variables) {
+		try {
+			NotificationEvent event = NotificationEvent.builder()
+					.recipient(recipientEmail)
+					.recipientEmail(recipientEmail)
+					.templateCode(templateCode)
+					.correlationId(UUID.randomUUID().toString())
+					.channel(NotificationChannel.EMAIL)
+					.notificationType(NotificationType.valueOf(templateCode))
+					.status(NotificationStatus.PENDING)
+					.payload(objectMapper.writeValueAsString(variables))
+					.build();
+			return eventService.save(event);
+		} catch (Exception ex) {
+			throw new IllegalStateException("Could not persist notification event", ex);
+		}
+	}
+
+	@Override
+	public void retry(NotificationEvent event) {
+		try {
+			Map<String, Object> variables = objectMapper.readValue(
+					event.getPayload(), new TypeReference<Map<String, Object>>() {
+					});
+			deliver(event, variables);
+		} catch (Exception ex) {
+			eventService.markFailed(event.getId(), ex.getMessage());
 		}
 	}
 

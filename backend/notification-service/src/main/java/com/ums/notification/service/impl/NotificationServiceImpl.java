@@ -2,11 +2,11 @@ package com.ums.notification.service.impl;
 
 import org.springframework.stereotype.Service;
 
+import com.ums.events.event.EmailVerificationEvent;
+import com.ums.events.event.MfaOtpEvent;
+import com.ums.events.event.PasswordResetEvent;
 import com.ums.events.event.organization.OrganizationCreatedEvent;
 import com.ums.events.event.user.UserRegisteredEvent;
-import com.ums.notification.event.EmailVerificationEvent;
-import com.ums.notification.event.MfaOtpEvent;
-import com.ums.notification.event.PasswordResetEvent;
 import com.ums.notification.service.EmailService;
 import com.ums.notification.service.NotificationService;
 
@@ -33,7 +33,7 @@ public class NotificationServiceImpl implements NotificationService {
 
 		log.info("Processing EmailVerificationEvent: {}", event.getEmail());
 
-		emailService.sendVerificationEmail(event.getEmail(), event.getFirstName(), event.getVerificationLink());
+		emailService.sendVerificationEmail(event.getEmail(), event.getEmail(), event.getOtp());
 	}
 
 	@Override
@@ -41,7 +41,7 @@ public class NotificationServiceImpl implements NotificationService {
 
 		log.info("Processing PasswordResetEvent: {}", event.getEmail());
 
-		emailService.sendPasswordResetEmail(event.getEmail(), event.getFirstName(), event.getResetLink());
+		emailService.sendPasswordResetEmail(event.getEmail(), event.getEmail(), event.getOtp());
 	}
 
 	@Override

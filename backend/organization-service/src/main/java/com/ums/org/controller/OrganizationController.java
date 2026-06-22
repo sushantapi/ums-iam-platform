@@ -19,7 +19,6 @@ import com.ums.org.dto.OrganizationMemberResponse;
 import com.ums.org.dto.OrganizationResponse;
 import com.ums.org.service.OrganizationService;
 
-import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,10 +31,29 @@ public class OrganizationController {
 
 	private final OrganizationService organizationService;
 
+	/*
+	 * @PostMapping
+	 * 
+	 * @Operation(summary = "Create organization") public
+	 * ResponseEntity<OrganizationResponse>
+	 * createOrganization(@RequestHeader("X-User-Id") UUID ownerId,
+	 * 
+	 * @Valid @RequestBody CreateOrganizationRequest request) {
+	 * 
+	 * return ResponseEntity.status(HttpStatus.CREATED).body(organizationService.
+	 * createOrganization(request, ownerId)); }
+	 */
 	@PostMapping
-	@Operation(summary = "Create organization")
-	public ResponseEntity<OrganizationResponse> createOrganization(@RequestHeader("X-User-Id") UUID ownerId,
+	public ResponseEntity<OrganizationResponse> createOrganization(
+			@RequestHeader(value = "X-Authenticated-User", required = false) UUID authenticatedUser,
+			@RequestHeader(value = "X-User-Id", required = false) UUID userId,
 			@Valid @RequestBody CreateOrganizationRequest request) {
+
+		UUID ownerId = authenticatedUser != null ? authenticatedUser : userId;
+
+		System.out.println("Organization creation request received ");
+
+		System.out.println("Owner ID = " + ownerId);
 
 		return ResponseEntity.status(HttpStatus.CREATED).body(organizationService.createOrganization(request, ownerId));
 	}

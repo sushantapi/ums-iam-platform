@@ -6,7 +6,9 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
+import com.ums.events.event.AuditEvent;
 import com.ums.events.event.organization.OrganizationCreatedEvent;
+import com.ums.events.publisher.AuditPublisher;
 import com.ums.org.client.UserClient;
 import com.ums.org.dto.AddMemberRequest;
 import com.ums.org.dto.CreateOrganizationRequest;
@@ -26,16 +28,21 @@ import com.ums.org.service.OrganizationService;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
+
+@Slf4j
 public class OrganizationServiceImpl implements OrganizationService {
 
 	private final OrganizationRepository organizationRepository;
 	private final OrganizationMemberRepository memberRepository;
 	private final UserClient userClient;
 	private final OrganizationEventPublisher eventPublisher;
+
+	private final AuditPublisher auditPublisher;
 
 	@Override
 	public OrganizationResponse createOrganization(CreateOrganizationRequest request, UUID ownerId) {
@@ -58,10 +65,41 @@ public class OrganizationServiceImpl implements OrganizationService {
 
 		memberRepository.save(ownerMembership);
 
+		// Business Event
 		publishOrganizationCreatedEvent(organization, user.email());
+
+		// Audit Event
+		publishAuditEvent(AuditEvent.builder().eventType("organization.created").serviceName("organization-service")
+				.userId(ownerId.toString()).userEmail(user.email()).action("ORGANIZATION_CREATE")
+				.entityType("ORGANIZATION").entityId(organization.getId().toString())
+				.details("Organization created successfully").timestamp(LocalDateTime.now()).build());
 
 		return new OrganizationResponse(organization.getId(), organization.getName(), organization.getSlug(),
 				organization.getDescription());
+
+	}
+
+	private void publishOrganizationCreatedEvent(Organization organization, String ownerEmail) {
+
+		OrganizationCreatedEvent event = OrganizationCreatedEvent.builder().organizationId(organization.getId())
+				.organizationName(organization.getName()).ownerId(organization.getOwnerId()).ownerEmail(ownerEmail)
+				.createdAt(LocalDateTime.now()).build();
+
+		eventPublisher.publishOrganizationCreated(event);
+
+	}
+
+	private void publishAuditEvent(AuditEvent event) {
+
+		try {
+
+			auditPublisher.publish(event);
+
+		} catch (Exception ex) {
+
+			log.error("Failed to publish audit event", ex);
+		}
+
 	}
 
 	private String generateUniqueSlug(String name) {
@@ -78,14 +116,17 @@ public class OrganizationServiceImpl implements OrganizationService {
 		return slug;
 	}
 
-	private void publishOrganizationCreatedEvent(Organization organization, String ownerEmail) {
-
-		OrganizationCreatedEvent event = OrganizationCreatedEvent.builder().organizationId(organization.getId())
-				.organizationName(organization.getName()).ownerId(organization.getOwnerId()).ownerEmail(ownerEmail)
-				.build();
-
-		eventPublisher.publishOrganizationCreated(event);
-	}
+	/*
+	 * private void publishOrganizationCreatedEvent(Organization organization,
+	 * String ownerEmail) {
+	 * 
+	 * OrganizationCreatedEvent event =
+	 * OrganizationCreatedEvent.builder().organizationId(organization.getId())
+	 * .organizationName(organization.getName()).ownerId(organization.getOwnerId()).
+	 * ownerEmail(ownerEmail) .createdAt(LocalDateTime.now()).build();
+	 * 
+	 * eventPublisher.publishOrganizationCreated(event); }
+	 */
 
 	@Override
 	public void addMember(UUID organizationId, AddMemberRequest request) {
