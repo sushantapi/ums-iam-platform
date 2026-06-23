@@ -3,6 +3,7 @@ server:
 
 jwt:
   public-key-path: keys/public.pem
+  issuer: ums-iam-platform
 
 spring:
   cloud:

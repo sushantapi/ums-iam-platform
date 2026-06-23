@@ -1,73 +1,3 @@
-/*
- * package com.ums.gateway.filter;
- * 
- * import org.springframework.cloud.gateway.filter.GatewayFilterChain; import
- * org.springframework.cloud.gateway.filter.GlobalFilter; import
- * org.springframework.core.Ordered; import
- * org.springframework.http.HttpHeaders; import
- * org.springframework.http.HttpStatus; import
- * org.springframework.security.oauth2.jwt.Jwt; import
- * org.springframework.stereotype.Component; import
- * org.springframework.web.server.ServerWebExchange;
- * 
- * import com.ums.gateway.security.JwtTokenValidator;
- * 
- * import lombok.RequiredArgsConstructor; import reactor.core.publisher.Mono;
- * 
- * @Component
- * 
- * @RequiredArgsConstructor public class GatewayJwtAuthenticationFilter
- * implements GlobalFilter, Ordered {
- * 
- * private final JwtTokenValidator jwtTokenValidator;
- * 
- * @Override public Mono<Void> filter(ServerWebExchange exchange,
- * GatewayFilterChain chain) {
- * 
- * String path = exchange.getRequest().getURI().getPath();
- * 
- * // Public endpoints if (path.startsWith("/api/v1/auth/login") ||
- * path.startsWith("/api/v1/auth/register") ||
- * path.startsWith("/api/v1/auth/refresh") || path.startsWith("/swagger-ui") ||
- * path.startsWith("/v3/api-docs") || path.startsWith("/actuator")) {
- * 
- * return chain.filter(exchange); }
- * 
- * String authHeader =
- * exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
- * 
- * if (authHeader == null || !authHeader.startsWith("Bearer ")) {
- * 
- * exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
- * 
- * return exchange.getResponse().setComplete(); }
- * 
- * try {
- * 
- * String token = authHeader.substring(7);
- * 
- * Jwt jwt = jwtTokenValidator.validateToken(token);
- * 
- * String userId = jwt.getSubject();
- * 
- * Object roles = jwt.getClaim("roles");
- * 
- * ServerWebExchange modifiedExchange = exchange.mutate()
- * .request(exchange.getRequest().mutate().header("X-Authenticated-User",
- * userId) .header("X-User-Roles", roles == null ? "" :
- * roles.toString()).build()) .build();
- * 
- * return chain.filter(modifiedExchange);
- * 
- * } catch (Exception ex) {
- * 
- * exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
- * 
- * return exchange.getResponse().setComplete(); } }
- * 
- * @Override public int getOrder() { return -1; } }
- */
-
 package com.ums.gateway.filter;
 
 import org.slf4j.Logger;
@@ -75,77 +5,41 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 
-import com.ums.gateway.security.JwtTokenValidator;
-
-import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
 @Component
-@RequiredArgsConstructor
 public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 
 	private static final Logger log = LoggerFactory.getLogger(GatewayJwtAuthenticationFilter.class);
-
-	private final JwtTokenValidator jwtTokenValidator;
+	private static final String AUTHENTICATED_USER_HEADER = "X-Authenticated-User";
+	private static final String USER_ROLES_HEADER = "X-User-Roles";
+	private static final String USER_PERMISSIONS_HEADER = "X-User-Permissions";
 
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
 
 		String path = exchange.getRequest().getURI().getPath();
 
-		log.info("Incoming request: {}", path);
+		log.debug("Incoming request: {}", path);
+
+		ServerWebExchange sanitizedExchange = stripClientIdentityHeaders(exchange);
 
 		if (HttpMethod.OPTIONS.equals(exchange.getRequest().getMethod()) || isPublicPath(path)) {
-			return chain.filter(exchange);
+			return chain.filter(sanitizedExchange);
 		}
 
-		String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-
-		log.info("Authorization Header Present: {}", authHeader != null);
-
-		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-
-			log.warn("Missing or invalid Authorization header");
-
-			exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-			return exchange.getResponse().setComplete();
-		}
-
-		try {
-
-			String token = authHeader.substring(7);
-
-			Jwt jwt = jwtTokenValidator.validateToken(token);
-
-			String userId = jwt.getSubject();
-
-			Object roles = jwt.getClaim("roles");
-
-			log.info("JWT validated successfully");
-			log.info("User ID: {}", userId);
-			log.info("Roles: {}", roles);
-
-			ServerWebExchange modifiedExchange = exchange.mutate()
-					.request(exchange.getRequest().mutate().header("X-Authenticated-User", userId)
-							.header("X-User-Roles", roles == null ? "" : roles.toString()).build())
-					.build();
-
-			return chain.filter(modifiedExchange);
-
-		} catch (Exception ex) {
-
-			log.error("JWT validation failed", ex);
-
-			exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-			return exchange.getResponse().setComplete();
-		}
+		return sanitizedExchange.getPrincipal().filter(Authentication.class::isInstance).cast(Authentication.class)
+				.filter(Authentication::isAuthenticated).filter(JwtAuthenticationToken.class::isInstance)
+				.cast(JwtAuthenticationToken.class)
+				.flatMap(authentication -> chain.filter(withTrustedIdentityHeaders(sanitizedExchange, authentication)))
+				.switchIfEmpty(chain.filter(sanitizedExchange));
 	}
 
 	@Override
@@ -154,11 +48,34 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 	}
 
 	private boolean isPublicPath(String path) {
-		return path.startsWith("/api/v1/auth/login")
-				|| path.startsWith("/api/v1/auth/register")
-				|| path.startsWith("/api/v1/auth/refresh")
-				|| path.startsWith("/actuator")
-				|| path.startsWith("/swagger-ui")
-				|| path.startsWith("/v3/api-docs");
+		return path.equals("/api/v1/auth/register") || path.equals("/api/v1/auth/login")
+				|| path.equals("/api/v1/auth/refresh") || path.equals("/api/v1/auth/forgot-password")
+				|| path.equals("/api/v1/auth/reset-password") || path.equals("/api/v1/auth/verify-email")
+				|| path.equals("/api/v1/auth/email-verification");
+	}
+
+	private ServerWebExchange stripClientIdentityHeaders(ServerWebExchange exchange) {
+		ServerHttpRequest sanitizedRequest = exchange.getRequest().mutate().headers(headers -> {
+			headers.remove(AUTHENTICATED_USER_HEADER);
+			headers.remove(USER_ROLES_HEADER);
+			headers.remove(USER_PERMISSIONS_HEADER);
+		}).build();
+
+		return exchange.mutate().request(sanitizedRequest).build();
+	}
+
+	private ServerWebExchange withTrustedIdentityHeaders(ServerWebExchange exchange,
+			JwtAuthenticationToken authentication) {
+		String userId = authentication.getToken().getSubject();
+		Object roles = authentication.getToken().getClaim("roles");
+		Object permissions = authentication.getToken().getClaim("permissions");
+
+		log.debug("Injecting trusted identity headers for subject {}", userId);
+
+		ServerHttpRequest trustedRequest = exchange.getRequest().mutate().header(AUTHENTICATED_USER_HEADER, userId)
+				.header(USER_ROLES_HEADER, roles == null ? "" : roles.toString())
+				.header(USER_PERMISSIONS_HEADER, permissions == null ? "" : permissions.toString()).build();
+
+		return exchange.mutate().request(trustedRequest).build();
 	}
 }
