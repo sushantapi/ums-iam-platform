@@ -9,7 +9,13 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
 
-jwt:
-  public-key-path: keys/public.pem
+internal:
+  gateway:
+    secret: ${INTERNAL_GATEWAY_SECRET:local-dev-gateway-secret-change-me}
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET:local-dev-internal-service-secret-change-me}

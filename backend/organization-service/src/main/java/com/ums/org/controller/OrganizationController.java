@@ -5,11 +5,11 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -45,37 +45,44 @@ public class OrganizationController {
 	 */
 	@PostMapping
 	public ResponseEntity<OrganizationResponse> createOrganization(
-			@RequestHeader(value = "X-Authenticated-User", required = false) UUID authenticatedUser,
-			@RequestHeader(value = "X-User-Id", required = false) UUID userId,
+			Authentication authentication,
 			@Valid @RequestBody CreateOrganizationRequest request) {
 
-		UUID ownerId = authenticatedUser != null ? authenticatedUser : userId;
-
-		System.out.println("Organization creation request received ");
-
-		System.out.println("Owner ID = " + ownerId);
-
-		return ResponseEntity.status(HttpStatus.CREATED).body(organizationService.createOrganization(request, ownerId));
+		return ResponseEntity.status(HttpStatus.CREATED)
+				.body(organizationService.createOrganization(request, authenticatedUserId(authentication)));
 	}
 
 	@GetMapping("/{organizationId}")
-	public ResponseEntity<OrganizationResponse> getOrganization(@PathVariable UUID organizationId) {
+	public ResponseEntity<OrganizationResponse> getOrganization(@PathVariable UUID organizationId,
+			Authentication authentication) {
 
-		return ResponseEntity.ok(organizationService.getOrganization(organizationId));
+		return ResponseEntity.ok(organizationService.getOrganization(organizationId, authenticatedUserId(authentication),
+				isSuperAdmin(authentication)));
 	}
 
 	@PostMapping("/{organizationId}/members")
 	public ResponseEntity<Void> addMember(@PathVariable UUID organizationId,
+			Authentication authentication,
 			@Valid @RequestBody AddMemberRequest request) {
 
-		organizationService.addMember(organizationId, request);
+		organizationService.addMember(organizationId, request, authenticatedUserId(authentication));
 
 		return ResponseEntity.ok().build();
 	}
 
 	@GetMapping("/{organizationId}/members")
-	public ResponseEntity<List<OrganizationMemberResponse>> getMembers(@PathVariable UUID organizationId) {
+	public ResponseEntity<List<OrganizationMemberResponse>> getMembers(@PathVariable UUID organizationId,
+			Authentication authentication) {
 
-		return ResponseEntity.ok(organizationService.getMembers(organizationId));
+		return ResponseEntity.ok(organizationService.getMembers(organizationId, authenticatedUserId(authentication)));
+	}
+
+	private UUID authenticatedUserId(Authentication authentication) {
+		return UUID.fromString(authentication.getName());
+	}
+
+	private boolean isSuperAdmin(Authentication authentication) {
+		return authentication.getAuthorities().stream()
+				.anyMatch(authority -> "ROLE_SUPER_ADMIN".equals(authority.getAuthority()));
 	}
 }

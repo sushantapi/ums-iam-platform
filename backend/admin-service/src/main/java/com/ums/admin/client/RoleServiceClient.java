@@ -9,6 +9,6 @@ import com.ums.admin.dto.request.AssignRoleRequest;
 @FeignClient(name = "authorization-service", contextId = "roleClient")
 public interface RoleServiceClient {
 
-	@PostMapping("/internal/roles/assign")
+	@PostMapping("/api/v1/internal/roles/assign")
 	void assignRole(@RequestBody AssignRoleRequest request);
 }

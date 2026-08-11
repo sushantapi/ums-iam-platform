@@ -3,6 +3,7 @@ package com.ums.auth.service;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -19,6 +20,8 @@ import com.ums.auth.dto.admin.AdminSessionFilter;
 import com.ums.auth.dto.admin.AdminSessionResponse;
 import com.ums.auth.entity.Session;
 import com.ums.auth.repository.SessionRepository;
+import com.ums.events.event.AuditEvent;
+import com.ums.events.publisher.AuditPublisher;
 
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 public class AdminSessionServiceImpl implements AdminSessionService {
 
 	private final SessionRepository sessionRepository;
+	private final AuditPublisher auditPublisher;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -48,6 +52,7 @@ public class AdminSessionServiceImpl implements AdminSessionService {
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found"));
 		revoke(session);
 		sessionRepository.save(session);
+		publishRevocationAudit("auth.session.revoked", session, adminUserId);
 	}
 
 	@Override
@@ -56,6 +61,7 @@ public class AdminSessionServiceImpl implements AdminSessionService {
 		List<Session> sessions = sessionRepository.findByUserId(userId);
 		sessions.forEach(this::revoke);
 		sessionRepository.saveAll(sessions);
+		sessions.forEach(session -> publishRevocationAudit("auth.sessions.revoke_all", session, adminUserId));
 	}
 
 	private Specification<Session> toSpecification(AdminSessionFilter filter) {
@@ -102,6 +108,23 @@ public class AdminSessionServiceImpl implements AdminSessionService {
 		if (!session.isRevoked()) {
 			session.setRevoked(true);
 			session.setRevokedAt(Instant.now());
+		}
+	}
+
+	private void publishRevocationAudit(String eventType, Session session, UUID adminUserId) {
+		try {
+			auditPublisher.publish(AuditEvent.builder()
+					.eventType(eventType)
+					.serviceName("authentication-service")
+					.userId(adminUserId.toString())
+					.action("REVOKE_SESSION")
+					.entityType("SESSION")
+					.entityId(session.getId().toString())
+					.details("Session revoked by administrator")
+					.timestamp(LocalDateTime.now())
+					.build());
+		} catch (Exception ignored) {
+			// Revocation remains authoritative even if asynchronous audit delivery is unavailable.
 		}
 	}
 

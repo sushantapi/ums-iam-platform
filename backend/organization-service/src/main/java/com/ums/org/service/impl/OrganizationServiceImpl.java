@@ -24,6 +24,7 @@ import com.ums.org.exception.ResourceNotFoundException;
 import com.ums.org.publisher.OrganizationEventPublisher;
 import com.ums.org.repositoty.OrganizationMemberRepository;
 import com.ums.org.repositoty.OrganizationRepository;
+import com.ums.org.service.OrganizationAccessService;
 import com.ums.org.service.OrganizationService;
 
 import jakarta.transaction.Transactional;
@@ -39,6 +40,7 @@ public class OrganizationServiceImpl implements OrganizationService {
 
 	private final OrganizationRepository organizationRepository;
 	private final OrganizationMemberRepository memberRepository;
+	private final OrganizationAccessService accessService;
 	private final UserClient userClient;
 	private final OrganizationEventPublisher eventPublisher;
 
@@ -129,10 +131,16 @@ public class OrganizationServiceImpl implements OrganizationService {
 	 */
 
 	@Override
-	public void addMember(UUID organizationId, AddMemberRequest request) {
+	public void addMember(UUID organizationId, AddMemberRequest request, UUID actorUserId) {
 
-		organizationRepository.findById(organizationId)
+		Organization organization = organizationRepository.findById(organizationId)
 				.orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+
+		accessService.assertCanManageMembers(actorUserId, organization);
+
+		if (request.role() == OrganizationRole.OWNER) {
+			throw new BadRequestException("Owner assignment requires an ownership transfer flow");
+		}
 
 		UserResponse user = userClient.getUser(request.userId());
 
@@ -153,24 +161,29 @@ public class OrganizationServiceImpl implements OrganizationService {
 	}
 
 	@Override
-	public OrganizationResponse getOrganization(UUID organizationId) {
+	public OrganizationResponse getOrganization(UUID organizationId, UUID actorUserId, boolean superAdmin) {
 
 		Organization organization = organizationRepository.findById(organizationId)
 				.orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+
+		accessService.assertCanViewOrganization(actorUserId, organization, superAdmin);
 
 		return new OrganizationResponse(organization.getId(), organization.getName(), organization.getSlug(),
 				organization.getDescription());
 	}
 
 	@Override
-	public List<OrganizationMemberResponse> getMembers(UUID organizationId) {
+	public List<OrganizationMemberResponse> getMembers(UUID organizationId, UUID actorUserId) {
 
-		organizationRepository.findById(organizationId)
+		Organization organization = organizationRepository.findById(organizationId)
 				.orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+
+		accessService.assertCanManageMembers(actorUserId, organization);
 
 		return memberRepository.findByOrganizationId(organizationId).stream()
 				.map(member -> new OrganizationMemberResponse(member.getId(), member.getUserId(), member.getRole(),
 						member.getJoinedAt()))
 				.toList();
 	}
+
 }

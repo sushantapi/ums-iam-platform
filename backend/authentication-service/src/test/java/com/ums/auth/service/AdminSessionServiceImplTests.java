@@ -19,12 +19,16 @@ import com.ums.auth.dto.admin.AdminSessionResponse;
 import com.ums.auth.entity.Session;
 import com.ums.auth.entity.User;
 import com.ums.auth.repository.SessionRepository;
+import com.ums.events.publisher.AuditPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class AdminSessionServiceImplTests {
 
 	@Mock
 	private SessionRepository sessionRepository;
+
+	@Mock
+	private AuditPublisher auditPublisher;
 
 	@InjectMocks
 	private AdminSessionServiceImpl adminSessionService;

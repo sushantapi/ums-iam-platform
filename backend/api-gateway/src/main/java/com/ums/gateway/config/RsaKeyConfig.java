@@ -1,5 +1,9 @@
 package com.ums.gateway.config;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.KeyFactory;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.X509EncodedKeySpec;
@@ -8,7 +12,6 @@ import java.util.Base64;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -25,11 +28,11 @@ import org.springframework.util.StringUtils;
 public class RsaKeyConfig {
 
 	@Bean
-	RSAPublicKey rsaPublicKey(@Value("${jwt.public-key-path}") String publicKeyPath) throws Exception {
+	RSAPublicKey rsaPublicKey(
+			@Value("${jwt.public-key-path:}") String publicKeyPath,
+			@Value("${jwt.public-key:}") String publicKeyPem) throws Exception {
 
-		var resource = new ClassPathResource(publicKeyPath);
-
-		String key = new String(resource.getInputStream().readAllBytes()).replace("-----BEGIN PUBLIC KEY-----", "")
+		String key = readPublicKeyMaterial(publicKeyPath, publicKeyPem).replace("-----BEGIN PUBLIC KEY-----", "")
 				.replace("-----END PUBLIC KEY-----", "").replaceAll("\\s", "");
 
 		byte[] decoded = Base64.getDecoder().decode(key);
@@ -59,12 +62,30 @@ public class RsaKeyConfig {
 			@Value("${jwt.issuer:ums-iam-platform}") String issuer,
 			@Value("${jwt.audience:}") String audience) {
 		OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
+		OAuth2TokenValidator<Jwt> accessTokenValidator = accessTokenValidator();
 
 		if (!StringUtils.hasText(audience)) {
-			return issuerValidator;
+			return new DelegatingOAuth2TokenValidator<>(issuerValidator, accessTokenValidator);
 		}
 
-		return new DelegatingOAuth2TokenValidator<>(issuerValidator, audienceValidator(audience));
+		return new DelegatingOAuth2TokenValidator<>(
+				issuerValidator,
+				accessTokenValidator,
+				audienceValidator(audience));
+	}
+
+	private OAuth2TokenValidator<Jwt> accessTokenValidator() {
+		return jwt -> {
+			if ("ACCESS".equals(jwt.getClaimAsString("type"))) {
+				return OAuth2TokenValidatorResult.success();
+			}
+
+			OAuth2Error error = new OAuth2Error(
+					"invalid_token",
+					"Only ACCESS tokens may authenticate gateway routes",
+					null);
+			return OAuth2TokenValidatorResult.failure(error);
+		};
 	}
 
 	private OAuth2TokenValidator<Jwt> audienceValidator(String audience) {
@@ -79,5 +100,38 @@ public class RsaKeyConfig {
 					null);
 			return OAuth2TokenValidatorResult.failure(error);
 		};
+	}
+
+	private String readPublicKeyMaterial(String publicKeyPath, String publicKeyPem) throws Exception {
+
+		if (StringUtils.hasText(publicKeyPem)) {
+			return publicKeyPem.replace("\\n", "\n");
+		}
+
+		if (!StringUtils.hasText(publicKeyPath)) {
+			throw new IllegalStateException("JWT public key is not configured");
+		}
+
+		if (publicKeyPath.startsWith("classpath:")) {
+			return readClasspathKey(publicKeyPath.substring("classpath:".length()));
+		}
+
+		Path path = Path.of(publicKeyPath);
+		if (Files.exists(path)) {
+			return Files.readString(path, StandardCharsets.UTF_8);
+		}
+
+		return readClasspathKey(publicKeyPath);
+	}
+
+	private String readClasspathKey(String path) throws Exception {
+
+		InputStream inputStream = getClass().getClassLoader().getResourceAsStream(path);
+
+		if (inputStream == null) {
+			throw new IllegalStateException("JWT public key not found: " + path);
+		}
+
+		return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
 	}
 }

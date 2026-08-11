@@ -36,9 +36,9 @@ public class UserServiceImpl implements UserService {
 	 * Get Current Logged-In User
 	 */
 	@Override
-	public UserProfileResponse getCurrentUser(String email) {
+	public UserProfileResponse getCurrentUser(UUID userId) {
 
-		UserProfile profile = getUserProfileByEmail(email);
+		UserProfile profile = getUserProfileById(userId);
 
 		return userMapper.mapToUserProfileResponse(profile);
 	}
@@ -47,9 +47,9 @@ public class UserServiceImpl implements UserService {
 	 * Update User Profile
 	 */
 	@Override
-	public UserProfileResponse updateProfile(String email, UpdateProfileRequest request) {
+	public UserProfileResponse updateProfile(UUID userId, UpdateProfileRequest request) {
 
-		UserProfile profile = getUserProfileByEmail(email);
+		UserProfile profile = getUserProfileById(userId);
 
 		updateProfileFields(profile, request);
 
@@ -61,10 +61,10 @@ public class UserServiceImpl implements UserService {
 	/**
 	 * Fetch User Profile By Email
 	 */
-	private UserProfile getUserProfileByEmail(String email) {
+	private UserProfile getUserProfileById(UUID userId) {
 
-		return userProfileRepository.findByEmail(email)
-				.orElseThrow(() -> new UserNotFoundException("User profile not found with email: " + email));
+		return userProfileRepository.findById(userId)
+				.orElseThrow(() -> new UserNotFoundException("User profile not found with id: " + userId));
 	}
 
 	/**
@@ -113,16 +113,15 @@ public class UserServiceImpl implements UserService {
 	@Override
 	public UserProfileResponse getUserById(UUID userId) {
 
-		UserProfile profile = userProfileRepository.findById(userId)
-				.orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
+		UserProfile profile = getUserProfileById(userId);
 
 		return userMapper.mapToUserProfileResponse(profile);
 	}
 
 	@Override
-	public void deleteProfile(String email) {
+	public void deleteProfile(UUID userId) {
 
-		UserProfile profile = getUserProfileByEmail(email);
+		UserProfile profile = getUserProfileById(userId);
 
 		userProfileRepository.delete(profile);
 	}

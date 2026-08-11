@@ -17,6 +17,6 @@ public class RoleEventConsumer {
 	@RabbitListener(queues = RabbitMQConstants.ROLE_ASSIGNED_QUEUE)
 	public void consume(RoleAssignedEvent event) {
 
-		log.info("Role assigned: {} -> {}", event.getUserId(), event.getRoleName());
+		log.info("Received RoleAssignedEvent for userId={}", event.getUserId());
 	}
 }

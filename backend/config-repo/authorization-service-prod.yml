@@ -1,0 +1,46 @@
+server:
+  port: 8082
+  error:
+    include-message: never
+
+spring:
+  application:
+    name: authorization-service
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${AUTHORIZATION_DB_NAME:authorization_db}?useSSL=${MYSQL_USE_SSL:true}&serverTimezone=UTC
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+internal:
+  gateway:
+    secret: ${INTERNAL_GATEWAY_SECRET}
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized

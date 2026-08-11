@@ -1,11 +1,21 @@
 server:
   port: 8080
+  error:
+    include-message: never
 
 jwt:
-  public-key-path: keys/public.pem
-  issuer: ums-iam-platform
+  public-key: ${JWT_PUBLIC_KEY:}
+  public-key-path: ${JWT_PUBLIC_KEY_PATH}
+  issuer: ${JWT_ISSUER:ums-iam-platform}
+  audience: ${JWT_AUDIENCE:}
+
+internal:
+  gateway:
+    secret: ${INTERNAL_GATEWAY_SECRET}
 
 spring:
+  application:
+    name: api-gateway
   cloud:
     gateway:
       routes:
@@ -17,15 +27,45 @@ spring:
           uri: lb://authentication-service
           predicates:
             - Path=/api/v1/admin/sessions/**,/api/v1/admin/users/*/sessions/**
-        - id: admin-dashboard
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/users/**
+        - id: organization-service
+          uri: lb://organization-service
+          predicates:
+            - Path=/api/v1/organizations/**
+        - id: authorization-service
+          uri: lb://authorization-service
+          predicates:
+            - Path=/api/v1/authorization/**,/api/v1/roles/**,/api/v1/permissions/**
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/v1/notifications/**,/api/v1/templates/**
+        - id: admin-service
           uri: lb://admin-service
           predicates:
-            - Path=/api/v1/admin/dashboard
+            - Path=/api/v1/admin/**
         - id: audit-events
           uri: lb://audit-service
           predicates:
             - Path=/api/v1/audit/events/**
       discovery:
         locator:
-          enabled: true
+          enabled: false
           lower-case-service-id: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized

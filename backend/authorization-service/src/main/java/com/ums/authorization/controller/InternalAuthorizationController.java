@@ -2,6 +2,7 @@ package com.ums.authorization.controller;
 
 import java.util.UUID;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/v1/internal/users")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('INTERNAL_SERVICE')")
 public class InternalAuthorizationController {
 
 	private final AuthorizationService authorizationService;
@@ -31,4 +33,5 @@ public class InternalAuthorizationController {
 
 		authorizationService.assignDefaultRole(userId);
 	}
+
 }

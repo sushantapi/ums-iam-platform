@@ -19,11 +19,9 @@
 
 package com.ums.admin.service;
 
-import java.util.List;
-
-import com.ums.admin.dto.response.UserSummaryResponse;
+import com.ums.admin.dto.response.UserSummaryPageResponse;
 
 public interface AdminUserService {
 
-	List<UserSummaryResponse> getAllUsers();
+	UserSummaryPageResponse getUsers(int page, int size, String search);
 }

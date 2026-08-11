@@ -11,6 +11,9 @@ HRMS domains described in `HRMS_Full_Guide_v2.docx`.
 - Organization, internal, notification, actuator, config, discovery, and broker
   endpoints cannot be reached anonymously.
 - Only the gateway/ingress is externally exposed.
+- Organization-service remains private behind the gateway while it uses trusted
+  gateway headers; browser/mobile clients and public networks must not reach it
+  directly.
 
 ### Work
 
@@ -26,6 +29,9 @@ HRMS domains described in `HRMS_Full_Guide_v2.docx`.
   `X-User-Id`.
 - Require administrator authorization for role and permission mutations.
 - Add organization owner/admin/member checks to every organization resource operation.
+- Require an internal gateway trust marker, such as a shared internal gateway secret
+  or mTLS identity, before downstream services accept gateway-propagated identity
+  headers.
 
 ## Phase 1 - Build and Dependency Baseline (Week 1-2)
 

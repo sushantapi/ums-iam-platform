@@ -1,29 +1,87 @@
 server:
   port: 8086
+  error:
+    include-message: always
 
 spring:
+  application:
+    name: authentication-service
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
   datasource:
-    url: jdbc:mysql://mysql:3306/auth_db
-    username: root
-    password: root
+    url: jdbc:mysql://${MYSQL_HOST:mysql}:${MYSQL_PORT:3306}/${AUTH_DB_NAME:auth_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
 
   rabbitmq:
-    host: rabbitmq
-    port: 5672
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_DEFAULT_USER}
+    password: ${RABBITMQ_DEFAULT_PASS}
 
   data:
     redis:
-      host: redis
-      port: 6379
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 60000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 0.1
+
+jwt:
+  private-key: ${JWT_PRIVATE_KEY:}
+  private-key-path: ${JWT_PRIVATE_KEY_PATH:/run/secrets/jwt/private_key.pem}
+  public-key: ${JWT_PUBLIC_KEY:}
+  public-key-path: ${JWT_PUBLIC_KEY_PATH:/run/secrets/jwt/public_key.pem}
+  key-id: ${JWT_KEY_ID:local-docker-2026-06-24}
+  issuer: ums-iam-platform
+  access-token-expiry-ms: ${JWT_EXPIRATION_MS:900000}
+  refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+
+internal:
+  gateway:
+    secret: ${INTERNAL_GATEWAY_SECRET}
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET}
+
+logging:
+  level:
+    root: ${LOG_LEVEL:INFO}
+    com.ums: INFO
 
 eureka:
   client:
     service-url:
       defaultZone: http://discovery-service:8761/eureka/
-
-jwt:
-  private-key-path: keys/private_key.pem
-  public-key-path: keys/public_key.pem
-  issuer: ums-iam-platform
-  access-token-expiry-ms: 900000
-  refresh-token-expiry-ms: 604800000
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.value}

@@ -161,7 +161,7 @@ public class EmailServiceImpl implements EmailService {
 		try {
 			subject = templateService.getSubject(templateCode);
 
-			log.info("Sending {} email to {}", templateCode, recipientEmail);
+			log.info("Sending {} email to {}", templateCode, maskEmail(recipientEmail));
 
 			String body = templateService.buildTemplate(templateCode, variables);
 
@@ -176,11 +176,11 @@ public class EmailServiceImpl implements EmailService {
 			auditService.logSuccess(templateCode, recipientEmail, subject);
 			eventService.markProcessed(event.getId());
 
-			log.info("{} email sent successfully to {}", templateCode, recipientEmail);
+			log.info("{} email sent successfully to {}", templateCode, maskEmail(recipientEmail));
 
 		} catch (Exception ex) {
 
-			log.error("Failed to send {} email to {}", templateCode, recipientEmail, ex);
+			log.error("Failed to send {} email to {}", templateCode, maskEmail(recipientEmail), ex);
 
 			auditService.logFailure(templateCode, recipientEmail, subject, ex.getMessage());
 			eventService.markFailed(event.getId(), ex.getMessage());
@@ -230,5 +230,18 @@ public class EmailServiceImpl implements EmailService {
 	public void sendOrganizationCreatedEmail(String email, String organizationName) {
 
 		sendEmail("ORGANIZATION_CREATED", email, Map.of("organizationName", organizationName));
+	}
+
+	private String maskEmail(String email) {
+		if (email == null || email.isBlank()) {
+			return "<blank>";
+		}
+
+		int atIndex = email.indexOf('@');
+		if (atIndex <= 1) {
+			return "***";
+		}
+
+		return email.charAt(0) + "***" + email.substring(atIndex);
 	}
 }

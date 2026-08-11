@@ -1,14 +1,17 @@
 eureka:
   client:
     service-url:
-      defaultZone: http://prod-discovery:8761/eureka/
+      defaultZone: ${EUREKA_DEFAULT_ZONE}
 
 spring:
   rabbitmq:
-    host: prod-rabbitmq
-    port: 5672
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_DEFAULT_USER}
+    password: ${RABBITMQ_DEFAULT_PASS}
 
   data:
     redis:
-      host: prod-redis
-      port: 6379
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}

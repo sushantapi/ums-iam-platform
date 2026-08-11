@@ -12,11 +12,11 @@ public interface OrganizationService {
 
 	OrganizationResponse createOrganization(CreateOrganizationRequest request, UUID ownerId);
 
-	OrganizationResponse getOrganization(UUID organizationId);
+	OrganizationResponse getOrganization(UUID organizationId, UUID actorUserId, boolean superAdmin);
 
-	void addMember(UUID organizationId, AddMemberRequest request);
+	void addMember(UUID organizationId, AddMemberRequest request, UUID actorUserId);
 
-	List<OrganizationMemberResponse> getMembers(UUID organizationId);
+	List<OrganizationMemberResponse> getMembers(UUID organizationId, UUID actorUserId);
 	
 	
 	

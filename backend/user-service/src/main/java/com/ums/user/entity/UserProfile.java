@@ -4,6 +4,9 @@ package com.ums.user.entity;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -24,7 +27,8 @@ import lombok.Setter;
 public class UserProfile {
 
 	@Id
-	@Column(name = "user_id")
+	@JdbcTypeCode(SqlTypes.CHAR)
+	@Column(name = "user_id", length = 36)
 	private UUID userId;
 
 	private String firstName;

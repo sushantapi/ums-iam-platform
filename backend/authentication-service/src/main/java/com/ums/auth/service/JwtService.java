@@ -1,6 +1,9 @@
 package com.ums.auth.service;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -26,11 +29,17 @@ import lombok.extern.slf4j.Slf4j;
 @Getter
 public class JwtService {
 
-	@Value("${jwt.private-key-path}")
+	@Value("${jwt.private-key-path:}")
 	private String privateKeyPath;
 
-	@Value("${jwt.public-key-path}")
+	@Value("${jwt.public-key-path:}")
 	private String publicKeyPath;
+
+	@Value("${jwt.private-key:}")
+	private String privateKeyPem;
+
+	@Value("${jwt.public-key:}")
+	private String publicKeyPem;
 
 	@Value("${jwt.access-token-expiry-ms:900000}")
 	private long accessTokenExpiryMs;
@@ -40,6 +49,9 @@ public class JwtService {
 
 	@Value("${jwt.issuer:ums-iam-platform}")
 	private String issuer;
+
+	@Value("${jwt.key-id:local-dev-1}")
+	private String keyId;
 
 	private PrivateKey privateKey;
 	private PublicKey publicKey;
@@ -52,12 +64,8 @@ public class JwtService {
 			log.info("Private Path = {}", privateKeyPath);
 			log.info("Public Path  = {}", publicKeyPath);
 
-			log.info("Private URL = {}", getClass().getClassLoader().getResource(privateKeyPath));
-
-			log.info("Public URL = {}", getClass().getClassLoader().getResource(publicKeyPath));
-
-			privateKey = loadPrivateKey(privateKeyPath);
-			publicKey = loadPublicKey(publicKeyPath);
+			privateKey = loadPrivateKey(privateKeyPath, privateKeyPem);
+			publicKey = loadPublicKey(publicKeyPath, publicKeyPem);
 
 			log.info("JWT RSA keys loaded successfully");
 
@@ -81,24 +89,33 @@ public class JwtService {
 	 * Jwts.SIG.RS256).compact(); }
 	 */
 
-	public String generateAccessToken(String userId, String email, Set<String> roles, Set<String> permissions) {
+	public String generateAccessToken(
+			String userId,
+			String email,
+			Set<String> roles,
+			Set<String> permissions,
+			UUID sessionId) {
 
-		return Jwts.builder().id(UUID.randomUUID().toString()).subject(userId).issuer(issuer).issuedAt(new Date())
-				.expiration(new Date(System.currentTimeMillis() + accessTokenExpiryMs)).claim("email", email)
-				.claim("roles", roles).claim("permissions", permissions).claim("type", "ACCESS")
+		return Jwts.builder().header().keyId(keyId).and()
+				.id(UUID.randomUUID().toString()).subject(userId).issuer(issuer).issuedAt(new Date())
+				.expiration(new Date(System.currentTimeMillis() + accessTokenExpiryMs))
+				.claim("email", email).claim("roles", roles).claim("permissions", permissions)
+				.claim("sessionId", sessionId.toString()).claim("type", "ACCESS")
 				.signWith(privateKey, Jwts.SIG.RS256).compact();
 	}
 
-	public String generateRefreshToken(String userId) {
+	public String generateRefreshToken(String userId, UUID sessionId) {
 
-		return Jwts.builder().id(UUID.randomUUID().toString()).subject(userId).issuer(issuer).issuedAt(new Date())
-				.expiration(new Date(System.currentTimeMillis() + refreshTokenExpiryMs)).claim("type", "REFRESH")
+		return Jwts.builder().header().keyId(keyId).and()
+				.id(UUID.randomUUID().toString()).subject(userId).issuer(issuer).issuedAt(new Date())
+				.expiration(new Date(System.currentTimeMillis() + refreshTokenExpiryMs))
+				.claim("sessionId", sessionId.toString()).claim("type", "REFRESH")
 				.signWith(privateKey, Jwts.SIG.RS256).compact();
 	}
 
 	public Claims validateAndExtract(String token) {
 
-		return Jwts.parser().verifyWith(publicKey).build().parseSignedClaims(token).getPayload();
+		return Jwts.parser().verifyWith(publicKey).requireIssuer(issuer).build().parseSignedClaims(token).getPayload();
 	}
 
 	public boolean isTokenValid(String token) {
@@ -119,16 +136,9 @@ public class JwtService {
 		return validateAndExtract(token).getId();
 	}
 
-	private PrivateKey loadPrivateKey(String path) throws Exception {
+	private PrivateKey loadPrivateKey(String path, String inlinePem) throws Exception {
 
-		InputStream inputStream = getClass().getClassLoader().getResourceAsStream(path);
-
-		if (inputStream == null) {
-			throw new RuntimeException("Private key not found: " + path);
-		}
-
-		String key = new String(inputStream.readAllBytes());
-
+		String key = readKeyMaterial(path, inlinePem, "Private");
 		key = key.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "").replaceAll("\\s",
 				"");
 
@@ -137,21 +147,47 @@ public class JwtService {
 		return KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(decoded));
 	}
 
-	private PublicKey loadPublicKey(String path) throws Exception {
+	private PublicKey loadPublicKey(String path, String inlinePem) throws Exception {
 
-		InputStream inputStream = getClass().getClassLoader().getResourceAsStream(path);
-
-		if (inputStream == null) {
-			throw new RuntimeException("Public key not found: " + path);
-		}
-
-		String key = new String(inputStream.readAllBytes());
-
+		String key = readKeyMaterial(path, inlinePem, "Public");
 		key = key.replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "").replaceAll("\\s",
 				"");
 
 		byte[] decoded = Base64.getDecoder().decode(key);
 
 		return KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(decoded));
+	}
+
+	private String readKeyMaterial(String path, String inlinePem, String keyName) throws Exception {
+
+		if (inlinePem != null && !inlinePem.isBlank()) {
+			return inlinePem.replace("\\n", "\n");
+		}
+
+		if (path == null || path.isBlank()) {
+			throw new IllegalStateException(keyName + " key is not configured");
+		}
+
+		if (path.startsWith("classpath:")) {
+			return readClasspathKey(path.substring("classpath:".length()), keyName);
+		}
+
+		Path filePath = Path.of(path);
+		if (Files.exists(filePath)) {
+			return Files.readString(filePath, StandardCharsets.UTF_8);
+		}
+
+		return readClasspathKey(path, keyName);
+	}
+
+	private String readClasspathKey(String path, String keyName) throws Exception {
+
+		InputStream inputStream = getClass().getClassLoader().getResourceAsStream(path);
+
+		if (inputStream == null) {
+			throw new IllegalStateException(keyName + " key not found: " + path);
+		}
+
+		return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
 	}
 }

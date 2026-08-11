@@ -49,7 +49,7 @@ public class UserEventListener {
 	@RabbitListener(queues = RabbitMQConstants.NOTIFICATION_USER_REGISTERED_QUEUE)
 	public void handle(UserRegisteredEvent event) {
 
-		log.info("Received UserRegisteredEvent: {}", event);
+		log.info("Received UserRegisteredEvent for userId={}", event.getUserId());
 
 		emailService.sendWelcomeEmail(event.getEmail(), event.getFirstName());
 	}

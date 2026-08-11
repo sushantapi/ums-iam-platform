@@ -24,9 +24,7 @@ public class RoleController {
 
 	private final RoleService roleService;
 
-	// ADMIN ONLY
-
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('ROLE_WRITE')")
 	@PostMapping
 	public Role createRole(@RequestBody CreateRoleRequest request) {
 
@@ -35,9 +33,7 @@ public class RoleController {
 		return roleService.createRole(role);
 	}
 
-	// ADMIN + USER
-
-	@PreAuthorize("hasAnyRole('ADMIN', 'USER')")
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ORG_ADMIN') or hasAuthority('ROLE_READ')")
 	@GetMapping
 	public List<Role> getAllRoles() {
 

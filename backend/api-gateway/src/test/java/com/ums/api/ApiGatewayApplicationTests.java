@@ -9,7 +9,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 		properties = {
 				"spring.cloud.config.enabled=false",
 				"eureka.client.enabled=false",
-				"jwt.public-key-path=keys/public.pem"
+				"jwt.public-key-path=keys/public.pem",
+				"internal.gateway.secret=test-gateway-secret"
 		})
 class ApiGatewayApplicationTests {
 

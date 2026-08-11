@@ -23,7 +23,7 @@ public class NotificationServiceImpl implements NotificationService {
 	@Override
 	public void processUserRegistered(UserRegisteredEvent event) {
 
-		log.info("Processing UserRegisteredEvent: {}", event.getEmail());
+		log.info("Processing UserRegisteredEvent for userId={}", event.getUserId());
 
 		emailService.sendWelcomeEmail(event.getEmail(), event.getFirstName());
 	}
@@ -31,7 +31,7 @@ public class NotificationServiceImpl implements NotificationService {
 	@Override
 	public void processEmailVerification(EmailVerificationEvent event) {
 
-		log.info("Processing EmailVerificationEvent: {}", event.getEmail());
+		log.info("Processing EmailVerificationEvent");
 
 		emailService.sendVerificationEmail(event.getEmail(), event.getEmail(), event.getOtp());
 	}
@@ -39,7 +39,7 @@ public class NotificationServiceImpl implements NotificationService {
 	@Override
 	public void processPasswordReset(PasswordResetEvent event) {
 
-		log.info("Processing PasswordResetEvent: {}", event.getEmail());
+		log.info("Processing PasswordResetEvent");
 
 		emailService.sendPasswordResetEmail(event.getEmail(), event.getEmail(), event.getOtp());
 	}
@@ -47,7 +47,7 @@ public class NotificationServiceImpl implements NotificationService {
 	@Override
 	public void processMfaOtp(MfaOtpEvent event) {
 
-		log.info("Processing MfaOtpEvent: {}", event.getEmail());
+		log.info("Processing MfaOtpEvent");
 
 		emailService.sendOtpEmail(event.getEmail(), event.getOtp());
 	}
@@ -55,7 +55,7 @@ public class NotificationServiceImpl implements NotificationService {
 	@Override
 	public void sendOrganizationCreatedEmail(OrganizationCreatedEvent event) {
 
-		log.info("Processing OrganizationCreatedEvent : {}", event.getOrganizationName());
+		log.info("Processing OrganizationCreatedEvent for organizationId={}", event.getOrganizationId());
 
 		emailService.sendOrganizationCreatedEmail(event.getOwnerEmail(), event.getOrganizationName());
 	}

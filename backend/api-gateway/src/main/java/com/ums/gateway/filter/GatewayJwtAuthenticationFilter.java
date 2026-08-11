@@ -2,6 +2,7 @@ package com.ums.gateway.filter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -21,6 +22,13 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 	private static final String AUTHENTICATED_USER_HEADER = "X-Authenticated-User";
 	private static final String USER_ROLES_HEADER = "X-User-Roles";
 	private static final String USER_PERMISSIONS_HEADER = "X-User-Permissions";
+	private static final String INTERNAL_GATEWAY_SECRET_HEADER = "X-Internal-Gateway-Secret";
+
+	private final String internalGatewaySecret;
+
+	public GatewayJwtAuthenticationFilter(@Value("${internal.gateway.secret}") String internalGatewaySecret) {
+		this.internalGatewaySecret = internalGatewaySecret;
+	}
 
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -49,9 +57,8 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 
 	private boolean isPublicPath(String path) {
 		return path.equals("/api/v1/auth/register") || path.equals("/api/v1/auth/login")
-				|| path.equals("/api/v1/auth/refresh") || path.equals("/api/v1/auth/forgot-password")
-				|| path.equals("/api/v1/auth/reset-password") || path.equals("/api/v1/auth/verify-email")
-				|| path.equals("/api/v1/auth/email-verification");
+				|| path.equals("/api/v1/auth/refresh")
+				|| path.equals("/actuator/health") || path.equals("/actuator/info");
 	}
 
 	private ServerWebExchange stripClientIdentityHeaders(ServerWebExchange exchange) {
@@ -59,6 +66,7 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 			headers.remove(AUTHENTICATED_USER_HEADER);
 			headers.remove(USER_ROLES_HEADER);
 			headers.remove(USER_PERMISSIONS_HEADER);
+			headers.remove(INTERNAL_GATEWAY_SECRET_HEADER);
 		}).build();
 
 		return exchange.mutate().request(sanitizedRequest).build();
@@ -74,7 +82,9 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 
 		ServerHttpRequest trustedRequest = exchange.getRequest().mutate().header(AUTHENTICATED_USER_HEADER, userId)
 				.header(USER_ROLES_HEADER, roles == null ? "" : roles.toString())
-				.header(USER_PERMISSIONS_HEADER, permissions == null ? "" : permissions.toString()).build();
+				.header(USER_PERMISSIONS_HEADER, permissions == null ? "" : permissions.toString())
+				.header(INTERNAL_GATEWAY_SECRET_HEADER, internalGatewaySecret)
+				.build();
 
 		return exchange.mutate().request(trustedRequest).build();
 	}

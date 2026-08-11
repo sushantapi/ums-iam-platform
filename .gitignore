@@ -19,6 +19,14 @@ Thumbs.db
 
 # Environment
 .env
+.env.*
+!.env.example
+
+# Local secret material
+secrets/
+**/secrets/
+**/*private*.pem
+**/*private*.key
 
 # Maven Wrapper
 .mvn/wrapper/maven-wrapper.jar

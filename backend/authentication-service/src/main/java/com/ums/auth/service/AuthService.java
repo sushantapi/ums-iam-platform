@@ -2,9 +2,12 @@ package com.ums.auth.service;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -33,6 +36,7 @@ import com.ums.events.publisher.AuditPublisher;
 
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -94,16 +98,16 @@ public class AuthService {
 				.entityId(savedUser.getId().toString()).details("User registered successfully").ipAddress(ipAddress)
 				.timestamp(LocalDateTime.now()).build());
 
-		String refreshToken = jwtService.generateRefreshToken(savedUser.getId().toString());
-
-		Session session = Session.builder().user(savedUser).refreshTokenHash(hash(refreshToken)).ipAddress(ipAddress)
+		Session session = Session.builder().user(savedUser).refreshTokenHash("pending").ipAddress(ipAddress)
 				.lastSeenAt(Instant.now())
 				.expiresAt(Instant.now().plusMillis(jwtService.getRefreshTokenExpiryMs())).build();
+		String refreshToken = jwtService.generateRefreshToken(savedUser.getId().toString(), session.getId());
+		session.setRefreshTokenHash(hash(refreshToken));
 		sessionRepository.save(session);
 
 		log.info("User registered successfully: {}", savedUser.getEmail());
 
-		return buildTokenResponse(savedUser, refreshToken);
+		return buildTokenResponse(savedUser, refreshToken, session.getId());
 	}
 
 	@Transactional
@@ -143,14 +147,14 @@ public class AuthService {
 		user.setLockedUntil(null);
 		user.setLastLoginAt(Instant.now());
 
-		String refreshToken = jwtService.generateRefreshToken(user.getId().toString());
-
-		Session session = Session.builder().user(user).refreshTokenHash(hash(refreshToken)).ipAddress(ipAddress)
+		Session session = Session.builder().user(user).refreshTokenHash("pending").ipAddress(ipAddress)
 				.deviceInfo(request.getDeviceInfo())
 				.client(request.getClient())
 				.organizationId(request.getOrganizationId())
 				.lastSeenAt(Instant.now())
 				.expiresAt(Instant.now().plusMillis(jwtService.getRefreshTokenExpiryMs())).build();
+		String refreshToken = jwtService.generateRefreshToken(user.getId().toString(), session.getId());
+		session.setRefreshTokenHash(hash(refreshToken));
 
 		sessionRepository.save(session);
 		userRepository.save(user);
@@ -162,7 +166,7 @@ public class AuthService {
 
 		log.info("Login successful: {}", email);
 
-		return buildTokenResponse(user, refreshToken);
+		return buildTokenResponse(user, refreshToken, session.getId());
 	}
 
 	private String hash(String token) {
@@ -206,7 +210,7 @@ public class AuthService {
 	 * 1000).userId(user.getId().toString()) .email(user.getEmail()).build(); }
 	 */
 
-	private TokenResponse buildTokenResponse(User user, String refreshToken) {
+	private TokenResponse buildTokenResponse(User user, String refreshToken, UUID sessionId) {
 
 		UserAuthorizationResponse authorization;
 
@@ -224,7 +228,7 @@ public class AuthService {
 		Set<String> permissions = new HashSet<>(authorization.getPermissions());
 
 		String accessToken = jwtService.generateAccessToken(user.getId().toString(), user.getEmail(), roles,
-				permissions);
+				permissions, sessionId);
 
 		return TokenResponse.builder().accessToken(accessToken).refreshToken(refreshToken).tokenType("Bearer")
 				.expiresIn(jwtService.getAccessTokenExpiryMs() / 1000).userId(user.getId().toString())
@@ -234,26 +238,41 @@ public class AuthService {
 	@Transactional
 	public TokenResponse refreshToken(RefreshTokenRequest request) {
 
-		Claims claims = jwtService.validateAndExtract(request.getRefreshToken());
+		Claims claims;
+		try {
+			claims = jwtService.validateAndExtract(request.getRefreshToken());
+		} catch (Exception ex) {
+			throw new AuthException("Invalid refresh token", "INVALID_REFRESH_TOKEN");
+		}
 
-		if (!"REFRESH".equals(claims.get("type", String.class))) {
+		if (!"REFRESH".equals(claims.get("type", String.class))
+				|| !StringUtils.hasText(claims.getId())
+				|| !StringUtils.hasText(claims.getSubject())) {
 
 			throw new AuthException("Invalid refresh token", "INVALID_REFRESH_TOKEN");
 		}
 
-		String tokenHash = hash(request.getRefreshToken());
+		UUID sessionId = parseSessionId(claims);
+		Session session = sessionRepository.findByIdForRefresh(sessionId)
+				.orElseThrow(() -> new AuthException("Invalid refresh token", "INVALID_REFRESH_TOKEN"));
 
-		Session session = sessionRepository.findByRefreshTokenHash(tokenHash)
-				.orElseThrow(() -> new AuthException("Session not found", "SESSION_NOT_FOUND"));
+		if (!secureEquals(session.getRefreshTokenHash(), hash(request.getRefreshToken()))) {
+			throw new AuthException("Refresh token has already been rotated", "REFRESH_TOKEN_REPLAYED");
+		}
 
 		if (session.isRevoked()) {
-
 			throw new AuthException("Session revoked", "SESSION_REVOKED");
+		}
+		if (session.getExpiresAt() == null || !session.getExpiresAt().isAfter(Instant.now())) {
+			throw new AuthException("Session expired", "SESSION_EXPIRED");
 		}
 
 		User user = session.getUser();
+		if (!user.getId().toString().equals(claims.getSubject()) || user.getStatus() != UserStatus.ACTIVE) {
+			throw new AuthException("User is not active", "ACCOUNT_INACTIVE");
+		}
 
-		String newRefreshToken = jwtService.generateRefreshToken(user.getId().toString());
+		String newRefreshToken = jwtService.generateRefreshToken(user.getId().toString(), session.getId());
 
 		session.setRefreshTokenHash(hash(newRefreshToken));
 
@@ -263,7 +282,7 @@ public class AuthService {
 
 		sessionRepository.save(session);
 
-		return buildTokenResponse(user, newRefreshToken);
+		return buildTokenResponse(user, newRefreshToken, session.getId());
 	}
 
 //	@Transactional
@@ -283,33 +302,72 @@ public class AuthService {
 //	}
 
 	@Transactional
-	public void logout(HttpServletRequest request) {
+	public void logout(HttpServletRequest request, UUID trustedUserId) {
 
 		try {
 
 			String token = extractToken(request);
 
 			Claims claims = jwtService.validateAndExtract(token);
+			if (!"ACCESS".equals(claims.get("type", String.class))
+					|| !StringUtils.hasText(claims.getId())
+					|| !trustedUserId.toString().equals(claims.getSubject())) {
+				throw new AuthException("Invalid access token", "INVALID_ACCESS_TOKEN");
+			}
 
 			String jti = claims.getId();
+			UUID sessionId = parseSessionId(claims);
+			Session session = sessionRepository.findById(sessionId)
+					.orElseThrow(() -> new AuthException("Session not found", "SESSION_NOT_FOUND"));
+			if (!session.getUser().getId().equals(trustedUserId)) {
+				throw new AuthException("Invalid access token", "INVALID_ACCESS_TOKEN");
+			}
 
 			long ttl = claims.getExpiration().getTime() / 1000 - System.currentTimeMillis() / 1000;
 
-			blacklistService.blacklist(jti, ttl);
+			if (ttl > 0) {
+				blacklistService.blacklist(jti, ttl);
+			}
+			session.setRevoked(true);
+			session.setRevokedAt(Instant.now());
+			sessionRepository.save(session);
 
 			publishAuditEvent(AuditEvent.builder().eventType("auth.logout.completed")
 					.serviceName("authentication-service").userId(claims.getSubject()).action("LOGOUT")
-					.entityType("SESSION").entityId(jti).details("User logged out successfully")
+					.entityType("SESSION").entityId(sessionId.toString()).details("User logged out successfully")
 					.ipAddress(request.getRemoteAddr()).timestamp(LocalDateTime.now()).build());
 
 			log.info("User logged out successfully. UserId={}", claims.getSubject());
 
+		} catch (AuthException ex) {
+			throw ex;
 		} catch (Exception ex) {
 
 			log.error("Logout failed", ex);
 
 			throw new AuthException("Logout failed", "LOGOUT_FAILED");
 		}
+	}
+
+	private UUID parseSessionId(Claims claims) {
+		String sessionId = claims.get("sessionId", String.class);
+		if (!StringUtils.hasText(sessionId)) {
+			throw new AuthException("Token is not bound to a session", "INVALID_TOKEN_SESSION");
+		}
+		try {
+			return UUID.fromString(sessionId);
+		} catch (IllegalArgumentException ex) {
+			throw new AuthException("Token contains an invalid session", "INVALID_TOKEN_SESSION");
+		}
+	}
+
+	private boolean secureEquals(String storedHash, String suppliedHash) {
+		if (storedHash == null || suppliedHash == null) {
+			return false;
+		}
+		return MessageDigest.isEqual(
+				storedHash.getBytes(StandardCharsets.UTF_8),
+				suppliedHash.getBytes(StandardCharsets.UTF_8));
 	}
 
 	private void publishAuditEvent(AuditEvent event) {

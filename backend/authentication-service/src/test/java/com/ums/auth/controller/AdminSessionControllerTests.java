@@ -16,10 +16,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import com.ums.auth.dto.admin.AdminSessionResponse;
 import com.ums.auth.service.AdminSessionService;
-import com.ums.security.dto.JwtUser;
 
 @ExtendWith(MockitoExtension.class)
 class AdminSessionControllerTests {
@@ -47,7 +47,7 @@ class AdminSessionControllerTests {
 	void revokesOneSessionAsTheCurrentAdmin() {
 		UUID sessionId = UUID.randomUUID();
 		UUID adminId = UUID.randomUUID();
-		JwtUser admin = JwtUser.builder().userId(adminId).build();
+		var admin = new UsernamePasswordAuthenticationToken(adminId, null);
 
 		var response = controller.revokeSession(sessionId, admin);
 

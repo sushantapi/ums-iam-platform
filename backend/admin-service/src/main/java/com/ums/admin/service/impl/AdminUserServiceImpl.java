@@ -1,11 +1,9 @@
 package com.ums.admin.service.impl;
 
-import java.util.List;
-
 import org.springframework.stereotype.Service;
 
 import com.ums.admin.client.UserServiceClient;
-import com.ums.admin.dto.response.UserSummaryResponse;
+import com.ums.admin.dto.response.UserSummaryPageResponse;
 import com.ums.admin.service.AdminUserService;
 
 import lombok.RequiredArgsConstructor;
@@ -17,8 +15,8 @@ public class AdminUserServiceImpl implements AdminUserService {
 	private final UserServiceClient userServiceClient;
 
 	@Override
-	public List<UserSummaryResponse> getAllUsers() {
-		return userServiceClient.getAllUsers();
+	public UserSummaryPageResponse getUsers(int page, int size, String search) {
+		return userServiceClient.getUsers(page, size, search);
 	}
 
 	/*

@@ -10,15 +10,15 @@ import com.ums.user.dto.UserProfileResponse;
 
 public interface UserService {
 
-	UserProfileResponse getCurrentUser(String email);
+	UserProfileResponse getCurrentUser(UUID userId);
 
-	UserProfileResponse updateProfile(String email, UpdateProfileRequest request);
+	UserProfileResponse updateProfile(UUID userId, UpdateProfileRequest request);
 
 	public void createProfile(UserRegisteredEvent event);
 
 	UserProfileResponse getUserById(UUID userId);
 
-	void deleteProfile(String name);
+	void deleteProfile(UUID userId);
 
 	List<UserProfileResponse> getAllUsers();
 }

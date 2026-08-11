@@ -13,7 +13,10 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
 
   rabbitmq:
     host: localhost
@@ -49,3 +52,9 @@ notification:
   retry:
     initial-delay-ms: 10000
     fixed-delay-ms: 300000
+
+internal:
+  gateway:
+    secret: ${INTERNAL_GATEWAY_SECRET:local-dev-gateway-secret-change-me}
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET:local-dev-internal-service-secret-change-me}

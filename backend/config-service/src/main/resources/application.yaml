@@ -13,9 +13,15 @@ spring:
       server:
         native:
           search-locations:
-            - file:///E:/ums-iam-platform/backend/config-repo
+            - ${CONFIG_REPO_PATH:file:../config-repo}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
 
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}
