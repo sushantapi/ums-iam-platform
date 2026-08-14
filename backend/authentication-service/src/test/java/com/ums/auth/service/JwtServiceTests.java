@@ -1,6 +1,7 @@
 package com.ums.auth.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.security.KeyPairGenerator;
 import java.util.Set;
@@ -9,6 +10,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import io.jsonwebtoken.JwtException;
 
 class JwtServiceTests {
 
@@ -24,9 +27,21 @@ class JwtServiceTests {
 		ReflectionTestUtils.setField(jwtService, "privateKey", keyPair.getPrivate());
 		ReflectionTestUtils.setField(jwtService, "publicKey", keyPair.getPublic());
 		ReflectionTestUtils.setField(jwtService, "issuer", "ums-iam-platform");
+		ReflectionTestUtils.setField(jwtService, "audience", "ums-api-gateway");
 		ReflectionTestUtils.setField(jwtService, "keyId", "test-key-1");
 		ReflectionTestUtils.setField(jwtService, "accessTokenExpiryMs", 900000L);
 		ReflectionTestUtils.setField(jwtService, "refreshTokenExpiryMs", 604800000L);
+	}
+
+	@Test
+	void rejectsTokenWhenConfiguredAudienceDoesNotMatch() {
+		UUID sessionId = UUID.randomUUID();
+		String token = jwtService.generateRefreshToken(UUID.randomUUID().toString(), sessionId);
+
+		ReflectionTestUtils.setField(jwtService, "audience", "different-audience");
+
+		assertThatThrownBy(() -> jwtService.validateAndExtract(token))
+				.isInstanceOf(JwtException.class);
 	}
 
 	@Test
@@ -46,6 +61,7 @@ class JwtServiceTests {
 		var refreshClaims = jwtService.validateAndExtract(refreshToken);
 
 		assertThat(accessClaims.getIssuer()).isEqualTo("ums-iam-platform");
+		assertThat(accessClaims.getAudience()).contains("ums-api-gateway");
 		assertThat(accessClaims.getId()).isNotBlank();
 		assertThat(accessClaims.get("type", String.class)).isEqualTo("ACCESS");
 		assertThat(accessClaims.get("sessionId", String.class)).isEqualTo(sessionId.toString());

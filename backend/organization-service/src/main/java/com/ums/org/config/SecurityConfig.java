@@ -2,7 +2,9 @@ package com.ums.org.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -13,10 +15,27 @@ import org.springframework.security.web.authentication.preauth.AbstractPreAuthen
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http, TrustedGatewayAuthenticationFilter gatewayAuthFilter)
+	@Order(1)
+	SecurityFilterChain internalSecurityFilterChain(HttpSecurity http,
+			InternalServiceAuthenticationFilter internalServiceAuthenticationFilter) throws Exception {
+		return http
+				.securityMatcher("/api/v1/internal/**", "/internal/**")
+				.csrf(csrf -> csrf.disable())
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				.httpBasic(basic -> basic.disable())
+				.formLogin(form -> form.disable())
+				.authorizeHttpRequests(auth -> auth.anyRequest().hasRole("INTERNAL_SERVICE"))
+				.addFilterBefore(internalServiceAuthenticationFilter, AbstractPreAuthenticatedProcessingFilter.class)
+				.build();
+	}
+
+	@Bean
+	@Order(2)
+	SecurityFilterChain gatewaySecurityFilterChain(HttpSecurity http, TrustedGatewayAuthenticationFilter gatewayAuthFilter)
 			throws Exception {
 		return http
 				.csrf(csrf -> csrf.disable())
@@ -26,11 +45,8 @@ public class SecurityConfig {
 				.addFilterBefore(gatewayAuthFilter, AbstractPreAuthenticatedProcessingFilter.class)
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info").permitAll()
-						.requestMatchers(HttpMethod.POST, "/api/v1/organizations").authenticated()
-						.requestMatchers(HttpMethod.GET, "/api/v1/organizations/*").authenticated()
-						.requestMatchers(HttpMethod.POST, "/api/v1/organizations/*/members").authenticated()
-						.requestMatchers(HttpMethod.GET, "/api/v1/organizations/*/members").authenticated()
-						.anyRequest().authenticated())
+						.requestMatchers("/api/v1/organizations/**").authenticated()
+						.anyRequest().denyAll())
 				.build();
 	}
 

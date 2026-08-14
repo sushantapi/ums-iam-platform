@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ums.authorization.dto.UserAuthorizationResponse;
@@ -23,9 +24,12 @@ public class InternalAuthorizationController {
 	private final AuthorizationService authorizationService;
 
 	@GetMapping("/{userId}/authorization")
-	public UserAuthorizationResponse getUserAuthorization(@PathVariable UUID userId) {
+	public UserAuthorizationResponse getUserAuthorization(
+			@PathVariable UUID userId,
+			@RequestParam(defaultValue = "PLATFORM") String scopeType,
+			@RequestParam(defaultValue = "*") String scopeId) {
 
-		return authorizationService.getUserAuthorization(userId);
+		return authorizationService.getUserAuthorization(userId, scopeType, scopeId);
 	}
 
 	@PostMapping("/{userId}/roles/default")

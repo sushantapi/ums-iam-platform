@@ -95,7 +95,6 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
-import com.ums.events.event.organization.OrganizationCreatedEvent;
 import com.ums.events.event.organization.OrganizationInviteEvent;
 import com.ums.notification.service.EmailService;
 import com.ums.notification.service.NotificationAuditService;
@@ -222,8 +221,15 @@ public class EmailServiceImpl implements EmailService {
 
 	@Override
 	public void processOrganizationInvitation(OrganizationInviteEvent event) {
-		// TODO Auto-generated method stub
+		if (event == null || event.getEmail() == null || event.getEmail().isBlank()) {
+			throw new IllegalArgumentException("Organization invitation email is required");
+		}
 
+		Map<String, Object> variables = new java.util.HashMap<>();
+		variables.put("organizationName", event.getOrganizationName() == null ? "your organization" : event.getOrganizationName());
+		variables.put("inviteLink", event.getInviteLink() == null ? "" : event.getInviteLink());
+
+		sendEmail("ORGANIZATION_INVITATION", event.getEmail(), variables);
 	}
 
 	@Override

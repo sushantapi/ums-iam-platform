@@ -15,9 +15,15 @@ public interface AuthorizationService {
 
 	UserPermissionsResponse getUserPermissions(UUID userId);
 
+	UserPermissionsResponse getUserPermissions(UUID userId, String scopeType, String scopeId);
+
 	boolean hasPermission(UUID userId, String permission);
 
+	boolean hasPermission(UUID userId, String permission, String scopeType, String scopeId);
+
 	UserAuthorizationResponse getUserAuthorization(UUID userId);
+
+	UserAuthorizationResponse getUserAuthorization(UUID userId, String scopeType, String scopeId);
 
 	void assignDefaultRole(UUID userId);
 }

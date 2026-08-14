@@ -11,29 +11,25 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ResourceSeeder {
 
-    private final ResourceRepository resourceRepository;
+	private final ResourceRepository resourceRepository;
 
-  
-    public void seed() {
+	public void seed() {
+		createResource("USER", "User Management");
+		createResource("ROLE", "Role Management");
+		createResource("ORGANIZATION", "Organization Management");
+		createResource("AUDIT", "Audit Management");
+		createResource("DASHBOARD", "Administrative Dashboard");
+		createResource("NOTIFICATION_LOG", "Notification Log Management");
+		createResource("NOTIFICATION_TEMPLATE", "Notification Template Management");
+		createResource("SESSION", "Session Management");
+		createResource("PAYROLL", "Payroll Management");
+		createResource("PROJECT", "Project Management");
+		createResource("DEPARTMENT", "Department Management");
+	}
 
-        createResource("USER", "User Management");
-        createResource("ROLE", "Role Management");
-        createResource("ORGANIZATION", "Organization Management");
-        createResource("PAYROLL", "Payroll Management");
-        createResource("PROJECT", "Project Management");
-        createResource("DEPARTMENT", "Department Management");
-    }
-
-    private void createResource(String code, String name) {
-
-        if (!resourceRepository.existsByCodeIgnoreCase(code)) {
-
-            resourceRepository.save(
-                    Resource.builder()
-                            .code(code)
-                            .name(name)
-                            .build()
-            );
-        }
-    }
+	private void createResource(String code, String name) {
+		if (!resourceRepository.existsByCodeIgnoreCase(code)) {
+			resourceRepository.save(Resource.builder().code(code).name(name).build());
+		}
+	}
 }

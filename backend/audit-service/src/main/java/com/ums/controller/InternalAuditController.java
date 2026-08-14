@@ -1,6 +1,7 @@
 package com.ums.controller;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -11,7 +12,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ums.dto.AuditEventFilter;
 import com.ums.dto.AuditEventPageResponse;
+import com.ums.dto.AuditMetricsResponse;
 import com.ums.service.AuditService;
+import com.ums.repository.AuditLogRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,6 +24,15 @@ import lombok.RequiredArgsConstructor;
 public class InternalAuditController {
 
 	private final AuditService auditService;
+	private final AuditLogRepository auditLogRepository;
+
+	@GetMapping("/metrics")
+	public AuditMetricsResponse getMetrics() {
+		LocalDateTime since = LocalDateTime.now().minusHours(24);
+		return new AuditMetricsResponse(
+				auditLogRepository.countByCreatedAtGreaterThanEqual(since),
+				auditLogRepository.countByEventTypeAndCreatedAtGreaterThanEqual("auth.login.failed", since));
+	}
 
 	@GetMapping
 	public AuditEventPageResponse getEvents(@RequestParam(defaultValue = "0") int page,

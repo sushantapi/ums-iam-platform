@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -32,6 +33,10 @@ public class AdminSessionServiceImpl implements AdminSessionService {
 
 	private final SessionRepository sessionRepository;
 	private final AuditPublisher auditPublisher;
+	private final TokenBlacklistService tokenBlacklistService;
+
+	@Value("${jwt.access-token-expiry-ms:900000}")
+	private long accessTokenExpiryMs;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -109,6 +114,8 @@ public class AdminSessionServiceImpl implements AdminSessionService {
 			session.setRevoked(true);
 			session.setRevokedAt(Instant.now());
 		}
+		long ttlSeconds = Math.max(1L, accessTokenExpiryMs / 1000L);
+		tokenBlacklistService.revokeSession(session.getId(), ttlSeconds);
 	}
 
 	private void publishRevocationAudit(String eventType, Session session, UUID adminUserId) {

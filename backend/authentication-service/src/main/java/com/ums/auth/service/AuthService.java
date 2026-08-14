@@ -5,13 +5,13 @@ import java.time.LocalDateTime;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,12 +21,11 @@ import com.ums.auth.dto.RefreshTokenRequest;
 import com.ums.auth.dto.RegisterRequest;
 import com.ums.auth.dto.TokenResponse;
 import com.ums.auth.dto.UserAuthorizationResponse;
-import com.ums.auth.entity.Role;
 import com.ums.auth.entity.Session;
 import com.ums.auth.entity.User;
 import com.ums.auth.entity.User.UserStatus;
 import com.ums.auth.exception.AuthException;
-import com.ums.auth.repository.RoleRepository;
+import com.ums.auth.exception.UmsException;
 import com.ums.auth.repository.SessionRepository;
 import com.ums.auth.repository.UserRepository;
 import com.ums.events.constants.RabbitMQConstants;
@@ -49,7 +48,6 @@ public class AuthService {
 	private static final int LOCKOUT_MINUTES = 30;
 
 	private final UserRepository userRepository;
-	private final RoleRepository roleRepository;
 	private final PasswordEncoder passwordEncoder;
 
 	private final AuditPublisher auditPublisher;
@@ -72,15 +70,11 @@ public class AuthService {
 			throw new AuthException("Email already registered", "EMAIL_EXISTS");
 		}
 
-		Role employeeRole = roleRepository.findByName("EMPLOYEE")
-				.orElseThrow(() -> new RuntimeException("Default role not found"));
-
 		User user = User.builder().email(email).passwordHash(passwordEncoder.encode(request.getPassword()))
 				.firstName(request.getFirstName().trim()).lastName(request.getLastName().trim())
 				.status(UserStatus.ACTIVE).provider(request.getProvider() != null ? request.getProvider() : "LOCAL")
 				.externalId(request.getExternalId()).build();
 
-		user.getRoles().add(employeeRole);
 
 		User savedUser = userRepository.save(user);
 
@@ -217,10 +211,12 @@ public class AuthService {
 		try {
 			authorization = authorizationClient.getAuthorization(user.getId());
 		} catch (Exception ex) {
-
-			log.error("Failed to fetch authorization", ex);
-
-			authorization = UserAuthorizationResponse.builder().roles(List.of()).permissions(List.of()).build();
+			log.error("Authorization service unavailable while issuing token for user {}", user.getId(), ex);
+			throw new UmsException(
+					"Authorization service is unavailable",
+					ex,
+					HttpStatus.SERVICE_UNAVAILABLE,
+					"AUTHORIZATION_UNAVAILABLE");
 		}
 
 		Set<String> roles = new HashSet<>(authorization.getRoles());
@@ -327,6 +323,7 @@ public class AuthService {
 
 			if (ttl > 0) {
 				blacklistService.blacklist(jti, ttl);
+				blacklistService.revokeSession(sessionId, ttl);
 			}
 			session.setRevoked(true);
 			session.setRevokedAt(Instant.now());

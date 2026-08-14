@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ums.authorization.dto.AssignRoleRequest;
 import com.ums.authorization.service.AuthorizationService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -20,7 +21,7 @@ public class InternalRoleController {
 	private final AuthorizationService authorizationService;
 
 	@PostMapping("/assign")
-	public String assignRole(@RequestBody AssignRoleRequest request) {
+	public String assignRole(@Valid @RequestBody AssignRoleRequest request) {
 		return authorizationService.assignRole(request);
 	}
 }

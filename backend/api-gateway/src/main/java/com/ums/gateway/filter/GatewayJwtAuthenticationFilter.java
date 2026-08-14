@@ -7,10 +7,13 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
+
+import com.ums.gateway.security.TokenRevocationService;
 import org.springframework.web.server.ServerWebExchange;
 
 import reactor.core.publisher.Mono;
@@ -25,9 +28,13 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 	private static final String INTERNAL_GATEWAY_SECRET_HEADER = "X-Internal-Gateway-Secret";
 
 	private final String internalGatewaySecret;
+	private final TokenRevocationService tokenRevocationService;
 
-	public GatewayJwtAuthenticationFilter(@Value("${internal.gateway.secret}") String internalGatewaySecret) {
+	public GatewayJwtAuthenticationFilter(
+			@Value("${internal.gateway.secret}") String internalGatewaySecret,
+			TokenRevocationService tokenRevocationService) {
 		this.internalGatewaySecret = internalGatewaySecret;
+		this.tokenRevocationService = tokenRevocationService;
 	}
 
 	@Override
@@ -46,8 +53,22 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 		return sanitizedExchange.getPrincipal().filter(Authentication.class::isInstance).cast(Authentication.class)
 				.filter(Authentication::isAuthenticated).filter(JwtAuthenticationToken.class::isInstance)
 				.cast(JwtAuthenticationToken.class)
-				.flatMap(authentication -> chain.filter(withTrustedIdentityHeaders(sanitizedExchange, authentication)))
-				.switchIfEmpty(chain.filter(sanitizedExchange));
+				.flatMap(authentication -> tokenRevocationService.isRevoked(authentication.getToken())
+						.flatMap(revoked -> (revoked
+								? reject(sanitizedExchange, HttpStatus.UNAUTHORIZED)
+								: chain.filter(withTrustedIdentityHeaders(sanitizedExchange, authentication)))
+								.thenReturn(true))
+						.onErrorResume(ex -> {
+							log.error("Token revocation check failed", ex);
+							return reject(sanitizedExchange, HttpStatus.SERVICE_UNAVAILABLE).thenReturn(true);
+						}))
+				.defaultIfEmpty(false)
+				.flatMap(handled -> handled ? Mono.empty() : chain.filter(sanitizedExchange));
+	}
+
+	private Mono<Void> reject(ServerWebExchange exchange, HttpStatus status) {
+		exchange.getResponse().setStatusCode(status);
+		return exchange.getResponse().setComplete();
 	}
 
 	@Override

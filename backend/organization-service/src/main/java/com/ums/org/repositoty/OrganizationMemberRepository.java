@@ -17,4 +17,6 @@ public interface OrganizationMemberRepository extends JpaRepository<Organization
 	Optional<OrganizationMember> findByOrganizationIdAndUserId(UUID organizationId, UUID userId);
 
 	List<OrganizationMember> findByOrganizationId(UUID organizationId);
+
+	List<OrganizationMember> findByUserId(UUID userId);
 }

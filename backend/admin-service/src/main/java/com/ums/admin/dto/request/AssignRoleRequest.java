@@ -29,7 +29,7 @@ public class AssignRoleRequest {
     @Pattern(regexp = "^(PLATFORM|ORG|DEPARTMENT)$", message = "scopeType must be PLATFORM, ORG, or DEPARTMENT")
     private String scopeType;
 
-    @Size(max = 255, message = "scopeId must not exceed 255 characters")
+    @Size(max = 36, message = "scopeId must not exceed 36 characters")
     private String scopeId;
 
     private UUID assignedBy;

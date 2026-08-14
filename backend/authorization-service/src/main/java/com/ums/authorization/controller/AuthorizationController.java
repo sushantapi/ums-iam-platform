@@ -17,6 +17,7 @@ import com.ums.authorization.dto.PermissionCheckResponse;
 import com.ums.authorization.dto.UserPermissionsResponse;
 import com.ums.authorization.service.AuthorizationService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -28,21 +29,24 @@ public class AuthorizationController {
 
 	@PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('ROLE_WRITE')")
 	@PostMapping("/assign-role")
-	public String assignRole(@RequestBody AssignRoleRequest request) {
+	public String assignRole(@Valid @RequestBody AssignRoleRequest request) {
 
 		return authorizationService.assignRole(request);
 	}
 
 	@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ORG_ADMIN') or hasAuthority('ROLE_READ')")
 	@GetMapping("/users/{id}/permissions")
-	public UserPermissionsResponse getUserPermissions(@PathVariable UUID id) {
+	public UserPermissionsResponse getUserPermissions(
+			@PathVariable UUID id,
+			@RequestParam(defaultValue = "PLATFORM") String scopeType,
+			@RequestParam(defaultValue = "*") String scopeId) {
 
-		return authorizationService.getUserPermissions(id);
+		return authorizationService.getUserPermissions(id, scopeType, scopeId);
 	}
 
 	@PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('ROLE_WRITE')")
 	@PostMapping("/assign-permission")
-	public String assignPermission(@RequestBody AssignPermissionRequest request) {
+	public String assignPermission(@Valid @RequestBody AssignPermissionRequest request) {
 
 		return authorizationService.assignPermission(request);
 	}
@@ -53,9 +57,11 @@ public class AuthorizationController {
 
 			@RequestParam UUID userId,
 
-			@RequestParam String permission) {
+			@RequestParam String permission,
+			@RequestParam(defaultValue = "PLATFORM") String scopeType,
+			@RequestParam(defaultValue = "*") String scopeId) {
 
-		boolean allowed = authorizationService.hasPermission(userId, permission);
+		boolean allowed = authorizationService.hasPermission(userId, permission, scopeType, scopeId);
 
 		return PermissionCheckResponse.builder()
 

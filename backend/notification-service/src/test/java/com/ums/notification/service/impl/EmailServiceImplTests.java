@@ -15,6 +15,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ums.events.event.organization.OrganizationInviteEvent;
 import com.ums.notification.entity.NotificationEvent;
 import com.ums.notification.service.NotificationAuditService;
 import com.ums.notification.service.NotificationEventService;
@@ -50,12 +51,12 @@ class EmailServiceImplTests {
 			event.setId(42L);
 			return event;
 		});
-		when(templateService.getSubject("WELCOME_EMAIL")).thenReturn("Welcome");
-		when(templateService.buildTemplate(eq("WELCOME_EMAIL"), any())).thenReturn("Hello Ada");
 	}
 
 	@Test
 	void marksSuccessfulDeliveryAsProcessed() {
+		stubWelcomeTemplate();
+
 		emailService.sendWelcomeEmail("ada@example.com", "Ada");
 
 		verify(eventService).markProcessed(42L);
@@ -63,7 +64,21 @@ class EmailServiceImplTests {
 	}
 
 	@Test
+	void processesOrganizationInvitationUsingExistingDeliveryPipeline() {
+		when(templateService.getSubject("ORGANIZATION_INVITATION")).thenReturn("Invitation");
+		when(templateService.buildTemplate(eq("ORGANIZATION_INVITATION"), any())).thenReturn("Join Acme");
+
+		emailService.processOrganizationInvitation(
+				new OrganizationInviteEvent("ada@example.com", "Acme", "https://example.test/invite"));
+
+		verify(eventService).markProcessed(42L);
+		verify(auditService).logSuccess("ORGANIZATION_INVITATION", "ada@example.com", "Invitation");
+	}
+
+	@Test
 	void persistsFailureWithoutRethrowingToRabbit() {
+		stubWelcomeTemplate();
+
 		doThrow(new IllegalStateException("SMTP unavailable"))
 				.when(mailSender)
 				.send(any(SimpleMailMessage.class));
@@ -76,5 +91,10 @@ class EmailServiceImplTests {
 				"ada@example.com",
 				"Welcome",
 				"SMTP unavailable");
+	}
+
+	private void stubWelcomeTemplate() {
+		when(templateService.getSubject("WELCOME_EMAIL")).thenReturn("Welcome");
+		when(templateService.buildTemplate(eq("WELCOME_EMAIL"), any())).thenReturn("Hello Ada");
 	}
 }

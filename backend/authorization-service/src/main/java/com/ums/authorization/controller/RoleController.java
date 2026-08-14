@@ -14,6 +14,7 @@ import com.ums.authorization.entity.Role;
 import com.ums.authorization.service.RoleService;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -26,7 +27,7 @@ public class RoleController {
 
 	@PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('ROLE_WRITE')")
 	@PostMapping
-	public Role createRole(@RequestBody CreateRoleRequest request) {
+	public Role createRole(@Valid @RequestBody CreateRoleRequest request) {
 
 		Role role = Role.builder().name(request.getName()).description(request.getDescription()).build();
 

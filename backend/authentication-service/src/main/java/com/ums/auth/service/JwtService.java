@@ -50,6 +50,9 @@ public class JwtService {
 	@Value("${jwt.issuer:ums-iam-platform}")
 	private String issuer;
 
+	@Value("${jwt.audience:ums-api-gateway}")
+	private String audience;
+
 	@Value("${jwt.key-id:local-dev-1}")
 	private String keyId;
 
@@ -60,9 +63,6 @@ public class JwtService {
 	public void loadKeys() {
 
 		try {
-
-			log.info("Private Path = {}", privateKeyPath);
-			log.info("Public Path  = {}", publicKeyPath);
 
 			privateKey = loadPrivateKey(privateKeyPath, privateKeyPem);
 			publicKey = loadPublicKey(publicKeyPath, publicKeyPem);
@@ -97,7 +97,7 @@ public class JwtService {
 			UUID sessionId) {
 
 		return Jwts.builder().header().keyId(keyId).and()
-				.id(UUID.randomUUID().toString()).subject(userId).issuer(issuer).issuedAt(new Date())
+				.id(UUID.randomUUID().toString()).subject(userId).issuer(issuer).audience().add(audience).and().issuedAt(new Date())
 				.expiration(new Date(System.currentTimeMillis() + accessTokenExpiryMs))
 				.claim("email", email).claim("roles", roles).claim("permissions", permissions)
 				.claim("sessionId", sessionId.toString()).claim("type", "ACCESS")
@@ -107,7 +107,7 @@ public class JwtService {
 	public String generateRefreshToken(String userId, UUID sessionId) {
 
 		return Jwts.builder().header().keyId(keyId).and()
-				.id(UUID.randomUUID().toString()).subject(userId).issuer(issuer).issuedAt(new Date())
+				.id(UUID.randomUUID().toString()).subject(userId).issuer(issuer).audience().add(audience).and().issuedAt(new Date())
 				.expiration(new Date(System.currentTimeMillis() + refreshTokenExpiryMs))
 				.claim("sessionId", sessionId.toString()).claim("type", "REFRESH")
 				.signWith(privateKey, Jwts.SIG.RS256).compact();
@@ -115,7 +115,8 @@ public class JwtService {
 
 	public Claims validateAndExtract(String token) {
 
-		return Jwts.parser().verifyWith(publicKey).requireIssuer(issuer).build().parseSignedClaims(token).getPayload();
+		return Jwts.parser().verifyWith(publicKey).requireIssuer(issuer).requireAudience(audience).build()
+				.parseSignedClaims(token).getPayload();
 	}
 
 	public boolean isTokenValid(String token) {

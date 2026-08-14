@@ -18,7 +18,7 @@ $services = [ordered]@{
     "notification-service"   = @{ Port = 8085; Stateful = $true; Rabbit = $true; Mail = $true }
     "audit-service"          = @{ Port = 8089; Stateful = $true; Rabbit = $true }
     "admin-service"          = @{ Port = 8088; InternalOnly = $true }
-    "api-gateway"            = @{ Port = 8080; Gateway = $true }
+    "api-gateway"            = @{ Port = 8080; Gateway = $true; Redis = $true }
 }
 
 function Assert-Contains {
@@ -99,8 +99,9 @@ $maven = Get-Command mvn.cmd -ErrorAction SilentlyContinue
 if (-not $maven) {
     $maven = Get-Command mvn -ErrorAction SilentlyContinue
 }
-if (-not $maven) {
-    throw "Maven is required for Config Server smoke validation."
+$mavenExecutable = if ($maven) { $maven.Source } else { Join-Path $configService "mvnw.cmd" }
+if (-not (Test-Path $mavenExecutable)) {
+    throw "Maven or the Config Server Maven wrapper is required for smoke validation."
 }
 
 New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
@@ -119,7 +120,7 @@ $arguments = @(
     "`"-Dspring-boot.run.arguments=--server.port=$port --spring.profiles.active=native --spring.cloud.config.server.native.search-locations=file:$($configRepo.Replace('\','/')) --eureka.client.enabled=false`""
 )
 
-$process = Start-Process -FilePath $maven.Source -ArgumentList $arguments -WorkingDirectory $configService `
+$process = Start-Process -FilePath $mavenExecutable -ArgumentList $arguments -WorkingDirectory $configService `
     -RedirectStandardOutput $logPath -RedirectStandardError $errorLogPath -WindowStyle Hidden -PassThru
 
 try {

@@ -28,7 +28,7 @@ import com.ums.auth.entity.Session;
 import com.ums.auth.entity.User;
 import com.ums.auth.entity.User.UserStatus;
 import com.ums.auth.exception.AuthException;
-import com.ums.auth.repository.RoleRepository;
+import com.ums.auth.exception.UmsException;
 import com.ums.auth.repository.SessionRepository;
 import com.ums.auth.repository.UserRepository;
 import com.ums.events.publisher.AuditPublisher;
@@ -41,7 +41,6 @@ import jakarta.servlet.http.HttpServletRequest;
 class AuthServiceRefreshTests {
 
 	@Mock private UserRepository userRepository;
-	@Mock private RoleRepository roleRepository;
 	@Mock private PasswordEncoder passwordEncoder;
 	@Mock private AuditPublisher auditPublisher;
 	@Mock private AuthorizationClient authorizationClient;
@@ -77,6 +76,26 @@ class AuthServiceRefreshTests {
 		assertThat(session.getRefreshTokenHash()).isEqualTo(DigestUtils.sha256Hex(newToken));
 		assertThat(session.getLastSeenAt()).isNotNull();
 		verify(sessionRepository).save(session);
+	}
+
+	@Test
+	void refreshFailsClosedWhenAuthorizationServiceIsUnavailable() {
+		UUID userId = UUID.randomUUID();
+		UUID sessionId = UUID.randomUUID();
+		String oldToken = "old-refresh-token";
+		String newToken = "new-refresh-token";
+		User user = activeUser(userId);
+		Session session = activeSession(sessionId, user, oldToken);
+
+		when(jwtService.validateAndExtract(oldToken)).thenReturn(claims("REFRESH", userId, sessionId));
+		when(sessionRepository.findByIdForRefresh(sessionId)).thenReturn(Optional.of(session));
+		when(jwtService.generateRefreshToken(userId.toString(), sessionId)).thenReturn(newToken);
+		when(jwtService.getRefreshTokenExpiryMs()).thenReturn(604800000L);
+		when(authorizationClient.getAuthorization(userId)).thenThrow(new IllegalStateException("down"));
+
+		assertThatThrownBy(() -> authService.refreshToken(request(oldToken)))
+				.isInstanceOf(UmsException.class)
+				.extracting("errorCode").isEqualTo("AUTHORIZATION_UNAVAILABLE");
 	}
 
 	@Test

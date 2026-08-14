@@ -29,6 +29,7 @@ import com.ums.admin.dto.response.UserSummaryPageResponse;
 import com.ums.admin.security.InternalServiceAuthenticationFilter;
 import com.ums.admin.security.TrustedGatewayAuthenticationFilter;
 import com.ums.admin.service.AdminAuditService;
+import com.ums.admin.service.AdminOrganizationService;
 import com.ums.admin.service.AdminRoleService;
 import com.ums.admin.service.AdminUserService;
 import com.ums.admin.service.DashboardService;
@@ -60,6 +61,7 @@ class AdminSecurityBoundaryTests {
 
 	@MockitoBean private AdminUserService adminUserService;
 	@MockitoBean private AdminRoleService adminRoleService;
+	@MockitoBean private AdminOrganizationService adminOrganizationService;
 	@MockitoBean private AdminAuditService adminAuditService;
 	@MockitoBean private DashboardService dashboardService;
 

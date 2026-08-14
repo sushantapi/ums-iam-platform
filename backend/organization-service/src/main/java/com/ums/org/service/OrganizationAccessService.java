@@ -39,10 +39,10 @@ public class OrganizationAccessService {
 		throw new AccessDeniedException("User is not allowed to access this organization");
 	}
 
-	public void assertCanManageMembers(UUID actorId, Organization organization) {
+	public void assertCanManageMembers(UUID actorId, Organization organization, boolean superAdmin) {
 		assertOrganizationActive(organization);
 
-		if (organization.getOwnerId().equals(actorId)) {
+		if (superAdmin || organization.getOwnerId().equals(actorId)) {
 			return;
 		}
 

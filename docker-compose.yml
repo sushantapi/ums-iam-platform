@@ -36,11 +36,11 @@ services:
     networks:
       - ums-network
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "5672"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 45s
       retries: 5
-      start_period: 40s
+      start_period: 60s
 
   redis:
     image: redis:7-alpine
@@ -74,11 +74,11 @@ services:
     networks:
       - ums-network
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8761/eureka/apps"]
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8761/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 40s
+      start_period: 180s
 
   config-service:
     image: config-service:1.0
@@ -103,7 +103,7 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 180s
 
   authentication-service:
     image: authentication-service:1.0
@@ -130,6 +130,7 @@ services:
       JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
       JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
       JWT_KEY_ID: ${JWT_KEY_ID}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS}
       JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS}
@@ -157,7 +158,7 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 180s
 
   user-service:
     image: user-service:1.0
@@ -200,7 +201,7 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 180s
 
   authorization-service:
     image: authorization-service:1.0
@@ -243,7 +244,7 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 180s
 
   organization-service:
     image: organization-service:1.0
@@ -282,7 +283,7 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 180s
 
   notification-service:
     image: notification-service:1.0
@@ -326,7 +327,7 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 180s
 
   audit-service:
     image: audit-service:1.0
@@ -365,7 +366,7 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 180s
 
   admin-service:
     image: admin-service:1.0
@@ -393,7 +394,7 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 180s
 
   api-gateway:
     image: api-gateway:1.0
@@ -407,6 +408,10 @@ services:
       CONFIG_SERVER_URL: http://config-service:8888
       JWT_PUBLIC_KEY_PATH: ${JWT_PUBLIC_KEY_PATH}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
+      SPRING_DATA_REDIS_HOST: ${REDIS_HOST}
+      SPRING_DATA_REDIS_PORT: ${REDIS_PORT}
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
       INTERNAL_GATEWAY_SECRET: ${INTERNAL_GATEWAY_SECRET}
       LOGGING_LEVEL_ROOT: ${LOG_LEVEL}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
@@ -419,12 +424,14 @@ services:
         condition: service_healthy
       discovery-service:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 180s
 
 volumes:
   mysql_data:

@@ -1,40 +1,63 @@
 package com.ums.authorization.exception;
 
-import com.ums.authorization.dto.ApiResponse;
+import java.time.LocalDateTime;
+import java.util.stream.Collectors;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
+import com.ums.authorization.dto.ApiResponse;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-	@ExceptionHandler(RoleNotFoundException.class)
-	public ResponseEntity<ApiResponse<Object>> handleRoleNotFoundException(RoleNotFoundException ex) {
-
-		ApiResponse<Object> response = ApiResponse.builder().success(false).message(ex.getMessage()).data(null)
-				.timestamp(LocalDateTime.now()).build();
-
-		return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+	@ExceptionHandler({RoleNotFoundException.class, PermissionNotFoundException.class})
+	public ResponseEntity<ApiResponse<Object>> handleNotFound(RuntimeException ex) {
+		return response(HttpStatus.NOT_FOUND, ex.getMessage());
 	}
 
 	@ExceptionHandler(UserRoleAlreadyExistsException.class)
 	public ResponseEntity<ApiResponse<Object>> handleUserRoleAlreadyExistsException(UserRoleAlreadyExistsException ex) {
+		return response(HttpStatus.CONFLICT, ex.getMessage());
+	}
 
-		ApiResponse<Object> response = ApiResponse.builder().success(false).message(ex.getMessage()).data(null)
-				.timestamp(LocalDateTime.now()).build();
+	@ExceptionHandler(IllegalArgumentException.class)
+	public ResponseEntity<ApiResponse<Object>> handleBadRequest(IllegalArgumentException ex) {
+		return response(HttpStatus.BAD_REQUEST, ex.getMessage());
+	}
 
-		return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+	@ExceptionHandler(MethodArgumentNotValidException.class)
+	public ResponseEntity<ApiResponse<Object>> handleValidation(MethodArgumentNotValidException ex) {
+		String message = ex.getBindingResult().getFieldErrors().stream()
+				.map(error -> error.getField() + ": " + error.getDefaultMessage())
+				.collect(Collectors.joining(", "));
+		return response(HttpStatus.BAD_REQUEST, message);
+	}
+
+	@ExceptionHandler(ResponseStatusException.class)
+	public ResponseEntity<ApiResponse<Object>> handleResponseStatus(ResponseStatusException ex) {
+		return ResponseEntity.status(ex.getStatusCode()).body(body(ex.getReason()));
 	}
 
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ApiResponse<Object>> handleGenericException(Exception ex) {
+		log.error("Unhandled authorization-service exception", ex);
+		return response(HttpStatus.INTERNAL_SERVER_ERROR, "An internal error occurred");
+	}
 
-		ApiResponse<Object> response = ApiResponse.builder().success(false).message(ex.getMessage()).data(null)
+	private ResponseEntity<ApiResponse<Object>> response(HttpStatus status, String message) {
+		return ResponseEntity.status(status).body(body(message));
+	}
+
+	private ApiResponse<Object> body(String message) {
+		return ApiResponse.builder().success(false).message(message).data(null)
 				.timestamp(LocalDateTime.now()).build();
-
-		return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
 	}
 }

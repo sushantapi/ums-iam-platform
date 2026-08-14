@@ -9,10 +9,12 @@ $workspace = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $containerName = "ums-flyway-validation-$PID"
 $mysqlPassword = "ums-flyway-validation"
 $logDirectory = Join-Path $workspace ".runlogs\migration-validation"
-$privateKey = Join-Path $workspace "secrets\jwt\private_key.pem"
-$publicKey = Join-Path $workspace "secrets\jwt\public_key.pem"
+$keyDirectory = Join-Path $logDirectory "jwt-$PID"
+$privateKey = Join-Path $keyDirectory "private_key.pem"
+$publicKey = Join-Path $keyDirectory "public_key.pem"
 
 New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
+New-Item -ItemType Directory -Force -Path $keyDirectory | Out-Null
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw "Docker is required for clean database validation."
@@ -22,8 +24,56 @@ $mavenCommand = Get-Command mvn.cmd -ErrorAction SilentlyContinue
 if (-not $mavenCommand) {
     $mavenCommand = Get-Command mvn -ErrorAction SilentlyContinue
 }
-if (-not $mavenCommand) {
-    throw "Maven is required for service boot validation."
+
+$backendMavenWrapper = Join-Path $workspace "backend\mvnw.cmd"
+if (-not $mavenCommand -and -not (Test-Path $backendMavenWrapper)) {
+    throw "Maven or the backend Maven wrapper is required for clean database validation."
+}
+
+$javaCommand = Get-Command java -ErrorAction SilentlyContinue
+if (-not $javaCommand) {
+    throw "Java is required to generate temporary JWT validation keys."
+}
+
+function Initialize-SharedArtifacts {
+    $mavenExecutable = if ($mavenCommand) { $mavenCommand.Source } else { $backendMavenWrapper }
+    $backendPom = Join-Path $workspace "backend\pom.xml"
+
+    & $mavenExecutable -q -f $backendPom -pl "common/common-events" -DskipTests install
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to install common-events into the local Maven repository."
+    }
+}
+
+function New-TemporaryJwtKeys {
+    $generatorPath = Join-Path $keyDirectory "GenerateJwtKeys.java"
+    @'
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.util.Base64;
+
+public class GenerateJwtKeys {
+    private static String pem(String type, byte[] encoded) {
+        String body = Base64.getMimeEncoder(64, new byte[] {'\n'}).encodeToString(encoded);
+        return "-----BEGIN " + type + "-----\n" + body + "\n-----END " + type + "-----\n";
+    }
+
+    public static void main(String[] args) throws Exception {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        KeyPair pair = generator.generateKeyPair();
+        Files.writeString(Path.of(args[0]), pem("PRIVATE KEY", pair.getPrivate().getEncoded()));
+        Files.writeString(Path.of(args[1]), pem("PUBLIC KEY", pair.getPublic().getEncoded()));
+    }
+}
+'@ | Set-Content -LiteralPath $generatorPath -Encoding ASCII
+
+    & $javaCommand.Source $generatorPath $privateKey $publicKey
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $privateKey) -or -not (Test-Path $publicKey)) {
+        throw "Failed to generate temporary JWT validation keys."
+    }
 }
 
 $services = @(
@@ -91,6 +141,9 @@ function Stop-ProcessTree {
 }
 
 try {
+    Initialize-SharedArtifacts
+    New-TemporaryJwtKeys
+
     docker run -d --rm --name $containerName `
         -e "MYSQL_ROOT_PASSWORD=$mysqlPassword" `
         -p "127.0.0.1::3306" `
@@ -113,6 +166,11 @@ try {
         $errorLogPath = Join-Path $logDirectory "$serviceName.error.log"
         Remove-Item -LiteralPath $logPath, $errorLogPath -Force -ErrorAction SilentlyContinue
 
+        $mavenExecutable = if ($mavenCommand) { $mavenCommand.Source } else { Join-Path $serviceDirectory "mvnw.cmd" }
+        if (-not (Test-Path $mavenExecutable)) {
+            throw "Maven or the Maven wrapper is required for $serviceName boot validation."
+        }
+
         $arguments = @(
             "-q",
             "-DskipTests",
@@ -120,7 +178,7 @@ try {
             "`"-Dspring-boot.run.arguments=--spring.cloud.config.enabled=false --spring.config.import= --eureka.client.enabled=false --server.port=0 --spring.datasource.url=jdbc:mysql://127.0.0.1:$mysqlPort/$($service.Database)?useSSL=false&allowPublicKeyRetrieval=true --spring.datasource.username=root --spring.datasource.password=$mysqlPassword --spring.jpa.hibernate.ddl-auto=validate --spring.flyway.enabled=true --spring.flyway.baseline-on-migrate=false --spring.rabbitmq.listener.simple.auto-startup=false --spring.rabbitmq.listener.direct.auto-startup=false --spring.task.scheduling.enabled=false --spring.devtools.restart.enabled=false --spring.mail.host=127.0.0.1 --management.health.rabbit.enabled=false --management.health.redis.enabled=false --management.health.mail.enabled=false --internal.gateway.secret=migration-validation-gateway --internal.service.secret=migration-validation-service --jwt.private-key-path=$privateKey --jwt.public-key-path=$publicKey --jwt.key-id=migration-validation`""
         )
 
-        $process = Start-Process -FilePath $mavenCommand.Source `
+        $process = Start-Process -FilePath $mavenExecutable `
             -ArgumentList $arguments `
             -WorkingDirectory $serviceDirectory `
             -RedirectStandardOutput $logPath `
@@ -145,4 +203,5 @@ finally {
     if (-not $KeepContainer) {
         docker rm -f $containerName 2>$null | Out-Null
     }
+    Remove-Item -LiteralPath $keyDirectory -Recurse -Force -ErrorAction SilentlyContinue
 }

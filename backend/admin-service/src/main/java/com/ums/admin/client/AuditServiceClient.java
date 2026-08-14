@@ -5,9 +5,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.ums.admin.dto.response.AuditLogPageResponse;
+import com.ums.admin.dto.response.AuditMetricsResponse;
 
 @FeignClient(name = "audit-service", contextId = "auditClient")
 public interface AuditServiceClient {
+
+	@GetMapping("/api/v1/internal/audit/events/metrics")
+	AuditMetricsResponse getMetrics();
 
 	@GetMapping("/api/v1/internal/audit/events")
 	AuditLogPageResponse getAuditLogs(

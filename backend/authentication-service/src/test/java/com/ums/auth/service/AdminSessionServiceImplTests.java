@@ -1,6 +1,8 @@
 package com.ums.auth.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -29,6 +31,9 @@ class AdminSessionServiceImplTests {
 
 	@Mock
 	private AuditPublisher auditPublisher;
+
+	@Mock
+	private TokenBlacklistService tokenBlacklistService;
 
 	@InjectMocks
 	private AdminSessionServiceImpl adminSessionService;
@@ -64,6 +69,7 @@ class AdminSessionServiceImplTests {
 		assertThat(session.isRevoked()).isTrue();
 		assertThat(session.getRevokedAt()).isNotNull();
 		verify(sessionRepository).save(session);
+		verify(tokenBlacklistService).revokeSession(eq(session.getId()), anyLong());
 	}
 
 	@Test
@@ -78,25 +84,15 @@ class AdminSessionServiceImplTests {
 		assertThat(first.isRevoked()).isTrue();
 		assertThat(second.isRevoked()).isTrue();
 		verify(sessionRepository).saveAll(List.of(first, second));
+		verify(tokenBlacklistService).revokeSession(eq(first.getId()), anyLong());
+		verify(tokenBlacklistService).revokeSession(eq(second.getId()), anyLong());
 	}
 
 	private Session activeSession(UUID userId) {
-		User user = User.builder()
-				.id(userId)
-				.firstName("Ada")
-				.lastName("Lovelace")
-				.email("ada@example.com")
-				.passwordHash("hash")
-				.build();
-		return Session.builder()
-				.id(UUID.randomUUID())
-				.user(user)
-				.refreshTokenHash("hash")
-				.deviceInfo("Chrome on Windows")
-				.ipAddress("127.0.0.1")
-				.createdAt(Instant.now().minusSeconds(60))
-				.lastSeenAt(Instant.now())
-				.expiresAt(Instant.now().plusSeconds(3600))
-				.build();
+		User user = User.builder().id(userId).firstName("Ada").lastName("Lovelace").email("ada@example.com")
+				.passwordHash("hash").build();
+		return Session.builder().id(UUID.randomUUID()).user(user).refreshTokenHash("hash")
+				.deviceInfo("Chrome on Windows").ipAddress("127.0.0.1").createdAt(Instant.now().minusSeconds(60))
+				.lastSeenAt(Instant.now()).expiresAt(Instant.now().plusSeconds(3600)).build();
 	}
 }

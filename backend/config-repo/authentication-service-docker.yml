@@ -64,6 +64,7 @@ jwt:
   public-key-path: ${JWT_PUBLIC_KEY_PATH:/run/secrets/jwt/public_key.pem}
   key-id: ${JWT_KEY_ID:local-docker-2026-06-24}
   issuer: ums-iam-platform
+  audience: ${JWT_AUDIENCE:ums-api-gateway}
   access-token-expiry-ms: ${JWT_EXPIRATION_MS:900000}
   refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
 

@@ -20,12 +20,34 @@ public class UserRoleServiceImpl implements UserRoleService {
 	@Override
 	public List<UserRole> getUserRoles(UUID userId) {
 
-		return userRoleRepository.findByUserId(userId);
+		return userRoleRepository.findByUserIdWithRole(userId);
+	}
+
+	@Override
+	public List<UserRole> getActivePlatformUserRoles(UUID userId) {
+		return userRoleRepository.findActivePlatformAssignments(userId);
+	}
+
+	@Override
+	public List<UserRole> getActiveUserRoles(UUID userId, String scopeType, String scopeId) {
+		if ("PLATFORM".equals(scopeType)) {
+			return userRoleRepository.findActivePlatformAssignments(userId);
+		}
+		return userRoleRepository.findActiveAssignments(userId, scopeType, scopeId);
 	}
 
 	@Override
 	public UserRole assignRole(UserRole userRole) {
 
 		return userRoleRepository.save(userRole);
+	}
+
+	@Override
+	public void revokeRoleAssignment(UUID assignmentId) {
+		UserRole assignment = userRoleRepository.findById(assignmentId)
+				.orElseThrow(() -> new com.ums.authorization.exception.RoleNotFoundException(
+						"Role assignment not found"));
+		assignment.setActive(false);
+		userRoleRepository.save(assignment);
 	}
 }

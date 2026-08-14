@@ -21,6 +21,7 @@ jwt:
   public-key: ${JWT_PUBLIC_KEY:}
   public-key-path: ${JWT_PUBLIC_KEY_PATH:keys/public_key.pem}
   key-id: ${JWT_KEY_ID:local-dev-2026-06-24}
+  audience: ${JWT_AUDIENCE:ums-api-gateway}
 
 internal:
   gateway:
