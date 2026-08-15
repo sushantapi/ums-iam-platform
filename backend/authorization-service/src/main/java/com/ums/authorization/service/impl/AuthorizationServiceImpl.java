@@ -105,7 +105,7 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 
 		Set<String> permissions = userRoleService
 				.getActiveUserRoles(userId, normalizedScopeType, normalizedScopeId).stream()
-				.flatMap(userRole -> rolePermissionRepository.findByRole(userRole.getRole()).stream())
+				.flatMap(userRole -> rolePermissionRepository.findByRoleIdWithPermission(userRole.getRole().getId()).stream())
 				.filter(rolePermission -> Boolean.TRUE.equals(rolePermission.getPermission().getActive()))
 				.map(rolePermission -> rolePermission.getPermission().getCode())
 				.collect(Collectors.toSet());
@@ -158,7 +158,7 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 		List<String> roles = userRoles.stream().map(userRole -> userRole.getRole().getName()).distinct().toList();
 
 		List<String> permissions = userRoles.stream()
-				.flatMap(userRole -> rolePermissionRepository.findByRole(userRole.getRole()).stream())
+				.flatMap(userRole -> rolePermissionRepository.findByRoleIdWithPermission(userRole.getRole().getId()).stream())
 				.filter(rolePermission -> Boolean.TRUE.equals(rolePermission.getPermission().getActive()))
 				.map(rolePermission -> rolePermission.getPermission().getCode()).distinct().toList();
 

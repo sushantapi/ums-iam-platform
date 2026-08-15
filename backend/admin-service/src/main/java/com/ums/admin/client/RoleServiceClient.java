@@ -45,5 +45,5 @@ public interface RoleServiceClient {
 	UserRoleAssignmentResponse getGrant(@PathVariable UUID assignmentId);
 
 	@DeleteMapping("/api/v1/internal/authorization/role-assignments/{assignmentId}")
-	void revokeRoleAssignment(@PathVariable UUID assignmentId);
+	UUID revokeRoleAssignment(@PathVariable UUID assignmentId);
 }

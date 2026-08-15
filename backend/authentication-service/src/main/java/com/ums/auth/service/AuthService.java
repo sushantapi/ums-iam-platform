@@ -104,7 +104,7 @@ public class AuthService {
 		return buildTokenResponse(savedUser, refreshToken, session.getId());
 	}
 
-	@Transactional
+	@Transactional(noRollbackFor = AuthException.class)
 	public TokenResponse login(LoginRequest request, String ipAddress) {
 
 		String email = request.getEmail().trim().toLowerCase();

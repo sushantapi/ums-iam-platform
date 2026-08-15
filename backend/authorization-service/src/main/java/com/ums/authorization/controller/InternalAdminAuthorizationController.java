@@ -88,8 +88,8 @@ public class InternalAdminAuthorizationController {
 	}
 
 	@DeleteMapping("/role-assignments/{assignmentId}")
-	public void revokeRoleAssignment(@PathVariable UUID assignmentId) {
-		userRoleService.revokeRoleAssignment(assignmentId);
+	public UUID revokeRoleAssignment(@PathVariable UUID assignmentId) {
+		return userRoleService.revokeRoleAssignment(assignmentId);
 	}
 
 	private RoleSummaryResponse toRole(com.ums.authorization.entity.Role role) {

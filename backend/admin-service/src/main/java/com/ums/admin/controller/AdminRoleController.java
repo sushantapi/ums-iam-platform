@@ -61,8 +61,12 @@ public class AdminRoleController {
 
     @DeleteMapping("/assignments/{assignmentId}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<Void> revokeRoleAssignment(@PathVariable UUID assignmentId) {
-        adminRoleService.revokeRoleAssignment(assignmentId);
+    public ResponseEntity<Void> revokeRoleAssignment(
+            @PathVariable UUID assignmentId,
+            Authentication authentication) {
+        adminRoleService.revokeRoleAssignment(
+                assignmentId,
+                (UUID) authentication.getPrincipal());
         return ResponseEntity.noContent().build();
     }
 

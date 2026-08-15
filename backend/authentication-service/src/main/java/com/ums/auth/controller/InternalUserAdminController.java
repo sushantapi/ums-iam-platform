@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ums.auth.dto.admin.AdminUserAccountResponse;
 import com.ums.auth.dto.admin.AdminUserMetricsResponse;
+import com.ums.auth.service.AdminSessionService;
 import com.ums.auth.service.AdminUserAccountService;
 
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class InternalUserAdminController {
 
 	private static final String ACTOR_USER_HEADER = "X-Actor-User-Id";
 
+	private final AdminSessionService adminSessionService;
 	private final AdminUserAccountService adminUserAccountService;
 
 	@GetMapping("/metrics")
@@ -53,6 +55,14 @@ public class InternalUserAdminController {
 	public ResponseEntity<Void> unlock(@PathVariable UUID userId,
 			@RequestHeader(ACTOR_USER_HEADER) UUID actorUserId) {
 		adminUserAccountService.unlockUser(userId, actorUserId);
+		return ResponseEntity.noContent().build();
+	}
+
+	@PostMapping("/{userId}/sessions/revoke-all")
+	public ResponseEntity<Void> revokeAllSessions(
+			@PathVariable UUID userId,
+			@RequestHeader(ACTOR_USER_HEADER) UUID actorUserId) {
+		adminSessionService.revokeAllUserSessions(userId, actorUserId);
 		return ResponseEntity.noContent().build();
 	}
 }

@@ -27,6 +27,6 @@ public interface AdminRoleService {
 
 	UserRoleAssignmentResponse getGrant(UUID assignmentId);
 
-	void revokeRoleAssignment(UUID assignmentId);
+	void revokeRoleAssignment(UUID assignmentId, UUID actorUserId);
 
 }

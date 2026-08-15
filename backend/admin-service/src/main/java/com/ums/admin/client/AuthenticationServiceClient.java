@@ -28,4 +28,9 @@ public interface AuthenticationServiceClient {
 
 	@PostMapping("/api/v1/internal/auth/users/{userId}/unlock")
 	void unlock(@PathVariable UUID userId, @RequestHeader("X-Actor-User-Id") UUID actorUserId);
+
+	@PostMapping("/api/v1/internal/auth/users/{userId}/sessions/revoke-all")
+	void revokeAllSessions(
+			@PathVariable UUID userId,
+			@RequestHeader("X-Actor-User-Id") UUID actorUserId);
 }

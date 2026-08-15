@@ -9,7 +9,7 @@ public interface UserRoleService {
 
     UserRole assignRole(UserRole userRole);
 
-    void revokeRoleAssignment(UUID assignmentId);
+    UUID revokeRoleAssignment(UUID assignmentId);
 
     List<UserRole> getUserRoles(UUID userId);
 

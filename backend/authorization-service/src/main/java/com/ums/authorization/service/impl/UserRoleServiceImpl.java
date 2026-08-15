@@ -43,11 +43,12 @@ public class UserRoleServiceImpl implements UserRoleService {
 	}
 
 	@Override
-	public void revokeRoleAssignment(UUID assignmentId) {
+	public UUID revokeRoleAssignment(UUID assignmentId) {
 		UserRole assignment = userRoleRepository.findById(assignmentId)
 				.orElseThrow(() -> new com.ums.authorization.exception.RoleNotFoundException(
 						"Role assignment not found"));
 		assignment.setActive(false);
 		userRoleRepository.save(assignment);
+		return assignment.getUserId();
 	}
 }

@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
+import com.ums.admin.client.AuthenticationServiceClient;
 import com.ums.admin.client.RoleServiceClient;
 import com.ums.admin.dto.request.AssignRoleRequest;
 import com.ums.admin.dto.response.GrantPageResponse;
@@ -20,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class AdminRoleServiceImpl implements AdminRoleService {
 
 	private final RoleServiceClient roleServiceClient;
+	private final AuthenticationServiceClient authenticationServiceClient;
 
 	@Override
 	public String assignRole(AssignRoleRequest request) {
@@ -65,7 +67,8 @@ public class AdminRoleServiceImpl implements AdminRoleService {
 	}
 
 	@Override
-	public void revokeRoleAssignment(UUID assignmentId) {
-		roleServiceClient.revokeRoleAssignment(assignmentId);
+	public void revokeRoleAssignment(UUID assignmentId, UUID actorUserId) {
+		UUID userId = roleServiceClient.revokeRoleAssignment(assignmentId);
+		authenticationServiceClient.revokeAllSessions(userId, actorUserId);
 	}
 }

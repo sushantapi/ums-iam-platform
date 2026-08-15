@@ -45,7 +45,9 @@ public class AdminGrantController {
 		if (PRIVILEGED_ROLES.contains(grant.roleName()) && !superAdmin) {
 			throw new AccessDeniedException("Only SUPER_ADMIN may revoke privileged platform roles");
 		}
-		adminRoleService.revokeRoleAssignment(grantId);
+		adminRoleService.revokeRoleAssignment(
+				grantId,
+				(UUID) authentication.getPrincipal());
 		return ResponseEntity.noContent().build();
 	}
 }
