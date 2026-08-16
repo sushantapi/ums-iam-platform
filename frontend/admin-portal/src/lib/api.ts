@@ -186,13 +186,10 @@ export type OrganizationResponse = {
 };
 
 export type OrganizationMemberResponse = {
-  id?: string;
-  userId?: string;
-  fullName?: string;
-  email?: string;
-  orgRole?: string;
-  status?: string;
-  joinedAt?: string;
+  id: string;
+  userId: string;
+  role: string;
+  joinedAt: string;
 };
 
 export type OrganizationInvitationResponse = {
@@ -436,13 +433,11 @@ export const adminApi = {
       "organizations",
       `/api/v1/admin/organizations/${organizationId}`,
     ),
-  organizationMembers: async (organizationId: string, query: { page: number; size: number }) => {
-    const payload = await request<OrganizationMemberResponse[] | PageResponse<OrganizationMemberResponse>>(
+  organizationMembers: (organizationId: string) =>
+    request<OrganizationMemberResponse[]>(
       "organizations",
-      withQuery(`/api/v1/admin/organizations/${organizationId}/members`, query),
-    );
-    return normalizePage(payload, query.page, query.size);
-  },
+      `/api/v1/admin/organizations/${organizationId}/members`,
+    ),
   organizationInvitations: async (organizationId: string, query: { page: number; size: number }) => {
     const payload = await request<OrganizationInvitationResponse[] | PageResponse<OrganizationInvitationResponse>>(
       "organizations",

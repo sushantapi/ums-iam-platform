@@ -86,7 +86,8 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
   if (organizationMatch) {
     return { ...clone(mockOrganizations.content[0]), id: organizationMatch[1] } as T;
   }
-  if (url.pathname.endsWith("/members") || url.pathname.endsWith("/invitations")) {
+  if (url.pathname.endsWith("/members")) return [] as T;
+  if (url.pathname.endsWith("/invitations")) {
     return { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 } as T;
   }
   if (url.pathname.endsWith("/security-policy")) return clone(defaultSecurityPolicy) as T;
