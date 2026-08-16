@@ -1,4 +1,7 @@
-import { Route } from "react-router-dom";
+import {
+  Navigate,
+  Route,
+} from "react-router-dom";
 import { RequireCapability } from "../../lib/auth/RequireCapability";
 import { OrganizationDetailPage } from "./OrganizationDetailPage";
 import { OrganizationMembersPage } from "./OrganizationMembersPage";
@@ -13,6 +16,14 @@ export const organizationRoutes = (
           <OrganizationsPage />
         </RequireCapability>
       }
+    />
+    <Route
+      path="/organizations/domains"
+      element={<Navigate to="/dashboard" replace />}
+    />
+    <Route
+      path="/organizations/units"
+      element={<Navigate to="/dashboard" replace />}
     />
     <Route
       path="/organizations/:organizationId"

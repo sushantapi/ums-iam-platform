@@ -28,6 +28,7 @@ import {
   Workflow,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { AdminCapability } from "../../lib/auth/capabilities";
 
 export type ScreenStatus = "Live starter" | "Blueprint" | "Roadmap";
 
@@ -42,12 +43,14 @@ export type ScreenBlueprint = {
   dataSources: string[];
   widgets: string[];
   hasCustomStarter?: boolean;
+  requiredCapability?: AdminCapability;
 };
 
 export const screenBlueprints: ScreenBlueprint[] = [
   {
     title: "Dashboard",
     path: "/dashboard",
+    requiredCapability: "dashboard.read",
     section: "Command Center",
     status: "Live starter",
     icon: LayoutDashboard,
@@ -60,6 +63,7 @@ export const screenBlueprints: ScreenBlueprint[] = [
   {
     title: "Users",
     path: "/users",
+    requiredCapability: "users.read",
     section: "Directory",
     status: "Live starter",
     icon: Users,
@@ -83,8 +87,9 @@ export const screenBlueprints: ScreenBlueprint[] = [
   {
     title: "Organizations",
     path: "/organizations",
+    requiredCapability: "organizations.read",
     section: "Tenancy",
-    status: "Blueprint",
+    status: "Live starter",
     icon: Building2,
     summary: "Tenant records, membership health, lifecycle, quotas, and settings.",
     primaryActions: ["Create tenant", "Suspend tenant", "Export tenant data"],
@@ -117,6 +122,7 @@ export const screenBlueprints: ScreenBlueprint[] = [
   {
     title: "Role Assignments",
     path: "/roles/assignments",
+    requiredCapability: "roles.manage",
     section: "Access Control",
     status: "Live starter",
     icon: BadgeCheck,
@@ -129,8 +135,9 @@ export const screenBlueprints: ScreenBlueprint[] = [
   {
     title: "Roles",
     path: "/roles",
+    requiredCapability: "roles.read",
     section: "Access Control",
-    status: "Blueprint",
+    status: "Live starter",
     icon: ShieldCheck,
     summary: "Platform, tenant, and application roles with scoped permissions.",
     primaryActions: ["Create role", "Clone role", "Archive role"],
@@ -141,8 +148,9 @@ export const screenBlueprints: ScreenBlueprint[] = [
   {
     title: "Permissions",
     path: "/permissions",
+    requiredCapability: "roles.read",
     section: "Access Control",
-    status: "Blueprint",
+    status: "Live starter",
     icon: FileKey2,
     summary: "Stable resource-action permission inventory and ownership.",
     primaryActions: ["Create permission", "Import permissions", "Mark deprecated"],
@@ -153,6 +161,7 @@ export const screenBlueprints: ScreenBlueprint[] = [
   {
     title: "Access Grants",
     path: "/grants",
+    requiredCapability: "roles.read",
     section: "Access Control",
     status: "Live starter",
     icon: BadgeCheck,
@@ -220,6 +229,7 @@ export const screenBlueprints: ScreenBlueprint[] = [
   {
       title: "Sessions",
       path: "/operations/sessions",
+    requiredCapability: "sessions.read",
       section: "Operations",
       status: "Live starter",
     icon: Activity,
@@ -309,6 +319,7 @@ export const screenBlueprints: ScreenBlueprint[] = [
   {
     title: "Audit Logs",
     path: "/audit/logs",
+    requiredCapability: "audit.read",
     section: "Evidence",
     status: "Live starter",
     icon: ScrollText,
