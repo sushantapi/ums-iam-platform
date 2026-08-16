@@ -108,23 +108,18 @@ export function UsersPage() {
       <DataTable
         rows={users.content as Record<string, unknown>[]}
         fallback="No users returned from the admin API."
-        onRowClick={(row) => navigate(`/users/${String(row.id ?? row.userId)}`)}
+        onRowClick={(row) => navigate(`/users/${String(row.id)}`)}
         columns={[
           {
             key: "id",
             label: "ID",
-            render: (row) => String(row.id ?? row.userId ?? "-"),
+            render: (row) => String(row.id),
           },
           {
             key: "fullName",
             label: "Name",
             render: (row) =>
-              String(
-                row.fullName ||
-                  [row.firstName, row.lastName].filter(Boolean).join(" ") ||
-                  row.username ||
-                  "-",
-              ),
+              [row.firstName, row.lastName].filter(Boolean).join(" ") || "-",
           },
           {
             key: "email",
@@ -134,7 +129,7 @@ export function UsersPage() {
             key: "actions",
             label: "Actions",
             render: (row) => {
-              const userId = String(row.id ?? row.userId ?? "");
+              const userId = String(row.id);
 
               return (
                 <select

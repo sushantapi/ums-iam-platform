@@ -106,21 +106,11 @@ export type DashboardResponse = {
   };
 };
 export type UserSummaryResponse = {
-  id?: number | string;
-  userId?: number | string;
-  firstName?: string;
-  lastName?: string;
-  username?: string;
-  email?: string;
-  fullName?: string;
-  status?: string;
-  organizationName?: string;
-  organizationId?: string;
-  roles?: string[];
-  lastLoginAt?: string;
-  createdAt?: string;
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
 };
-
 export type UserDetailResponse = {
   id: string;
   firstName?: string;
@@ -272,17 +262,15 @@ function normalizePage<T>(payload: T[] | PageResponse<T>, page: number, size: nu
 
 export const adminApi = {
   dashboard: () => request<DashboardResponse>("dashboard", "/api/v1/admin/dashboard"),
-  users: async (query: {
+  users: (query: {
     page: number;
     size: number;
     search?: string;
-  }) => {
-    const payload = await request<UserSummaryResponse[] | PageResponse<UserSummaryResponse>>(
+  }) =>
+    request<PageResponse<UserSummaryResponse>>(
       "users",
       withQuery("/api/v1/admin/users", query),
-    );
-    return normalizePage(payload, query.page, query.size);
-  },
+    ),
   userDetail: (userId: string) =>
     request<UserDetailResponse>("users", `/api/v1/admin/users/${userId}`),
   userRoles: (userId: string) =>
