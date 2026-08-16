@@ -1,4 +1,4 @@
-import { LogOut, Menu, Search } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 
@@ -33,19 +33,6 @@ export function AdminShell() {
 
       <main className="main-panel">
         <header className="topbar">
-          <button
-            className="icon-button"
-            aria-label="Toggle navigation"
-          >
-            <Menu size={18} />
-          </button>
-
-          <div className="search-box">
-            <Search size={16} />
-            <input
-              placeholder="Search users, roles, tenants, events"
-            />
-          </div>
 
           <div className="operator-chip">
             {user?.email ?? "Admin"}

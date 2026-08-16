@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { DataTable } from "../../components/ui/DataTable";
 import { ErrorState } from "../../components/ui/ErrorState";
-import { FilterBar } from "../../components/ui/FilterBar";
 import { LoadingState } from "../../components/ui/LoadingState";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Pagination } from "../../components/ui/Pagination";
@@ -14,9 +13,6 @@ const pageSize = 20;
 export function GrantsPage() {
   const canManageRoles = hasAdminCapability("roles.manage");
   const [page, setPage] = useState(0);
-  const [userId, setUserId] = useState("");
-  const [roleId, setRoleId] = useState("");
-  const [organizationId, setOrganizationId] = useState("");
   const [grants, setGrants] = useState<PageResponse<GrantResponse>>({
     content: [],
     page: 0,
@@ -29,20 +25,27 @@ export function GrantsPage() {
 
   useEffect(() => {
     setLoading(true);
-    adminApi
-      .grants({ page, size: pageSize, userId, roleId, organizationId })
-      .then(setGrants)
-      .catch((err: Error) => setError(`Grants could not be loaded: ${err.message}`))
-      .finally(() => setLoading(false));
-  }, [organizationId, page, roleId, userId]);
+    setError(undefined);
 
-  async function revoke(grantId: string) {
+    adminApi
+      .grants({ page, size: pageSize })
+      .then(setGrants)
+      .catch((err: Error) =>
+        setError(`Grants could not be loaded: ${err.message}`),
+      )
+      .finally(() => setLoading(false));
+  }, [page]);
+
+  async function revoke(assignmentId: string) {
     try {
-      await adminApi.revokeGrant(grantId);
+      await adminApi.revokeGrant(assignmentId);
+
       setGrants((current) => ({
         ...current,
         content: current.content.map((grant) =>
-          grant.id === grantId ? { ...grant, status: "REVOKED" } : grant,
+          grant.assignmentId === assignmentId
+            ? { ...grant, active: false }
+            : grant,
         ),
       }));
     } catch (err) {
@@ -55,48 +58,58 @@ export function GrantsPage() {
       <PageHeader
         eyebrow="Authorization"
         title="Access Grants"
-        description="Admin-wide entitlement inventory showing who has what role, in which tenant, and why."
+        description="Role assignment inventory reported by the admin API."
       />
-      <FilterBar>
-        <label>
-          User
-          <input value={userId} onChange={(event) => { setPage(0); setUserId(event.target.value); }} />
-        </label>
-        <label>
-          Role
-          <input value={roleId} onChange={(event) => { setPage(0); setRoleId(event.target.value); }} />
-        </label>
-        <label>
-          Organization
-          <input value={organizationId} onChange={(event) => { setPage(0); setOrganizationId(event.target.value); }} />
-        </label>
-      </FilterBar>
+
       {loading && <LoadingState label="Loading grants" />}
       {error && <ErrorState message={error} />}
+
       <DataTable
         rows={grants.content as Record<string, unknown>[]}
         fallback="No grants returned from the admin API."
         columns={[
-          { key: "principal", label: "Principal", render: (row) => String(row.principal ?? row.principalId ?? "-") },
-          { key: "principalType", label: "Type" },
+          { key: "assignmentId", label: "Assignment ID" },
           { key: "roleName", label: "Role" },
-          { key: "organizationName", label: "Organization", render: (row) => String(row.organizationName ?? row.organizationId ?? "-") },
-          { key: "scope", label: "Scope" },
-          { key: "assignedBy", label: "Assigned by" },
+          { key: "scopeType", label: "Scope type" },
+          { key: "scopeId", label: "Scope ID" },
           { key: "assignedAt", label: "Assigned at" },
-          { key: "status", label: "Status", render: (row) => <StatusBadge status={String(row.status ?? "Active")} /> },
+          {
+            key: "expiresAt",
+            label: "Expires at",
+            render: (row) => String(row.expiresAt ?? "Never"),
+          },
+          {
+            key: "active",
+            label: "Status",
+            render: (row) => (
+              <StatusBadge
+                status={row.active === false ? "Inactive" : "Active"}
+              />
+            ),
+          },
           {
             key: "actions",
             label: "Actions",
             render: (row) => (
-              <button className="inline-action" type="button" disabled={!canManageRoles} onClick={() => void revoke(String(row.id))}>
+              <button
+                className="inline-action"
+                type="button"
+                disabled={!canManageRoles || row.active === false}
+                onClick={() => void revoke(String(row.assignmentId))}
+              >
                 Revoke
               </button>
             ),
           },
         ]}
       />
-      <Pagination page={page} size={pageSize} totalElements={grants.totalElements} onPageChange={setPage} />
+
+      <Pagination
+        page={page}
+        size={pageSize}
+        totalElements={grants.totalElements}
+        onPageChange={setPage}
+      />
     </section>
   );
 }
