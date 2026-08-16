@@ -42,7 +42,7 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
   }
   if (url.pathname === "/api/v1/admin/permissions") return clone(mockPermissions.content) as T;
   if (url.pathname === "/api/v1/admin/grants") return pageFrom(mockGrants, url) as T;
-  if (url.pathname === "/api/v1/audit/events") return pageFrom(mockAuditEvents, url) as T;
+  if (url.pathname === "/api/v1/admin/audit/logs") return pageFrom(mockAuditEvents, url) as T;
 
   const userMatch = url.pathname.match(/^\/api\/v1\/admin\/users\/([^/]+)$/);
   if (userMatch) return { ...clone(mockUserDetail), id: userMatch[1] } as T;
@@ -51,7 +51,6 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
   if (url.pathname.endsWith("/sessions")) {
     return clone(mockSessions.content) as T;
   }
-  if (url.pathname.endsWith("/audit")) return pageFrom(mockAuditEvents, url) as T;
 
   const organizationMatch = url.pathname.match(/^\/api\/v1\/admin\/organizations\/([^/]+)$/);
   if (organizationMatch) {
@@ -62,11 +61,6 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
   if (roleMatch) return { ...clone(mockRoles.content[0]), id: roleMatch[1] } as T;
   if (url.pathname.endsWith("/permissions")) return clone(mockPermissions.content) as T;
   if (url.pathname.endsWith("/assignments")) return pageFrom(mockGrants, url) as T;
-
-  const eventMatch = url.pathname.match(/^\/api\/v1\/audit\/events\/([^/]+)$/);
-  if (eventMatch) {
-    return { ...clone(mockAuditEvents.content[0]), eventId: eventMatch[1] } as T;
-  }
 
   throw new Error(`No mock handler for ${method} ${url.pathname}`);
 }

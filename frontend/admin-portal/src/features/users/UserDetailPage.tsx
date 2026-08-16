@@ -306,7 +306,7 @@ export function UserDetailPage() {
                   <li key={event.auditId ?? event.id}>
                     {event.createdAt ?? event.timestamp ?? "unknown time"} -{" "}
                     {event.eventType ?? event.action ?? "event"} -{" "}
-                    {event.outcome ?? event.status ?? "recorded"}
+                    {event.outcome ?? "recorded"}
                   </li>
                 ))}
 

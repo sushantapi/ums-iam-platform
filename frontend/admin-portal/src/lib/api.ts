@@ -216,33 +216,23 @@ export type PermissionResponse = {
 };
 
 export type AuditLogResponse = {
-  id?: number | string;
-  auditId?: string;
-  eventId?: string;
-  action?: string;
-  actor?: string;
-  target?: string;
-  targetUser?: string;
-  organizationId?: string;
-  organization?: string;
-  username?: string;
-  userEmail?: string;
-  serviceName?: string;
-  module?: string;
-  endpoint?: string;
-  method?: string;
-  ipAddress?: string;
-  userAgent?: string;
-  correlationId?: string;
-  traceId?: string;
-  eventType?: string;
-  timestamp?: string;
-  createdAt?: string;
-  status?: string;
-  outcome?: string;
-  details?: string;
-  metadata?: Record<string, unknown>;
-  changedFields?: Array<{ field: string; before?: string; after?: string }>;
+  id: number | null;
+  auditId: string | null;
+  eventId: string | null;
+  eventType: string | null;
+  action: string | null;
+  actor: string | null;
+  target: string | null;
+  username: string | null;
+  userEmail: string | null;
+  serviceName: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  ipAddress: string | null;
+  outcome: string | null;
+  details: string | null;
+  timestamp: string | null;
+  createdAt: string | null;
 };
 
 export type AdminSessionResponse = {
@@ -318,13 +308,14 @@ export const adminApi = {
     request<void>("sessions", `/api/v1/admin/users/${userId}/sessions/revoke-all`, {
       method: "POST",
     }),
-  userAudit: async (userId: string, query: { page: number; size: number }) => {
-    const payload = await request<AuditLogResponse[] | PageResponse<AuditLogResponse>>(
+  userAudit: (userId: string, query: { page: number; size: number }) =>
+    request<PageResponse<AuditLogResponse>>(
       "audit",
-      withQuery("/api/v1/audit/events", { ...query, target: userId }),
-    );
-    return normalizePage(payload, query.page, query.size);
-  },
+      withQuery("/api/v1/admin/audit/logs", {
+        ...query,
+        target: userId,
+      }),
+    ),
   sessions: (query: {
     page: number;
     size: number;
@@ -357,24 +348,18 @@ export const adminApi = {
       "permissions",
       "/api/v1/admin/permissions",
     ),
-  auditLogs: async (query: {
+  auditLogs: (query: {
     page: number;
     size: number;
     actor?: string;
     target?: string;
-    organizationId?: string;
     eventType?: string;
     serviceName?: string;
-    outcome?: string;
-    from?: string;
-    to?: string;
-  }) => {
-    const payload = await request<AuditLogResponse[] | PageResponse<AuditLogResponse>>(
+  }) =>
+    request<PageResponse<AuditLogResponse>>(
       "audit",
-      withQuery("/api/v1/audit/events", query),
-    );
-    return normalizePage(payload, query.page, query.size);
-  },
+      withQuery("/api/v1/admin/audit/logs", query),
+    ),
   assignRole: (body: {
     userId: string;
     roleName: string;
@@ -413,6 +398,4 @@ export const adminApi = {
       "organizations",
       `/api/v1/admin/organizations/${organizationId}/members`,
     ),
-  auditEvent: (eventId: string) =>
-    request<AuditLogResponse>("audit", `/api/v1/audit/events/${eventId}`),
 };
