@@ -177,16 +177,12 @@ export type UserSessionResponse = {
 };
 
 export type OrganizationResponse = {
-  id?: string;
-  organizationId?: string;
-  name?: string;
-  slug?: string;
-  status?: string;
-  memberCount?: number;
-  createdAt?: string;
-  admins?: string[];
-  invitationsCount?: number;
-  settingsSummary?: string;
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  ownerId: string | null;
+  status: string;
 };
 
 export type OrganizationMemberResponse = {

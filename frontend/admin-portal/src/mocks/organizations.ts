@@ -3,13 +3,12 @@ import type { OrganizationResponse, PageResponse } from "../lib/api";
 export const mockOrganizations: PageResponse<OrganizationResponse> = {
   content: [
     {
-      id: "org-acme",
+      id: "11111111-1111-4111-8111-111111111111",
       name: "Acme",
       slug: "acme",
+      description: "Example organization",
+      ownerId: "22222222-2222-4222-8222-222222222222",
       status: "ACTIVE",
-      memberCount: 42,
-      invitationsCount: 3,
-      createdAt: "2026-05-20T09:00:00",
     },
   ],
   page: 0,
