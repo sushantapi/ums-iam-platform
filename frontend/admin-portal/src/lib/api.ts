@@ -127,30 +127,50 @@ export type UserSummaryResponse = {
   createdAt?: string;
 };
 
-export type UserDetailResponse = UserSummaryResponse & {
-  phone?: string;
-  verified?: boolean;
+export type UserDetailResponse = {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  mobile?: string;
+  active?: boolean;
+  status?: string;
+  locked?: boolean;
+  lockedUntil?: string;
   lastLoginAt?: string;
-  lastPasswordResetAt?: string;
-  mfaEnabled?: boolean;
-  permissions?: string[];
+};
+
+export type UserRoleAssignmentResponse = {
+  assignmentId: string;
+  roleId: string;
+  roleName: string;
+  scopeType?: string;
+  scopeId?: string;
+  active: boolean;
+  assignedAt?: string;
+  expiresAt?: string;
 };
 
 export type UserOrganizationResponse = {
   id: string;
   name: string;
-  role?: string;
+  slug?: string;
+  description?: string;
+  ownerId?: string;
   status?: string;
-  joinedAt?: string;
 };
 
 export type UserSessionResponse = {
   id: string;
+  userId?: string;
+  userName?: string;
+  organizationId?: string;
+  organizationName?: string;
   device?: string;
+  client?: string;
   ipAddress?: string;
   issuedAt?: string;
   lastSeenAt?: string;
-  createdAt?: string;
   expiresAt?: string;
   revokedAt?: string;
   status?: string;
@@ -317,7 +337,7 @@ export const adminApi = {
   userDetail: (userId: string) =>
     request<UserDetailResponse>("users", `/api/v1/admin/users/${userId}`),
   userRoles: (userId: string) =>
-    request<RoleResponse[]>("roles", `/api/v1/admin/users/${userId}/roles`),
+    request<UserRoleAssignmentResponse[]>("roles", `/api/v1/admin/users/${userId}/roles`),
   userOrganizations: (userId: string) =>
     request<UserOrganizationResponse[]>(
       "organizations",
