@@ -5,6 +5,11 @@ export interface CreateOrganizationRequest {
   description?: string;
 }
 
+export interface AddOrganizationMemberRequest {
+  userId: string;
+  role: "ADMIN" | "MEMBER";
+}
+
 export interface CreatedOrganization {
   id: string;
   name: string;
@@ -24,6 +29,25 @@ class OrganizationAdminService {
     );
 
     return response.data;
+  }
+
+  async addMember(
+    organizationId: string,
+    request: AddOrganizationMemberRequest,
+  ): Promise<void> {
+    await apiClient.post<void>(
+      `/admin/organizations/${organizationId}/members`,
+      request,
+    );
+  }
+
+  async removeMember(
+    organizationId: string,
+    userId: string,
+  ): Promise<void> {
+    await apiClient.delete<void>(
+      `/admin/organizations/${organizationId}/members/${userId}`,
+    );
   }
 }
 
