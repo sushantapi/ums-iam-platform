@@ -17,7 +17,7 @@ import {
   hasAdminCapability,
 } from "../../lib/auth/capabilities";
 
-function formatDate(value?: string) {
+function formatDate(value: string | null | undefined) {
   if (!value) return "Not reported";
 
   const date = new Date(value);
@@ -163,7 +163,7 @@ export function UserDetailPage() {
             <div>
               <span>Active</span>
               <strong>
-                {user.active === undefined
+                {user.active == null
                   ? "Not reported"
                   : user.active
                     ? "Yes"
@@ -174,7 +174,7 @@ export function UserDetailPage() {
             <div>
               <span>Locked</span>
               <strong>
-                {user.locked === undefined
+                {user.locked == null
                   ? "Not reported"
                   : user.locked
                     ? "Yes"
@@ -208,7 +208,7 @@ export function UserDetailPage() {
                 <li>Status: {user.status ?? "Not reported"}</li>
                 <li>
                   Active:{" "}
-                  {user.active === undefined
+                  {user.active == null
                     ? "Not reported"
                     : user.active
                       ? "Yes"
@@ -216,7 +216,7 @@ export function UserDetailPage() {
                 </li>
                 <li>
                   Locked:{" "}
-                  {user.locked === undefined
+                  {user.locked == null
                     ? "Not reported"
                     : user.locked
                       ? "Yes"

@@ -23,5 +23,6 @@ export const mockUserDetail: UserDetailResponse = {
   active: true,
   status: "ACTIVE",
   locked: false,
+  lockedUntil: null,
   lastLoginAt: "2026-06-21T09:00:00Z",
 };

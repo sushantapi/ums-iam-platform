@@ -113,37 +113,34 @@ export type UserSummaryResponse = {
 };
 export type UserDetailResponse = {
   id: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  mobile?: string;
-  active?: boolean;
-  status?: string;
-  locked?: boolean;
-  lockedUntil?: string;
-  lastLoginAt?: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  mobile: string | null;
+  active: boolean | null;
+  status: string | null;
+  locked: boolean | null;
+  lockedUntil: string | null;
+  lastLoginAt: string | null;
 };
-
 export type UserRoleAssignmentResponse = {
   assignmentId: string;
   roleId: string;
   roleName: string;
-  scopeType?: string;
-  scopeId?: string;
+  scopeType: string | null;
+  scopeId: string | null;
   active: boolean;
-  assignedAt?: string;
-  expiresAt?: string;
+  assignedAt: string | null;
+  expiresAt: string | null;
 };
-
 export type UserOrganizationResponse = {
   id: string;
   name: string;
-  slug?: string;
-  description?: string;
-  ownerId?: string;
-  status?: string;
+  slug: string;
+  description: string | null;
+  ownerId: string | null;
+  status: string;
 };
-
 export type UserSessionResponse = {
   id: string;
   userId: string;
