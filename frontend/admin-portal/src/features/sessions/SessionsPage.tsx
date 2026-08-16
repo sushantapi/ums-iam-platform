@@ -75,7 +75,6 @@ export function SessionsPage() {
         eyebrow="Security Operations"
         title="Sessions"
         description="Investigate active, expired, and revoked sessions across users, tenants, devices, and clients."
-        actions={<button className="button-secondary" disabled={!canRevokeSessions}>Revoke suspicious</button>}
       />
       <FilterBar>
         <label>
@@ -154,7 +153,7 @@ export function SessionsPage() {
       <ConfirmActionModal
         open={Boolean(pendingAction)}
         title={pendingAction?.type === "user" ? "Revoke all user sessions?" : "Revoke this session?"}
-        body="This prevents refresh-token renewal. Existing access tokens remain valid until their configured expiry."
+        body="This revokes the selected session and may require the affected user to sign in again."
         confirmLabel="Revoke"
         pending={mutation.pending}
         onCancel={() => setPendingAction(undefined)}

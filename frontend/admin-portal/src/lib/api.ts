@@ -162,18 +162,18 @@ export type UserOrganizationResponse = {
 
 export type UserSessionResponse = {
   id: string;
-  userId?: string;
-  userName?: string;
-  organizationId?: string;
-  organizationName?: string;
-  device?: string;
-  client?: string;
-  ipAddress?: string;
-  issuedAt?: string;
-  lastSeenAt?: string;
-  expiresAt?: string;
-  revokedAt?: string;
-  status?: string;
+  userId: string;
+  userName: string;
+  organizationId: string | null;
+  organizationName: string | null;
+  device: string | null;
+  client: string | null;
+  ipAddress: string | null;
+  issuedAt: string;
+  lastSeenAt: string | null;
+  expiresAt: string;
+  revokedAt: string | null;
+  status: string;
 };
 
 export type OrganizationResponse = {
@@ -247,18 +247,18 @@ export type AuditLogResponse = {
 
 export type AdminSessionResponse = {
   id: string;
-  userId?: string;
-  userName?: string;
-  organizationId?: string;
-  organizationName?: string;
-  device?: string;
-  client?: string;
-  issuedAt?: string;
-  lastSeenAt?: string;
-  expiresAt?: string;
-  revokedAt?: string;
-  status?: string;
-  ipAddress?: string;
+  userId: string;
+  userName: string;
+  organizationId: string | null;
+  organizationName: string | null;
+  device: string | null;
+  client: string | null;
+  ipAddress: string | null;
+  issuedAt: string;
+  lastSeenAt: string | null;
+  expiresAt: string;
+  revokedAt: string | null;
+  status: string;
 };
 
 export type GrantResponse = {
@@ -325,7 +325,7 @@ export const adminApi = {
     );
     return normalizePage(payload, query.page, query.size);
   },
-  sessions: async (query: {
+  sessions: (query: {
     page: number;
     size: number;
     userId?: string;
@@ -333,13 +333,11 @@ export const adminApi = {
     status?: string;
     from?: string;
     to?: string;
-  }) => {
-    const payload = await request<AdminSessionResponse[] | PageResponse<AdminSessionResponse>>(
+  }) =>
+    request<PageResponse<AdminSessionResponse>>(
       "sessions",
       withQuery("/api/v1/admin/sessions", query),
-    );
-    return normalizePage(payload, query.page, query.size);
-  },
+    ),
   revokeSession: (sessionId: string) =>
     request<void>("sessions", `/api/v1/admin/sessions/${sessionId}/revoke`, { method: "POST" }),
   activateUser: (userId: string) =>

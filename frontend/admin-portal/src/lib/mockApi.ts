@@ -11,7 +11,6 @@ import {
 } from "../mocks";
 import type {
   PageResponse,
-  UserSessionResponse,
 } from "./api";
 
 function clone<T>(value: T): T {
@@ -50,15 +49,7 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
   if (url.pathname.endsWith("/roles")) return clone(mockRoles.content) as T;
   if (url.pathname.endsWith("/organizations")) return [] as T;
   if (url.pathname.endsWith("/sessions")) {
-    return clone(
-      mockSessions.content.map<UserSessionResponse>((session) => ({
-        id: session.id,
-        device: session.device,
-        ipAddress: session.ipAddress,
-        lastSeenAt: session.lastSeenAt,
-        createdAt: session.issuedAt,
-      })),
-    ) as T;
+    return clone(mockSessions.content) as T;
   }
   if (url.pathname.endsWith("/audit")) return pageFrom(mockAuditEvents, url) as T;
 
