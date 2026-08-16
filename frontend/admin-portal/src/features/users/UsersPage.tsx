@@ -6,7 +6,6 @@ import { FilterBar } from "../../components/ui/FilterBar";
 import { LoadingState } from "../../components/ui/LoadingState";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Pagination } from "../../components/ui/Pagination";
-import { StatusBadge } from "../../components/ui/StatusBadge";
 import { adminApi, type PageResponse, type UserSummaryResponse } from "../../lib/api";
 import { hasAdminCapability } from "../../lib/auth/capabilities";
 import { useAdminListState } from "../../lib/hooks/useAdminListState";
@@ -130,25 +129,6 @@ export function UsersPage() {
           {
             key: "email",
             label: "Email",
-          },
-          {
-            key: "organizationName",
-            label: "Organization",
-            render: (row) =>
-              String(row.organizationName ?? row.organizationId ?? "-"),
-          },
-          {
-            key: "status",
-            label: "Status",
-            render: (row) => (
-              <StatusBadge status={String(row.status ?? "Unknown")} />
-            ),
-          },
-          {
-            key: "roles",
-            label: "Roles",
-            render: (row) =>
-              Array.isArray(row.roles) ? row.roles.join(", ") : "-",
           },
           {
             key: "actions",
