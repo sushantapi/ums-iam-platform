@@ -8,7 +8,7 @@ WORKDIR /workspace
 
 COPY . .
 
-RUN chmod +x mvnw
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
 
 ARG SERVICE_MODULE
 
