@@ -235,20 +235,6 @@ export type GrantResponse = {
   expiresAt: string | null;
 };
 
-function normalizePage<T>(payload: T[] | PageResponse<T>, page: number, size: number): PageResponse<T> {
-  if (Array.isArray(payload)) {
-    return {
-      content: payload,
-      totalElements: payload.length,
-      totalPages: payload.length > 0 ? 1 : 0,
-      page,
-      size,
-    };
-  }
-
-  return payload;
-}
-
 export const adminApi = {
   dashboard: () => request<DashboardResponse>("dashboard", "/api/v1/admin/dashboard"),
   users: (query: {
@@ -352,13 +338,15 @@ export const adminApi = {
     ),
   revokeGrant: (grantId: string) =>
     request<void>("grants", `/api/v1/admin/grants/${grantId}`, { method: "DELETE" }),
-  organizations: async (query: { page: number; size: number; search?: string }) => {
-    const payload = await request<OrganizationResponse[] | PageResponse<OrganizationResponse>>(
+  organizations: (query: {
+    page: number;
+    size: number;
+    search?: string;
+  }) =>
+    request<PageResponse<OrganizationResponse>>(
       "organizations",
       withQuery("/api/v1/admin/organizations", query),
-    );
-    return normalizePage(payload, query.page, query.size);
-  },
+    ),
   organizationDetail: (organizationId: string) =>
     request<OrganizationResponse>(
       "organizations",
