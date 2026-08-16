@@ -1,5 +1,6 @@
 import { mockRequest } from "./mockApi";
 import { runtimeConfig, shouldUseMock, type MockFeature } from "./runtimeConfig";
+import { useAuthStore } from "../store/authStore";
 
 export type PageResponse<T> = {
   content: T[];
@@ -13,32 +14,51 @@ export type QueryValue = string | number | boolean | undefined;
 
 function withQuery(path: string, query: Record<string, QueryValue>) {
   const params = new URLSearchParams();
+
   Object.entries(query).forEach(([key, value]) => {
     if (value !== undefined && value !== "") {
       params.set(key, String(value));
     }
   });
+
   const queryString = params.toString();
   return queryString ? `${path}?${queryString}` : path;
 }
 
-async function request<T>(feature: MockFeature, path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  feature: MockFeature,
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
   if (shouldUseMock(feature)) {
     return mockRequest<T>(path, init);
   }
 
-  const token = localStorage.getItem("ums_admin_access_token");
+  const accessToken = useAuthStore.getState().accessToken;
+
   const response = await fetch(`${runtimeConfig.apiBaseUrl}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : {}),
       ...init?.headers,
     },
   });
 
+  if (response.status === 401) {
+    useAuthStore.getState().clearSession();
+
+    if (window.location.pathname !== "/login") {
+      window.location.assign("/login");
+    }
+  }
+
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Request failed: ${response.status} ${response.statusText}`,
+    );
   }
 
   if (response.status === 204) {
@@ -48,7 +68,6 @@ async function request<T>(feature: MockFeature, path: string, init?: RequestInit
   const text = await response.text();
   return (text ? JSON.parse(text) : undefined) as T;
 }
-
 export type DashboardResponse = {
   users?: {
     total?: number;

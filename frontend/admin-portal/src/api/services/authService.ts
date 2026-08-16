@@ -1,20 +1,11 @@
-import apiClient from '../apiClient';
+import apiClient from "../apiClient";
 
 export interface LoginRequest {
   email: string;
   password: string;
-}
-
-export interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    roles: string[];
-  };
+  deviceInfo?: string;
+  client?: string;
+  organizationId?: string;
 }
 
 export interface RegisterRequest {
@@ -22,6 +13,17 @@ export interface RegisterRequest {
   password: string;
   firstName: string;
   lastName: string;
+  externalId?: string;
+  provider?: string;
+}
+
+export interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
+  userId: string;
+  email: string;
 }
 
 export interface ApiResponse<T> {
@@ -31,54 +33,49 @@ export interface ApiResponse<T> {
 }
 
 class AuthService {
-  async login(credentials: LoginRequest): Promise<LoginResponse> {
-    try {
-      const response = await apiClient.post<ApiResponse<LoginResponse>>(
-        '/auth/login',
-        credentials
-      );
-      return response.data.data as LoginResponse;
-    } catch (error) {
-      throw this.handleError(error);
-    }
+  async login(credentials: LoginRequest): Promise<TokenResponse> {
+    const response = await apiClient.post<ApiResponse<TokenResponse>>(
+      "/auth/login",
+      credentials,
+    );
+
+    return this.requireData(response.data, "Login response did not contain token data");
   }
 
-  async register(data: RegisterRequest): Promise<LoginResponse> {
-    try {
-      const response = await apiClient.post<ApiResponse<LoginResponse>>(
-        '/auth/register',
-        data
-      );
-      return response.data.data as LoginResponse;
-    } catch (error) {
-      throw this.handleError(error);
-    }
+  async register(data: RegisterRequest): Promise<TokenResponse> {
+    const response = await apiClient.post<ApiResponse<TokenResponse>>(
+      "/auth/register",
+      data,
+    );
+
+    return this.requireData(
+      response.data,
+      "Registration response did not contain token data",
+    );
   }
 
   async logout(): Promise<void> {
-    try {
-      await apiClient.post('/auth/logout');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+    await apiClient.post<void>("/auth/logout");
   }
 
-  async refreshToken(): Promise<string> {
-    try {
-      const response = await apiClient.post<ApiResponse<{ accessToken: string }>>(
-        '/auth/refresh'
-      );
-      return response.data.data?.accessToken || '';
-    } catch (error) {
-      throw this.handleError(error);
-    }
+  async refreshToken(refreshToken: string): Promise<TokenResponse> {
+    const response = await apiClient.post<ApiResponse<TokenResponse>>(
+      "/auth/refresh",
+      { refreshToken },
+    );
+
+    return this.requireData(
+      response.data,
+      "Refresh response did not contain token data",
+    );
   }
 
-  private handleError(error: unknown): Error {
-    if (error instanceof Error) {
-      return error;
+  private requireData<T>(response: ApiResponse<T>, fallbackMessage: string): T {
+    if (!response.success || !response.data) {
+      throw new Error(response.message || fallbackMessage);
     }
-    return new Error('An unexpected error occurred');
+
+    return response.data;
   }
 }
 

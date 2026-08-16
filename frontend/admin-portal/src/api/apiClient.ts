@@ -1,6 +1,17 @@
-import axios, { AxiosInstance, AxiosError, type AxiosRequestConfig } from 'axios';
+import axios, {
+  AxiosError,
+  AxiosInstance,
+  type AxiosRequestConfig,
+} from "axios";
+import { useAuthStore } from "../store/authStore";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+const configuredBaseUrl = (
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080"
+).replace(/\/+$/, "");
+
+const API_BASE_URL = configuredBaseUrl.endsWith("/api/v1")
+  ? configuredBaseUrl
+  : `${configuredBaseUrl}/api/v1`;
 
 export interface ApiErrorResponse {
   errorCode: string;
@@ -20,7 +31,7 @@ class ApiClient {
     this.client = axios.create({
       baseURL: API_BASE_URL,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
@@ -28,26 +39,29 @@ class ApiClient {
   }
 
   private setupInterceptors() {
-    this.client.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem('accessToken');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
+    this.client.interceptors.request.use((config) => {
+      const accessToken = useAuthStore.getState().accessToken;
+
+      if (accessToken) {
+        config.headers.Authorization = `Bearer ${accessToken}`;
+      }
+
+      return config;
+    });
 
     this.client.interceptors.response.use(
       (response) => response,
       (error: AxiosError<ApiErrorResponse>) => {
         if (error.response?.status === 401) {
-          localStorage.removeItem('accessToken');
-          window.location.href = '/login';
+          useAuthStore.getState().clearSession();
+
+          if (window.location.pathname !== "/login") {
+            window.location.assign("/login");
+          }
         }
+
         return Promise.reject(error);
-      }
+      },
     );
   }
 
@@ -69,16 +83,6 @@ class ApiClient {
 
   delete<T>(url: string, config?: AxiosRequestConfig) {
     return this.client.delete<T>(url, config);
-  }
-
-  setAuthToken(token: string) {
-    localStorage.setItem('accessToken', token);
-    this.client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  }
-
-  clearAuthToken() {
-    localStorage.removeItem('accessToken');
-    delete this.client.defaults.headers.common['Authorization'];
   }
 }
 
