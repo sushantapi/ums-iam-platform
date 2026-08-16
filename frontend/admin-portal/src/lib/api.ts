@@ -174,20 +174,12 @@ export type OrganizationMemberResponse = {
 };
 
 export type RoleResponse = {
-  id?: string;
-  roleId?: string;
-  name?: string;
-  roleName?: string;
-  scopeType?: "platform" | "organization" | string;
-  description?: string;
-  permissionCount?: number;
-  assignedUserCount?: number;
-  system?: boolean;
-  active?: boolean;
-  systemRole?: boolean;
-  assignableBy?: string[];
+  id: string;
+  name: string;
+  description: string | null;
+  system: boolean;
+  active: boolean;
 };
-
 export type PermissionResponse = {
   id: string;
   code: string;

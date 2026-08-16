@@ -3,13 +3,11 @@ import type { PageResponse, PermissionResponse, RoleResponse } from "../lib/api"
 export const mockRoles: PageResponse<RoleResponse> = {
   content: [
     {
-      id: "role-org-admin",
+      id: "d2e53624-8df3-4acb-b78d-c6eab765fc88",
       name: "ORG_ADMIN",
-      scopeType: "organization",
       description: "Organization administrator",
-      permissionCount: 18,
-      assignedUserCount: 9,
-      systemRole: true,
+      system: true,
+      active: true,
     },
   ],
   page: 0,
@@ -17,7 +15,6 @@ export const mockRoles: PageResponse<RoleResponse> = {
   totalElements: 1,
   totalPages: 1,
 };
-
 export const mockPermissions: PageResponse<PermissionResponse> = {
   content: [
     {
