@@ -34,7 +34,7 @@ export function RoleAssignmentsPage() {
     adminApi
       .roles()
       .then((payload) => {
-        const items = Array.isArray(payload) ? payload : payload.content;
+        const items = payload;
 
         setRoles(items);
 

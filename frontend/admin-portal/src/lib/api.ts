@@ -386,25 +386,12 @@ export const adminApi = {
     request<void>("users", `/api/v1/admin/users/${userId}/suspend`, { method: "POST" }),
   unlockUser: (userId: string) =>
     request<void>("users", `/api/v1/admin/users/${userId}/unlock`, { method: "POST" }),
-  roles: async (query?: { page?: number; size?: number; scopeType?: string; search?: string }) => {
-    if (!query) return request<RoleResponse[]>("roles", "/api/v1/admin/roles");
-    const payload = await request<RoleResponse[] | PageResponse<RoleResponse>>(
-      "roles",
-      withQuery("/api/v1/admin/roles", query),
-    );
-    return normalizePage(payload, query.page ?? 0, query.size ?? 20);
-  },
+  roles: () =>
+    request<RoleResponse[]>("roles", "/api/v1/admin/roles"),
   roleDetail: (roleId: string) =>
     request<RoleResponse>("roles", `/api/v1/admin/roles/${roleId}`),
   rolePermissions: (roleId: string) =>
     request<PermissionResponse[]>("roles", `/api/v1/admin/roles/${roleId}/permissions`),
-  roleAssignments: async (roleId: string, query: { page: number; size: number }) => {
-    const payload = await request<GrantResponse[] | PageResponse<GrantResponse>>(
-      "grants",
-      withQuery(`/api/v1/admin/roles/${roleId}/assignments`, query),
-    );
-    return normalizePage(payload, query.page, query.size);
-  },
   permissions: async (query: { page: number; size: number; search?: string }) => {
     const payload = await request<PermissionResponse[] | PageResponse<PermissionResponse>>(
       "permissions",
