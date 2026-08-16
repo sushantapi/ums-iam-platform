@@ -27,7 +27,9 @@ import com.ums.authorization.repository.UserRoleRepository;
 import com.ums.authorization.service.AuthorizationService;
 import com.ums.authorization.service.RoleService;
 import com.ums.authorization.service.UserRoleService;
+import com.ums.events.event.AuditEvent;
 import com.ums.events.event.role.RoleAssignedEvent;
+import com.ums.events.publisher.AuditPublisher;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +51,9 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 
 	private final RoleRepository roleRepository;
 
-	private final RoleEventPublisher roleEventPublisher;
+        private final RoleEventPublisher roleEventPublisher;
+
+        private final AuditPublisher auditPublisher;
 
 	@Override
 	public String assignRole(AssignRoleRequest request) {
@@ -83,12 +87,29 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 		 * return "Role Assigned Successfully";
 		 */
 
-		userRoleService.assignRole(userRole);
+                UserRole savedAssignment = userRoleService.assignRole(userRole);
 
-		RoleAssignedEvent event = RoleAssignedEvent.builder().userId(request.getUserId()).roleId(role.getId())
-				.roleName(role.getName()).assignedAt(LocalDateTime.now()).build();
+                publishAuditEvent(AuditEvent.builder()
+                                .eventType("role.assigned")
+                                .serviceName("authorization-service")
+                                .userId(request.getAssignedBy() == null ? null : request.getAssignedBy().toString())
+                                .action("ROLE_ASSIGN")
+                                .entityType("ROLE_ASSIGNMENT")
+                                .entityId(savedAssignment.getId().toString())
+                                .details("Assigned role " + role.getName() + " to user " + request.getUserId()
+                                                + " in scope " + scopeType + ":" + scopeId)
+                                .timestamp(LocalDateTime.now())
+                                .build());
 
-		roleEventPublisher.publishRoleAssigned(event);
+                RoleAssignedEvent event = RoleAssignedEvent.builder()
+                                .userId(request.getUserId())
+                                .roleId(role.getId())
+                                .roleName(role.getName())
+                                .assignedBy(request.getAssignedBy())
+                                .assignedAt(LocalDateTime.now())
+                                .build();
+
+                roleEventPublisher.publishRoleAssigned(event);
 
 		return "Role Assigned Successfully";
 	}
@@ -219,7 +240,19 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 		return "Permission assigned successfully";
 	}
 
-	private String normalizeScopeType(String scopeType) {
+        private void publishAuditEvent(AuditEvent event) {
+                try {
+                        auditPublisher.publish(event);
+                } catch (Exception ex) {
+                        log.error(
+                                        "Failed to publish RBAC audit event eventType={} entityId={}",
+                                        event.getEventType(),
+                                        event.getEntityId(),
+                                        ex);
+                }
+        }
+
+        private String normalizeScopeType(String scopeType) {
 		if (scopeType == null || scopeType.isBlank()) {
 			return "PLATFORM";
 		}

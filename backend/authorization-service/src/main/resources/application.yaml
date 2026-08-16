@@ -18,6 +18,9 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: false
+  rabbitmq:
+    publisher-confirm-type: correlated
+    publisher-returns: true
 
 management:
   endpoints:

@@ -15,9 +15,11 @@ import com.ums.admin.dto.response.UserRoleAssignmentResponse;
 import com.ums.admin.service.AdminRoleService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AdminRoleServiceImpl implements AdminRoleService {
 
 	private final RoleServiceClient roleServiceClient;
@@ -68,7 +70,16 @@ public class AdminRoleServiceImpl implements AdminRoleService {
 
 	@Override
 	public void revokeRoleAssignment(UUID assignmentId, UUID actorUserId) {
-		UUID userId = roleServiceClient.revokeRoleAssignment(assignmentId);
-		authenticationServiceClient.revokeAllSessions(userId, actorUserId);
-	}
+        UUID userId = roleServiceClient.revokeRoleAssignment(assignmentId, actorUserId);
+
+        try {
+                authenticationServiceClient.revokeAllSessions(userId, actorUserId);
+        } catch (RuntimeException ex) {
+                log.warn(
+                                "Immediate session revocation unavailable after role revoke assignmentId={} userId={}; durable role-revocation event will reconcile it",
+                                assignmentId,
+                                userId,
+                                ex);
+        }
+}
 }

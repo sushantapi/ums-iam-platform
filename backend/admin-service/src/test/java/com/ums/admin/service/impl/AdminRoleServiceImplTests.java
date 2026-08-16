@@ -1,6 +1,8 @@
 package com.ums.admin.service.impl;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -35,7 +37,7 @@ class AdminRoleServiceImplTests {
         UUID userId = UUID.randomUUID();
         UUID actorUserId = UUID.randomUUID();
 
-        when(roleServiceClient.revokeRoleAssignment(assignmentId))
+        when(roleServiceClient.revokeRoleAssignment(assignmentId, actorUserId))
                 .thenReturn(userId);
 
         adminRoleService.revokeRoleAssignment(assignmentId, actorUserId);
@@ -45,7 +47,7 @@ class AdminRoleServiceImplTests {
                 authenticationServiceClient);
 
         inOrder.verify(roleServiceClient)
-                .revokeRoleAssignment(assignmentId);
+                .revokeRoleAssignment(assignmentId, actorUserId);
 
         inOrder.verify(authenticationServiceClient)
                 .revokeAllSessions(userId, actorUserId);
@@ -56,7 +58,7 @@ class AdminRoleServiceImplTests {
         UUID assignmentId = UUID.randomUUID();
         UUID actorUserId = UUID.randomUUID();
 
-        when(roleServiceClient.revokeRoleAssignment(assignmentId))
+        when(roleServiceClient.revokeRoleAssignment(assignmentId, actorUserId))
                 .thenThrow(new IllegalStateException("authorization unavailable"));
 
         assertThatThrownBy(() ->
@@ -67,4 +69,33 @@ class AdminRoleServiceImplTests {
 
         verifyNoInteractions(authenticationServiceClient);
     }
-}
+
+    @Test
+    void revokeRoleAssignmentFallsBackWhenAuthenticationUnavailable() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID actorUserId = UUID.randomUUID();
+
+        when(roleServiceClient.revokeRoleAssignment(assignmentId, actorUserId))
+                .thenReturn(userId);
+
+        doThrow(new IllegalStateException("authentication unavailable"))
+                .when(authenticationServiceClient)
+                .revokeAllSessions(userId, actorUserId);
+
+        assertThatCode(() ->
+                adminRoleService.revokeRoleAssignment(
+                        assignmentId,
+                        actorUserId))
+                .doesNotThrowAnyException();
+
+        InOrder inOrder = inOrder(
+                roleServiceClient,
+                authenticationServiceClient);
+
+        inOrder.verify(roleServiceClient)
+                .revokeRoleAssignment(assignmentId, actorUserId);
+
+        inOrder.verify(authenticationServiceClient)
+                .revokeAllSessions(userId, actorUserId);
+    }}

@@ -61,6 +61,12 @@ services:
       start_period: 30s
 
   discovery-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: discovery-service
+      args:
+        SERVICE_MODULE: discovery-service
     image: discovery-service:1.0
     container_name: ums-discovery-service
     restart: unless-stopped
@@ -81,6 +87,12 @@ services:
       start_period: 180s
 
   config-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: config-service
+      args:
+        SERVICE_MODULE: config-service
     image: config-service:1.0
     container_name: ums-config-service
     restart: unless-stopped
@@ -106,6 +118,12 @@ services:
       start_period: 180s
 
   authentication-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: authentication-service
+      args:
+        SERVICE_MODULE: authentication-service
     image: authentication-service:1.0
     container_name: ums-authentication-service
     restart: unless-stopped
@@ -161,6 +179,12 @@ services:
       start_period: 180s
 
   user-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: user-service
+      args:
+        SERVICE_MODULE: user-service
     image: user-service:1.0
     container_name: ums-user-service
     restart: unless-stopped
@@ -204,6 +228,12 @@ services:
       start_period: 180s
 
   authorization-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: authorization-service
+      args:
+        SERVICE_MODULE: authorization-service
     image: authorization-service:1.0
     container_name: ums-authorization-service
     restart: unless-stopped
@@ -233,6 +263,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
       redis:
         condition: service_healthy
       config-service:
@@ -247,6 +279,12 @@ services:
       start_period: 180s
 
   organization-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: organization-service
+      args:
+        SERVICE_MODULE: organization-service
     image: organization-service:1.0
     container_name: ums-organization-service
     restart: unless-stopped
@@ -285,7 +323,23 @@ services:
       retries: 5
       start_period: 180s
 
+  mailpit:
+    image: axllent/mailpit@sha256:d5ecbb067db3705fa953d79e1b7f81ef84038df67aba6c52825d8c02a1ea748a
+    container_name: ums-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - ums-network
+
   notification-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: notification-service
+      args:
+        SERVICE_MODULE: notification-service
     image: notification-service:1.0
     container_name: ums-notification-service
     restart: unless-stopped
@@ -302,11 +356,14 @@ services:
       SPRING_RABBITMQ_PORT: ${RABBITMQ_PORT}
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
-      MAIL_HOST: ${MAIL_HOST}
-      MAIL_PORT: ${MAIL_PORT}
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       MAIL_FROM: ${MAIL_FROM}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH}
+      MAIL_STARTTLS_ENABLE: ${MAIL_STARTTLS_ENABLE}
+      MAIL_STARTTLS_REQUIRED: ${MAIL_STARTTLS_REQUIRED}
       INTERNAL_GATEWAY_SECRET: ${INTERNAL_GATEWAY_SECRET}
       INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
       LOGGING_LEVEL_ROOT: ${LOG_LEVEL}
@@ -314,6 +371,8 @@ services:
     networks:
       - ums-network
     depends_on:
+      mailpit:
+        condition: service_started
       mysql:
         condition: service_healthy
       rabbitmq:
@@ -330,6 +389,12 @@ services:
       start_period: 180s
 
   audit-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: audit-service
+      args:
+        SERVICE_MODULE: audit-service
     image: audit-service:1.0
     container_name: ums-audit-service
     restart: unless-stopped
@@ -369,6 +434,12 @@ services:
       start_period: 180s
 
   admin-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: admin-service
+      args:
+        SERVICE_MODULE: admin-service
     image: admin-service:1.0
     container_name: ums-admin-service
     restart: unless-stopped
@@ -397,6 +468,12 @@ services:
       start_period: 180s
 
   api-gateway:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: api-gateway
+      args:
+        SERVICE_MODULE: api-gateway
     image: api-gateway:1.0
     container_name: ums-api-gateway
     restart: unless-stopped
@@ -443,5 +520,4 @@ volumes:
 
 networks:
   ums-network:
-    name: ums-network
     driver: bridge

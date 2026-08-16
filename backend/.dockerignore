@@ -1,0 +1,29 @@
+**/target/
+**/.git/
+**/.idea/
+**/.settings/
+**/.project
+**/.classpath
+**/.factorypath
+**/.vscode/
+**/*.log
+
+# Local secrets and credentials
+**/.env
+**/.env.*
+**/*private*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.jks
+**/*keystore*
+**/id_rsa
+**/id_ed25519
+
+# Local backup/editor artifacts
+**/*.bak
+**/*.tmp
+**/*.swp
+
+# Runtime Config Server repository is bind-mounted; do not send it to Docker builds
+config-repo/

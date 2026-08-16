@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 import com.ums.admin.dto.request.AssignRoleRequest;
 import com.ums.admin.dto.response.GrantPageResponse;
@@ -45,5 +46,7 @@ public interface RoleServiceClient {
 	UserRoleAssignmentResponse getGrant(@PathVariable UUID assignmentId);
 
 	@DeleteMapping("/api/v1/internal/authorization/role-assignments/{assignmentId}")
-	UUID revokeRoleAssignment(@PathVariable UUID assignmentId);
+	UUID revokeRoleAssignment(
+			@PathVariable UUID assignmentId,
+			@RequestHeader("X-Actor-User-Id") UUID actorUserId);
 }

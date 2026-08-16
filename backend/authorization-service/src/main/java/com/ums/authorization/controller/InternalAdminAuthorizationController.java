@@ -10,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -88,8 +89,10 @@ public class InternalAdminAuthorizationController {
 	}
 
 	@DeleteMapping("/role-assignments/{assignmentId}")
-	public UUID revokeRoleAssignment(@PathVariable UUID assignmentId) {
-		return userRoleService.revokeRoleAssignment(assignmentId);
+	public UUID revokeRoleAssignment(
+			@PathVariable UUID assignmentId,
+			@RequestHeader("X-Actor-User-Id") UUID actorUserId) {
+		return userRoleService.revokeRoleAssignment(assignmentId, actorUserId);
 	}
 
 	private RoleSummaryResponse toRole(com.ums.authorization.entity.Role role) {
