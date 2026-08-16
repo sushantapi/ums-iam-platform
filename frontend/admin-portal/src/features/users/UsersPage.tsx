@@ -97,12 +97,12 @@ export function UsersPage() {
 
     try {
       if (action === "assign-role") {
-        navigate("/roles/assignments");
+        navigate(`/roles/assignments?userId=${encodeURIComponent(userId)}`);
         return;
       }
 
       if (action === "audit") {
-        navigate(`/audit/logs?target=${userId}`);
+        navigate(`/audit/logs?target=${encodeURIComponent(userId)}`);
         return;
       }
 
