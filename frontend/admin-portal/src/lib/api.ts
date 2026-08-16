@@ -217,6 +217,8 @@ export type RoleResponse = {
   description?: string;
   permissionCount?: number;
   assignedUserCount?: number;
+  system?: boolean;
+  active?: boolean;
   systemRole?: boolean;
   assignableBy?: string[];
 };
@@ -227,6 +229,7 @@ export type PermissionResponse = {
   resource?: string;
   action?: string;
   description?: string;
+  active?: boolean;
   systemPermission?: boolean;
   rolesUsingPermission?: number;
 };
@@ -427,7 +430,12 @@ export const adminApi = {
     );
     return normalizePage(payload, query.page, query.size);
   },
-  assignRole: (body: { userId: string; roleName: string }) =>
+  assignRole: (body: {
+    userId: string;
+    roleName: string;
+    scopeType: "PLATFORM" | "ORG" | "DEPARTMENT";
+    scopeId: string;
+  }) =>
     request<string>("roles", "/api/v1/admin/roles/assign", {
       method: "POST",
       body: JSON.stringify(body),
