@@ -4,12 +4,16 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
+import com.ums.auth.client.AuthorizationClient;
+import com.ums.auth.dto.admin.AdminCreateUserRequest;
 import com.ums.auth.dto.admin.AdminUserAccountResponse;
 import com.ums.auth.dto.admin.AdminUserMetricsResponse;
 import com.ums.auth.entity.Session;
@@ -18,7 +22,9 @@ import com.ums.auth.entity.User.UserStatus;
 import com.ums.auth.exception.ResourceNotFoundException;
 import com.ums.auth.repository.SessionRepository;
 import com.ums.auth.repository.UserRepository;
+import com.ums.events.constants.RabbitMQConstants;
 import com.ums.events.event.AuditEvent;
+import com.ums.events.event.user.UserRegisteredEvent;
 import com.ums.events.publisher.AuditPublisher;
 
 import lombok.RequiredArgsConstructor;
@@ -34,9 +40,49 @@ public class AdminUserAccountServiceImpl implements AdminUserAccountService {
 	private final SessionRepository sessionRepository;
 	private final AuditPublisher auditPublisher;
 	private final TokenBlacklistService tokenBlacklistService;
+	private final PasswordEncoder passwordEncoder;
+	private final AuthorizationClient authorizationClient;
+	private final RabbitTemplate rabbitTemplate;
 
 	@Value("${jwt.access-token-expiry-ms:900000}")
 	private long accessTokenExpiryMs;
+
+	@Override
+	public AdminUserAccountResponse createUser(AdminCreateUserRequest request, UUID actorUserId) {
+		String email = request.email().trim().toLowerCase();
+
+		if (userRepository.existsByEmail(email)) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+		}
+
+		User user = User.builder()
+				.email(email)
+				.passwordHash(passwordEncoder.encode(request.password()))
+				.firstName(request.firstName().trim())
+				.lastName(request.lastName().trim())
+				.status(UserStatus.ACTIVE)
+				.provider("LOCAL")
+				.build();
+
+		User savedUser = userRepository.save(user);
+
+		authorizationClient.assignDefaultRole(savedUser.getId());
+
+		UserRegisteredEvent event = UserRegisteredEvent.builder()
+				.userId(savedUser.getId())
+				.email(savedUser.getEmail())
+				.firstName(savedUser.getFirstName())
+				.lastName(savedUser.getLastName())
+				.build();
+
+		rabbitTemplate.convertAndSend(
+				RabbitMQConstants.USER_EXCHANGE,
+				RabbitMQConstants.USER_REGISTERED_ROUTING_KEY,
+				event);
+
+		publishAudit("admin.user.created", "USER_CREATE", savedUser, actorUserId);
+		return toResponse(savedUser);
+	}
 
 	@Override
 	@Transactional(readOnly = true)

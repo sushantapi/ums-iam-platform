@@ -6,8 +6,10 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 
+import com.ums.admin.dto.request.AdminCreateUserRequest;
 import com.ums.admin.dto.response.UserAccountResponse;
 import com.ums.admin.dto.response.UserMetricsResponse;
 
@@ -16,6 +18,11 @@ public interface AuthenticationServiceClient {
 
 	@GetMapping("/api/v1/internal/auth/users/metrics")
 	UserMetricsResponse getMetrics();
+
+	@PostMapping("/api/v1/internal/auth/users")
+	UserAccountResponse create(
+			@RequestHeader("X-Actor-User-Id") UUID actorUserId,
+			@RequestBody AdminCreateUserRequest request);
 
 	@GetMapping("/api/v1/internal/auth/users/{userId}")
 	UserAccountResponse getUser(@PathVariable UUID userId);

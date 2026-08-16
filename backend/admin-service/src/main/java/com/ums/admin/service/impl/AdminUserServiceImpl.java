@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 
 import com.ums.admin.client.AuthenticationServiceClient;
 import com.ums.admin.client.UserServiceClient;
+import com.ums.admin.dto.request.AdminCreateUserRequest;
+import com.ums.admin.dto.response.UserAccountResponse;
 import com.ums.admin.dto.response.UserDetailResponse;
 import com.ums.admin.dto.response.UserSummaryPageResponse;
 import com.ums.admin.service.AdminUserService;
@@ -18,6 +20,11 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     private final UserServiceClient userServiceClient;
     private final AuthenticationServiceClient authenticationServiceClient;
+
+    @Override
+    public UserAccountResponse createUser(AdminCreateUserRequest request, UUID actorUserId) {
+        return authenticationServiceClient.create(actorUserId, request);
+    }
 
     @Override
     public UserSummaryPageResponse getUsers(int page, int size, String search) {
