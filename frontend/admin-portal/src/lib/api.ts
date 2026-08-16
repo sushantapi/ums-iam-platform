@@ -86,31 +86,25 @@ async function request<T>(
   return (text ? JSON.parse(text) : undefined) as T;
 }
 export type DashboardResponse = {
-  users?: {
-    total?: number;
-    active?: number;
-    locked?: number;
-    suspended?: number;
+  users: {
+    total: number;
+    active: number;
+    locked: number;
+    suspended: number;
   };
-  organizations?: {
-    total?: number;
-    active?: number;
-    pendingInvitations?: number;
+  organizations: {
+    total: number;
+    active: number;
+    pendingInvitations: number;
   };
-  roles?: {
-    total?: number;
+  roles: {
+    total: number;
   };
-  audit?: {
-    eventsLast24Hours?: number;
-    failedLogins?: number;
+  audit: {
+    eventsLast24Hours: number;
+    failedLogins: number;
   };
-  totalUsers?: number;
-  activeUsers?: number;
-  blockedUsers?: number;
-  activeSessions?: number;
-  todayLogins?: number;
 };
-
 export type UserSummaryResponse = {
   id?: number | string;
   userId?: number | string;
