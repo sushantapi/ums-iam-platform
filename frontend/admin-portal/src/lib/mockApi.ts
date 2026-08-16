@@ -10,7 +10,6 @@ import {
   mockUsers,
 } from "../mocks";
 import type {
-  OrganizationSecurityPolicyResponse,
   PageResponse,
   UserSessionResponse,
 } from "./api";
@@ -27,33 +26,14 @@ function pageFrom<T>(source: PageResponse<T>, url: URL): PageResponse<T> {
   };
 }
 
-const defaultSecurityPolicy: OrganizationSecurityPolicyResponse = {
-  organizationId: "org-acme",
-  mfaRequired: true,
-  sessionTimeoutMinutes: 480,
-  passwordPolicyRef: "standard",
-  inviteExpiryHours: 72,
-  invitedByRoles: ["ORG_ADMIN"],
-  roleAssignmentRoles: ["ORG_ADMIN"],
-  selfServiceJoinEnabled: false,
-  inviteResendLimit: 3,
-  defaultInviteTemplate: "default",
-  auditSeverity: "MEDIUM",
-};
-
 export async function mockRequest<T>(path: string, init?: RequestInit): Promise<T> {
   await new Promise((resolve) => window.setTimeout(resolve, 120));
   const url = new URL(path, window.location.origin);
   const method = init?.method ?? "GET";
 
   if (method !== "GET") {
-    if (method === "PATCH" && url.pathname.endsWith("/security-policy")) {
-      const changes = init?.body ? JSON.parse(String(init.body)) : {};
-      return { ...defaultSecurityPolicy, ...changes } as T;
-    }
     return undefined as T;
   }
-
   if (url.pathname === "/api/v1/admin/dashboard") return clone(mockDashboard) as T;
   if (url.pathname === "/api/v1/admin/users") return pageFrom(mockUsers, url) as T;
   if (url.pathname === "/api/v1/admin/sessions") return pageFrom(mockSessions, url) as T;
@@ -87,11 +67,6 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
     return { ...clone(mockOrganizations.content[0]), id: organizationMatch[1] } as T;
   }
   if (url.pathname.endsWith("/members")) return [] as T;
-  if (url.pathname.endsWith("/invitations")) {
-    return { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 } as T;
-  }
-  if (url.pathname.endsWith("/security-policy")) return clone(defaultSecurityPolicy) as T;
-
   const roleMatch = url.pathname.match(/^\/api\/v1\/admin\/roles\/([^/]+)$/);
   if (roleMatch) return { ...clone(mockRoles.content[0]), id: roleMatch[1] } as T;
   if (url.pathname.endsWith("/permissions")) return clone(mockPermissions.content) as T;

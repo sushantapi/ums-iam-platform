@@ -192,15 +192,6 @@ export type OrganizationMemberResponse = {
   joinedAt: string;
 };
 
-export type OrganizationInvitationResponse = {
-  id?: string;
-  email?: string;
-  orgRole?: string;
-  status?: string;
-  invitedAt?: string;
-  expiresAt?: string;
-};
-
 export type RoleResponse = {
   id?: string;
   roleId?: string;
@@ -279,20 +270,6 @@ export type GrantResponse = {
   active: boolean;
   assignedAt: string;
   expiresAt: string | null;
-};
-
-export type OrganizationSecurityPolicyResponse = {
-  organizationId: string;
-  mfaRequired?: boolean;
-  sessionTimeoutMinutes?: number;
-  passwordPolicyRef?: string;
-  inviteExpiryHours?: number;
-  invitedByRoles?: string[];
-  roleAssignmentRoles?: string[];
-  selfServiceJoinEnabled?: boolean;
-  inviteResendLimit?: number;
-  defaultInviteTemplate?: string;
-  auditSeverity?: string;
 };
 
 function normalizePage<T>(payload: T[] | PageResponse<T>, page: number, size: number): PageResponse<T> {
@@ -437,42 +414,6 @@ export const adminApi = {
     request<OrganizationMemberResponse[]>(
       "organizations",
       `/api/v1/admin/organizations/${organizationId}/members`,
-    ),
-  organizationInvitations: async (organizationId: string, query: { page: number; size: number }) => {
-    const payload = await request<OrganizationInvitationResponse[] | PageResponse<OrganizationInvitationResponse>>(
-      "organizations",
-      withQuery(`/api/v1/admin/organizations/${organizationId}/invitations`, query),
-    );
-    return normalizePage(payload, query.page, query.size);
-  },
-  resendInvitation: (organizationId: string, invitationId: string) =>
-    request<void>(
-      "organizations",
-      `/api/v1/admin/organizations/${organizationId}/invitations/${invitationId}/resend`,
-      { method: "POST" },
-    ),
-  revokeInvitation: (organizationId: string, invitationId: string) =>
-    request<void>(
-      "organizations",
-      `/api/v1/admin/organizations/${organizationId}/invitations/${invitationId}/revoke`,
-      { method: "POST" },
-    ),
-  organizationSecurityPolicy: (organizationId: string) =>
-    request<OrganizationSecurityPolicyResponse>(
-      "organizations",
-      `/api/v1/admin/organizations/${organizationId}/security-policy`,
-    ),
-  updateOrganizationSecurityPolicy: (
-    organizationId: string,
-    body: Partial<OrganizationSecurityPolicyResponse>,
-  ) =>
-    request<OrganizationSecurityPolicyResponse>(
-      "organizations",
-      `/api/v1/admin/organizations/${organizationId}/security-policy`,
-      {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      },
     ),
   auditEvent: (eventId: string) =>
     request<AuditLogResponse>("audit", `/api/v1/audit/events/${eventId}`),
