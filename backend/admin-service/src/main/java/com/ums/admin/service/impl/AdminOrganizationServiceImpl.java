@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import com.ums.admin.client.OrganizationServiceClient;
 import com.ums.admin.dto.request.AdminAddOrganizationMemberRequest;
+import com.ums.admin.dto.request.AdminCreateOrganizationRequest;
 import com.ums.admin.dto.request.AdminUpdateOrganizationRequest;
 import com.ums.admin.dto.response.OrganizationAdminPageResponse;
 import com.ums.admin.dto.response.OrganizationAdminResponse;
@@ -20,6 +21,11 @@ import lombok.RequiredArgsConstructor;
 public class AdminOrganizationServiceImpl implements AdminOrganizationService {
 
 	private final OrganizationServiceClient organizationServiceClient;
+
+	@Override
+	public OrganizationAdminResponse create(AdminCreateOrganizationRequest request, UUID actorUserId) {
+		return organizationServiceClient.create(actorUserId, request);
+	}
 
 	@Override
 	public OrganizationAdminPageResponse list(int page, int size, String search) {

@@ -4,12 +4,15 @@ import java.util.List;
 import java.util.UUID;
 
 import com.ums.admin.dto.request.AdminAddOrganizationMemberRequest;
+import com.ums.admin.dto.request.AdminCreateOrganizationRequest;
 import com.ums.admin.dto.request.AdminUpdateOrganizationRequest;
 import com.ums.admin.dto.response.OrganizationAdminPageResponse;
 import com.ums.admin.dto.response.OrganizationAdminResponse;
 import com.ums.admin.dto.response.OrganizationMemberResponse;
 
 public interface AdminOrganizationService {
+
+	OrganizationAdminResponse create(AdminCreateOrganizationRequest request, UUID actorUserId);
 
 	OrganizationAdminPageResponse list(int page, int size, String search);
 

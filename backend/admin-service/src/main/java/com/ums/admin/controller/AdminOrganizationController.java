@@ -3,6 +3,7 @@ package com.ums.admin.controller;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ums.admin.dto.request.AdminAddOrganizationMemberRequest;
+import com.ums.admin.dto.request.AdminCreateOrganizationRequest;
 import com.ums.admin.dto.request.AdminUpdateOrganizationRequest;
 import com.ums.admin.dto.response.OrganizationAdminPageResponse;
 import com.ums.admin.dto.response.OrganizationAdminResponse;
@@ -33,6 +35,15 @@ import lombok.RequiredArgsConstructor;
 public class AdminOrganizationController {
 
 	private final AdminOrganizationService adminOrganizationService;
+
+	@PostMapping
+	@PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('ORGANIZATION_WRITE')")
+	public ResponseEntity<OrganizationAdminResponse> create(
+			@Valid @RequestBody AdminCreateOrganizationRequest request,
+			Authentication authentication) {
+		return ResponseEntity.status(HttpStatus.CREATED)
+				.body(adminOrganizationService.create(request, currentAdminId(authentication)));
+	}
 
 	@GetMapping
 	public OrganizationAdminPageResponse list(

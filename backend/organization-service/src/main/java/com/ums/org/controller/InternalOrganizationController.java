@@ -17,14 +17,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ums.org.dto.AddMemberRequest;
+import com.ums.org.dto.CreateOrganizationRequest;
 import com.ums.org.dto.OrganizationMemberResponse;
+import com.ums.org.dto.OrganizationResponse;
 import com.ums.org.dto.UpdateOrganizationRequest;
 import com.ums.org.dto.admin.OrganizationAdminPageResponse;
 import com.ums.org.dto.admin.OrganizationAdminResponse;
 import com.ums.org.dto.admin.OrganizationMetricsResponse;
-import com.ums.org.service.OrganizationService;
-import com.ums.org.repositoty.OrganizationRepository;
 import com.ums.org.enums.OrganizationStatus;
+import com.ums.org.repositoty.OrganizationRepository;
+import com.ums.org.service.OrganizationService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +47,14 @@ public class InternalOrganizationController {
 				organizationRepository.count(),
 				organizationRepository.countByStatus(OrganizationStatus.ACTIVE),
 				0L);
+	}
+
+	@PostMapping
+	public OrganizationAdminResponse create(
+			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
+			@Valid @RequestBody CreateOrganizationRequest request) {
+		OrganizationResponse created = organizationService.createOrganization(request, actorUserId);
+		return organizationService.getOrganizationForAdmin(created.id());
 	}
 
 	@GetMapping

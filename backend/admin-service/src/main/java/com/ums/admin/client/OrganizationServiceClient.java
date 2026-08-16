@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.ums.admin.dto.request.AdminAddOrganizationMemberRequest;
+import com.ums.admin.dto.request.AdminCreateOrganizationRequest;
 import com.ums.admin.dto.request.AdminUpdateOrganizationRequest;
 import com.ums.admin.dto.response.OrganizationAdminPageResponse;
 import com.ums.admin.dto.response.OrganizationAdminResponse;
@@ -25,6 +26,11 @@ public interface OrganizationServiceClient {
 
 	@GetMapping("/api/v1/internal/organizations/metrics")
 	OrganizationMetricsResponse getMetrics();
+
+	@PostMapping("/api/v1/internal/organizations")
+	OrganizationAdminResponse create(
+			@RequestHeader("X-Actor-User-Id") UUID actorUserId,
+			@RequestBody AdminCreateOrganizationRequest request);
 
 	@GetMapping("/api/v1/internal/organizations")
 	OrganizationAdminPageResponse list(@RequestParam int page, @RequestParam int size,
