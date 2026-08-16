@@ -1,5 +1,11 @@
 import { mockRequest } from "./mockApi";
 import { runtimeConfig, shouldUseMock, type MockFeature } from "./runtimeConfig";
+import {
+  redirectToForbidden,
+  redirectToLogin,
+  refreshAccessToken,
+} from "./auth/sessionManager";
+import { useAuthStore } from "../store/authStore";
 
 export type PageResponse<T> = {
   content: T[];
@@ -13,32 +19,63 @@ export type QueryValue = string | number | boolean | undefined;
 
 function withQuery(path: string, query: Record<string, QueryValue>) {
   const params = new URLSearchParams();
+
   Object.entries(query).forEach(([key, value]) => {
     if (value !== undefined && value !== "") {
       params.set(key, String(value));
     }
   });
+
   const queryString = params.toString();
   return queryString ? `${path}?${queryString}` : path;
 }
 
-async function request<T>(feature: MockFeature, path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  feature: MockFeature,
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
   if (shouldUseMock(feature)) {
     return mockRequest<T>(path, init);
   }
 
-  const token = localStorage.getItem("ums_admin_access_token");
-  const response = await fetch(`${runtimeConfig.apiBaseUrl}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
-    },
-  });
+  async function execute(accessToken: string | null) {
+    return fetch(`${runtimeConfig.apiBaseUrl}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken
+          ? { Authorization: `Bearer ${accessToken}` }
+          : {}),
+        ...init?.headers,
+      },
+    });
+  }
+
+  let response = await execute(
+    useAuthStore.getState().accessToken,
+  );
+
+  if (response.status === 401) {
+    const refreshedAccessToken = await refreshAccessToken();
+
+    if (refreshedAccessToken) {
+      response = await execute(refreshedAccessToken);
+    }
+  }
+
+  if (response.status === 401) {
+    redirectToLogin();
+  }
+
+  if (response.status === 403) {
+    redirectToForbidden();
+  }
 
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Request failed: ${response.status} ${response.statusText}`,
+    );
   }
 
   if (response.status === 204) {
@@ -48,7 +85,6 @@ async function request<T>(feature: MockFeature, path: string, init?: RequestInit
   const text = await response.text();
   return (text ? JSON.parse(text) : undefined) as T;
 }
-
 export type DashboardResponse = {
   users?: {
     total?: number;

@@ -1,6 +1,24 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios, {
+  AxiosError,
+  AxiosInstance,
+  type AxiosRequestConfig,
+  type InternalAxiosRequestConfig,
+} from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+import {
+  redirectToForbidden,
+  redirectToLogin,
+  refreshAccessToken,
+} from "../lib/auth/sessionManager";
+import { useAuthStore } from "../store/authStore";
+
+const configuredBaseUrl = (
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080"
+).replace(/\/+$/, "");
+
+const API_BASE_URL = configuredBaseUrl.endsWith("/api/v1")
+  ? configuredBaseUrl
+  : `${configuredBaseUrl}/api/v1`;
 
 export interface ApiErrorResponse {
   errorCode: string;
@@ -13,6 +31,10 @@ export interface ApiErrorResponse {
   }>;
 }
 
+type RetryableRequestConfig = InternalAxiosRequestConfig & {
+  _retry?: boolean;
+};
+
 class ApiClient {
   private client: AxiosInstance;
 
@@ -20,7 +42,7 @@ class ApiClient {
     this.client = axios.create({
       baseURL: API_BASE_URL,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
@@ -28,57 +50,80 @@ class ApiClient {
   }
 
   private setupInterceptors() {
-    this.client.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem('accessToken');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
+    this.client.interceptors.request.use((config) => {
+      const accessToken = useAuthStore.getState().accessToken;
+
+      if (accessToken) {
+        config.headers.Authorization = `Bearer ${accessToken}`;
+      }
+
+      return config;
+    });
 
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError<ApiErrorResponse>) => {
-        if (error.response?.status === 401) {
-          localStorage.removeItem('accessToken');
-          window.location.href = '/login';
+      async (error: AxiosError<ApiErrorResponse>) => {
+        const request = error.config as RetryableRequestConfig | undefined;
+        const url = request?.url ?? "";
+
+        const isAuthEndpoint = url.includes("/auth/");
+
+        if (
+          error.response?.status === 401 &&
+          request &&
+          !request._retry &&
+          !isAuthEndpoint
+        ) {
+          request._retry = true;
+
+          const accessToken = await refreshAccessToken();
+
+          if (accessToken) {
+            request.headers.Authorization = `Bearer ${accessToken}`;
+            return this.client.request(request);
+          }
+
+          redirectToLogin();
         }
+
+        if (
+          error.response?.status === 401 &&
+          !isAuthEndpoint &&
+          request?._retry
+        ) {
+          redirectToLogin();
+        }
+
+        if (
+          error.response?.status === 403 &&
+          !isAuthEndpoint
+        ) {
+          redirectToForbidden();
+        }
+
         return Promise.reject(error);
-      }
+      },
     );
   }
 
-  get<T>(url: string, config?: any) {
+  get<T>(url: string, config?: AxiosRequestConfig) {
     return this.client.get<T>(url, config);
   }
 
-  post<T>(url: string, data?: any, config?: any) {
+  post<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
     return this.client.post<T>(url, data, config);
   }
 
-  put<T>(url: string, data?: any, config?: any) {
+  put<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
     return this.client.put<T>(url, data, config);
   }
 
-  patch<T>(url: string, data?: any, config?: any) {
+  patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
     return this.client.patch<T>(url, data, config);
   }
 
-  delete<T>(url: string, config?: any) {
+  delete<T>(url: string, config?: AxiosRequestConfig) {
     return this.client.delete<T>(url, config);
-  }
-
-  setAuthToken(token: string) {
-    localStorage.setItem('accessToken', token);
-    this.client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  }
-
-  clearAuthToken() {
-    localStorage.removeItem('accessToken');
-    delete this.client.defaults.headers.common['Authorization'];
   }
 }
 

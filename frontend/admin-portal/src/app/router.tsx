@@ -1,6 +1,13 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import {
+  Navigate,
+  Route,
+  Routes,
+} from "react-router-dom";
+
 import { AdminShell } from "../components/layout/AdminShell";
 import { RequireAuth } from "../lib/auth/RequireAuth";
+import { ForbiddenPage } from "../features/auth/ForbiddenPage";
+import { LoginPage } from "../features/auth/LoginPage";
 import { auditRoutes } from "../features/audit/routes";
 import { dashboardRoutes } from "../features/dashboard/routes";
 import { grantRoutes } from "../features/grants/routes";
@@ -15,6 +22,8 @@ import { userRoutes } from "../features/users/routes";
 export function AppRouter() {
   return (
     <Routes>
+      <Route path="/login" element={<LoginPage />} />
+
       <Route
         element={
           <RequireAuth>
@@ -22,7 +31,16 @@ export function AppRouter() {
           </RequireAuth>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="/forbidden"
+          element={<ForbiddenPage />}
+        />
+
+        <Route
+          index
+          element={<Navigate to="/dashboard" replace />}
+        />
+
         {dashboardRoutes}
         {userRoutes}
         {organizationRoutes}
@@ -31,6 +49,7 @@ export function AppRouter() {
         {grantRoutes}
         {auditRoutes}
         {sessionRoutes}
+
         {screenBlueprints
           .filter((screen) => !screen.hasCustomStarter)
           .map((screen) => (
@@ -41,6 +60,11 @@ export function AppRouter() {
             />
           ))}
       </Route>
+
+      <Route
+        path="*"
+        element={<Navigate to="/dashboard" replace />}
+      />
     </Routes>
   );
 }

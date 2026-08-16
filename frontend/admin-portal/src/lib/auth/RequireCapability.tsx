@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
-import { getAdminCapabilities, type AdminCapability } from "./capabilities";
+import { Navigate } from "react-router-dom";
+
+import {
+  hasAdminCapability,
+  type AdminCapability,
+} from "./capabilities";
 
 export function RequireCapability({
   capability,
@@ -8,14 +13,13 @@ export function RequireCapability({
   capability: AdminCapability;
   children: ReactNode;
 }) {
-  if (!getAdminCapabilities().has(capability)) {
+  if (!hasAdminCapability(capability)) {
     return (
-      <section className="page">
-        <div className="empty-state">
-          <strong>Access denied</strong>
-          <span>Your administrator role does not include the required capability: {capability}.</span>
-        </div>
-      </section>
+      <Navigate
+        to="/forbidden"
+        replace
+        state={{ requiredCapability: capability }}
+      />
     );
   }
 
