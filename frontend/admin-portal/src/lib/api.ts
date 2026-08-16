@@ -307,9 +307,6 @@ export const adminApi = {
     page: number;
     size: number;
     search?: string;
-    status?: string;
-    organizationId?: string;
-    role?: string;
   }) => {
     const payload = await request<UserSummaryResponse[] | PageResponse<UserSummaryResponse>>(
       "users",
@@ -366,8 +363,6 @@ export const adminApi = {
     request<void>("users", `/api/v1/admin/users/${userId}/suspend`, { method: "POST" }),
   unlockUser: (userId: string) =>
     request<void>("users", `/api/v1/admin/users/${userId}/unlock`, { method: "POST" }),
-  resetPassword: (userId: string) =>
-    request<void>("users", `/api/v1/admin/users/${userId}/reset-password`, { method: "POST" }),
   roles: async (query?: { page?: number; size?: number; scopeType?: string; search?: string }) => {
     if (!query) return request<RoleResponse[]>("roles", "/api/v1/admin/roles");
     const payload = await request<RoleResponse[] | PageResponse<RoleResponse>>(
