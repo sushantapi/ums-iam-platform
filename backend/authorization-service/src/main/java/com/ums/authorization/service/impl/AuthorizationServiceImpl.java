@@ -16,6 +16,8 @@ import com.ums.authorization.entity.Permission;
 import com.ums.authorization.entity.Role;
 import com.ums.authorization.entity.RolePermission;
 import com.ums.authorization.entity.UserRole;
+import com.ums.authorization.exception.PermissionNotFoundException;
+import com.ums.authorization.exception.RoleNotFoundException;
 import com.ums.authorization.exception.UserRoleAlreadyExistsException;
 import com.ums.authorization.publisher.RoleEventPublisher;
 import com.ums.authorization.repository.PermissionRepository;
@@ -25,7 +27,9 @@ import com.ums.authorization.repository.UserRoleRepository;
 import com.ums.authorization.service.AuthorizationService;
 import com.ums.authorization.service.RoleService;
 import com.ums.authorization.service.UserRoleService;
+import com.ums.events.event.AuditEvent;
 import com.ums.events.event.role.RoleAssignedEvent;
+import com.ums.events.publisher.AuditPublisher;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,21 +51,34 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 
 	private final RoleRepository roleRepository;
 
-	private final RoleEventPublisher roleEventPublisher;
+        private final RoleEventPublisher roleEventPublisher;
+
+        private final AuditPublisher auditPublisher;
 
 	@Override
 	public String assignRole(AssignRoleRequest request) {
 
 		Role role = roleService.getRoleByName(request.getRoleName());
 
-		boolean alreadyAssigned = userRoleRepository.existsByUserIdAndRole_Id(request.getUserId(), role.getId());
+		String scopeType = normalizeScopeType(request.getScopeType());
+		String scopeId = normalizeScopeId(scopeType, request.getScopeId());
+
+		boolean alreadyAssigned = userRoleRepository
+				.existsByUserIdAndRole_IdAndScopeTypeAndScopeIdAndActiveTrue(
+						request.getUserId(), role.getId(), scopeType, scopeId);
 
 		if (alreadyAssigned) {
-
-			throw new UserRoleAlreadyExistsException("Role already assigned to user");
+			throw new UserRoleAlreadyExistsException("Role already assigned to user in this scope");
 		}
 
-		UserRole userRole = UserRole.builder().userId(request.getUserId()).role(role).assignedAt(LocalDateTime.now())
+		UserRole userRole = UserRole.builder()
+				.userId(request.getUserId())
+				.role(role)
+				.assignedBy(request.getAssignedBy())
+				.scopeType(scopeType)
+				.scopeId(scopeId)
+				.active(true)
+				.assignedAt(LocalDateTime.now())
 				.build();
 
 		/*
@@ -70,22 +87,49 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 		 * return "Role Assigned Successfully";
 		 */
 
-		userRoleService.assignRole(userRole);
+                UserRole savedAssignment = userRoleService.assignRole(userRole);
 
-		RoleAssignedEvent event = RoleAssignedEvent.builder().userId(request.getUserId()).roleId(role.getId())
-				.roleName(role.getName()).assignedAt(LocalDateTime.now()).build();
+                publishAuditEvent(AuditEvent.builder()
+                                .eventType("role.assigned")
+                                .serviceName("authorization-service")
+                                .userId(request.getAssignedBy() == null ? null : request.getAssignedBy().toString())
+                                .action("ROLE_ASSIGN")
+                                .entityType("ROLE_ASSIGNMENT")
+                                .entityId(savedAssignment.getId().toString())
+                                .details("Assigned role " + role.getName() + " to user " + request.getUserId()
+                                                + " in scope " + scopeType + ":" + scopeId)
+                                .timestamp(LocalDateTime.now())
+                                .build());
 
-		roleEventPublisher.publishRoleAssigned(event);
+                RoleAssignedEvent event = RoleAssignedEvent.builder()
+                                .userId(request.getUserId())
+                                .roleId(role.getId())
+                                .roleName(role.getName())
+                                .assignedBy(request.getAssignedBy())
+                                .assignedAt(LocalDateTime.now())
+                                .build();
+
+                roleEventPublisher.publishRoleAssigned(event);
 
 		return "Role Assigned Successfully";
 	}
 
 	@Override
 	public UserPermissionsResponse getUserPermissions(UUID userId) {
+		return getUserPermissions(userId, "PLATFORM", "*");
+	}
 
-		Set<String> permissions = userRoleService.getUserRoles(userId).stream()
-				.flatMap(userRole -> rolePermissionRepository.findByRole(userRole.getRole()).stream())
-				.map(rolePermission -> rolePermission.getPermission().getCode()).collect(Collectors.toSet());
+	@Override
+	public UserPermissionsResponse getUserPermissions(UUID userId, String scopeType, String scopeId) {
+		String normalizedScopeType = normalizeScopeType(scopeType);
+		String normalizedScopeId = normalizeScopeId(normalizedScopeType, scopeId);
+
+		Set<String> permissions = userRoleService
+				.getActiveUserRoles(userId, normalizedScopeType, normalizedScopeId).stream()
+				.flatMap(userRole -> rolePermissionRepository.findByRoleIdWithPermission(userRole.getRole().getId()).stream())
+				.filter(rolePermission -> Boolean.TRUE.equals(rolePermission.getPermission().getActive()))
+				.map(rolePermission -> rolePermission.getPermission().getCode())
+				.collect(Collectors.toSet());
 
 		return UserPermissionsResponse.builder().userId(userId).permissions(permissions).build();
 	}
@@ -112,23 +156,33 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 
 	@Override
 	public boolean hasPermission(UUID userId, String permissionCode) {
+		return hasPermission(userId, permissionCode, "PLATFORM", "*");
+	}
 
-		return getUserPermissions(userId).getPermissions().contains(permissionCode);
+	@Override
+	public boolean hasPermission(UUID userId, String permissionCode, String scopeType, String scopeId) {
+		return getUserPermissions(userId, scopeType, scopeId).getPermissions().contains(permissionCode);
 	}
 
 	@Override
 	public UserAuthorizationResponse getUserAuthorization(UUID userId) {
+		return getUserAuthorization(userId, "PLATFORM", "*");
+	}
 
-		List<UserRole> userRoles = userRoleRepository.findByUserId(userId);
+	@Override
+	public UserAuthorizationResponse getUserAuthorization(UUID userId, String scopeType, String scopeId) {
+		String normalizedScopeType = normalizeScopeType(scopeType);
+		String normalizedScopeId = normalizeScopeId(normalizedScopeType, scopeId);
+
+		List<UserRole> userRoles = userRoleService.getActiveUserRoles(userId, normalizedScopeType, normalizedScopeId);
 
 		List<String> roles = userRoles.stream().map(userRole -> userRole.getRole().getName()).distinct().toList();
 
 		List<String> permissions = userRoles.stream()
-				.flatMap(userRole -> rolePermissionRepository.findByRole(userRole.getRole()).stream())
+				.flatMap(userRole -> rolePermissionRepository.findByRoleIdWithPermission(userRole.getRole().getId()).stream())
+				.filter(rolePermission -> Boolean.TRUE.equals(rolePermission.getPermission().getActive()))
 				.map(rolePermission -> rolePermission.getPermission().getCode()).distinct().toList();
 
-		// return
-		// UserAuthorizationResponse.builder().roles(roles).permissions(permissions).build();
 		return UserAuthorizationResponse.builder().userId(userId).roles(roles).permissions(permissions).build();
 	}
 
@@ -138,9 +192,11 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 		log.info("Assigning default role to user {}", userId);
 
 		Role defaultRole = roleRepository.findByNameIgnoreCase("EMPLOYEE")
-				.orElseThrow(() -> new RuntimeException("Default role not found"));
+				.orElseThrow(() -> new RoleNotFoundException("Default role not found"));
 
-		boolean alreadyAssigned = userRoleRepository.existsByUserIdAndRole_Id(userId, defaultRole.getId());
+		boolean alreadyAssigned = userRoleRepository
+				.existsByUserIdAndRole_IdAndScopeTypeAndScopeIdAndActiveTrue(
+						userId, defaultRole.getId(), "PLATFORM", "*");
 
 		if (alreadyAssigned) {
 
@@ -165,10 +221,10 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 	public String assignPermission(AssignPermissionRequest request) {
 
 		Role role = roleRepository.findById(request.getRoleId())
-				.orElseThrow(() -> new RuntimeException("Role not found"));
+				.orElseThrow(() -> new RoleNotFoundException("Role not found"));
 
 		Permission permission = permissionRepository.findById(request.getPermissionId())
-				.orElseThrow(() -> new RuntimeException("Permission not found"));
+				.orElseThrow(() -> new PermissionNotFoundException("Permission not found"));
 
 		boolean exists = rolePermissionRepository.existsByRole_IdAndPermission_Id(role.getId(), permission.getId());
 
@@ -182,6 +238,42 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 		rolePermissionRepository.save(rolePermission);
 
 		return "Permission assigned successfully";
+	}
+
+        private void publishAuditEvent(AuditEvent event) {
+                try {
+                        auditPublisher.publish(event);
+                } catch (Exception ex) {
+                        log.error(
+                                        "Failed to publish RBAC audit event eventType={} entityId={}",
+                                        event.getEventType(),
+                                        event.getEntityId(),
+                                        ex);
+                }
+        }
+
+        private String normalizeScopeType(String scopeType) {
+		if (scopeType == null || scopeType.isBlank()) {
+			return "PLATFORM";
+		}
+
+		String normalized = scopeType.trim().toUpperCase();
+		if (!Set.of("PLATFORM", "ORG", "DEPARTMENT").contains(normalized)) {
+			throw new IllegalArgumentException("Unsupported role scope: " + scopeType);
+		}
+		return normalized;
+	}
+
+	private String normalizeScopeId(String scopeType, String scopeId) {
+		if ("PLATFORM".equals(scopeType)) {
+			return "*";
+		}
+
+		if (scopeId == null || scopeId.isBlank() || "*".equals(scopeId.trim())) {
+			throw new IllegalArgumentException(scopeType + " role assignments require a concrete scopeId");
+		}
+
+		return scopeId.trim();
 	}
 
 }

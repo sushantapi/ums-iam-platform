@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -34,16 +36,20 @@ public class UserRole {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
+	@JdbcTypeCode(SqlTypes.CHAR)
+	@Column(length = 36)
 	private UUID id;
 
-	@Column(name = "user_id", nullable = false)
+	@JdbcTypeCode(SqlTypes.CHAR)
+	@Column(name = "user_id", nullable = false, length = 36)
 	private UUID userId;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "role_id", nullable = false)
 	private Role role;
 
-	@Column(name = "assigned_by")
+	@JdbcTypeCode(SqlTypes.CHAR)
+	@Column(name = "assigned_by", length = 36)
 	private UUID assignedBy;
 
 	@Builder.Default

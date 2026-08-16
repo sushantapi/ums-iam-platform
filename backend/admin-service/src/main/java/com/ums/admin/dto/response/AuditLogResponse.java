@@ -15,9 +15,19 @@ import lombok.Setter;
 @Builder
 public class AuditLogResponse {
 
+	private Long id;
+
 	private String auditId;
 
+	private String eventId;
+
+	private String eventType;
+
 	private String action;
+
+	private String actor;
+
+	private String target;
 
 	private String username;
 
@@ -25,17 +35,17 @@ public class AuditLogResponse {
 
 	private String serviceName;
 
-	private String module;
+	private String entityType;
 
-	private String endpoint;
-
-	private String method;
+	private String entityId;
 
 	private String ipAddress;
 
-	private String status;
+	private String outcome;
 
 	private String details;
+
+	private LocalDateTime timestamp;
 
 	private LocalDateTime createdAt;
 }

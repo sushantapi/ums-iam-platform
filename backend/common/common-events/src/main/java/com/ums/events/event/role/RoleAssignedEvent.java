@@ -23,6 +23,9 @@ public class RoleAssignedEvent implements Serializable {
 
 	private String roleName;
 
+	private String email;
+	private String firstName;
+
 	private UUID assignedBy;
 
 	private LocalDateTime assignedAt;

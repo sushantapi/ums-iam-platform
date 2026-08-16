@@ -21,7 +21,7 @@ public class OrganizationEventConsumer {
 	@RabbitListener(queues = RabbitMQConstants.NOTIFICATION_ORGANIZATION_CREATED_QUEUE)
 	public void consume(OrganizationCreatedEvent event) {
 
-		log.info("Received OrganizationCreatedEvent: {}", event);
+		log.info("Received OrganizationCreatedEvent for organizationId={}", event.getOrganizationId());
 
 		notificationService.sendOrganizationCreatedEmail(event);
 	}

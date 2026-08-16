@@ -1,0 +1,99 @@
+server:
+  port: 8080
+  error:
+    include-message: always
+
+jwt:
+  public-key: ${JWT_PUBLIC_KEY:}
+  public-key-path: ${JWT_PUBLIC_KEY_PATH:/run/secrets/jwt/public_key.pem}
+  issuer: ums-iam-platform
+  audience: ${JWT_AUDIENCE:ums-api-gateway}
+
+internal:
+  gateway:
+    secret: ${INTERNAL_GATEWAY_SECRET}
+
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service
+          uri: lb://authentication-service
+          predicates:
+            - Path=/api/v1/auth/**
+
+        - id: authentication-admin-sessions
+          uri: lb://authentication-service
+          predicates:
+            - Path=/api/v1/admin/sessions/**,/api/v1/admin/users/*/sessions/**
+
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/users/**
+
+        - id: organization-service
+          uri: lb://organization-service
+          predicates:
+            - Path=/api/v1/organizations/**
+
+        - id: authorization-service
+          uri: lb://authorization-service
+          predicates:
+            - Path=/api/v1/authorization/**,/api/v1/roles/**,/api/v1/permissions/**
+
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/v1/notifications/**,/api/v1/templates/**
+
+        - id: admin-service
+          uri: lb://admin-service
+          predicates:
+            - Path=/api/v1/admin/**
+
+        - id: audit-service
+          uri: lb://audit-service
+          predicates:
+            - Path=/api/v1/audit/events/**
+
+      discovery:
+        locator:
+          enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 0.1
+
+logging:
+  level:
+    root: ${LOG_LEVEL:INFO}
+    com.ums: INFO
+    org.springframework.cloud.gateway: DEBUG
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-service:8761/eureka/
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.value}

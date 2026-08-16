@@ -1,0 +1,28 @@
+server:
+  port: 8088
+  error:
+    include-message: never
+
+spring:
+  application:
+    name: admin-service
+
+internal:
+  gateway:
+    secret: ${INTERNAL_GATEWAY_SECRET}
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://discovery-service:8761/eureka/}

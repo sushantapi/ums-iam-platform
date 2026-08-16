@@ -1,6 +1,7 @@
 package com.ums.notification.controller;
 
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @RequestMapping("/test")
 @RequiredArgsConstructor
+@Profile("dev")
 public class RabbitTestController {
 
 	private final RabbitTemplate rabbitTemplate;
@@ -25,7 +27,7 @@ public class RabbitTestController {
 		UserRegisteredEvent event = UserRegisteredEvent.builder().email("sushant843120@gmail.com").firstName("Sushant")
 				.lastName("Kumar").build();
 
-		log.info("Publishing UserRegisteredEvent : {}", event);
+		log.info("Publishing dev UserRegisteredEvent");
 
 		rabbitTemplate.convertAndSend(QueueConstants.EXCHANGE, QueueConstants.USER_REGISTERED_KEY, event);
 

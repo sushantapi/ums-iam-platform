@@ -1,85 +1,67 @@
-/*
- * package com.ums.auth.config;
- * 
- * import org.springframework.context.annotation.Bean; import
- * org.springframework.context.annotation.Configuration; import
- * org.springframework.security.config.Customizer; import
- * org.springframework.security.config.annotation.method.configuration.
- * EnableMethodSecurity; import
- * org.springframework.security.config.annotation.web.builders.HttpSecurity;
- * import org.springframework.security.config.http.SessionCreationPolicy; import
- * org.springframework.security.web.SecurityFilterChain; import
- * org.springframework.security.web.authentication.
- * UsernamePasswordAuthenticationFilter;
- * 
- * import com.ums.auth.security.JwtAuthenticationEntryPoint; import
- * com.ums.auth.security.JwtAuthenticationFilter;
- * 
- * import lombok.RequiredArgsConstructor;
- * 
- * @Configuration
- * 
- * @EnableMethodSecurity
- * 
- * @RequiredArgsConstructor public class SecurityConfig {
- * 
- * private final JwtAuthenticationFilter jwtFilter; private final
- * JwtAuthenticationEntryPoint entryPoint;
- * 
- * @Bean SecurityFilterChain securityFilterChain(HttpSecurity http) throws
- * Exception {
- * 
- * http.csrf(csrf -> csrf.disable())
- * 
- * .sessionManagement(session ->
- * session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
- * 
- * .exceptionHandling(ex -> ex.authenticationEntryPoint(entryPoint))
- * 
- * .authorizeHttpRequests(auth -> auth
- * 
- * .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login",
- * "/api/v1/auth/refresh") .permitAll()
- * 
- * .anyRequest().authenticated())
- * 
- * .httpBasic(Customizer.withDefaults());
- * 
- * http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
- * 
- * return http.build(); } }
- */
-
 package com.ums.auth.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
+
+import com.ums.auth.security.InternalServiceAuthenticationFilter;
+import com.ums.auth.security.TrustedGatewayAuthenticationFilter;
 
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
-		http.csrf(csrf -> csrf.disable())
-
+	@Order(1)
+	SecurityFilterChain internalSecurityFilterChain(
+			HttpSecurity http,
+			InternalServiceAuthenticationFilter internalServiceAuthenticationFilter) throws Exception {
+		return http
+				.securityMatcher("/api/v1/internal/**", "/internal/**")
+				.csrf(csrf -> csrf.disable())
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				.httpBasic(httpBasic -> httpBasic.disable())
+				.formLogin(form -> form.disable())
+				.authorizeHttpRequests(auth -> auth.anyRequest().hasRole("INTERNAL_SERVICE"))
+				.addFilterBefore(internalServiceAuthenticationFilter, AbstractPreAuthenticatedProcessingFilter.class)
+				.build();
+	}
 
+	@Bean
+	@Order(2)
+	SecurityFilterChain externalSecurityFilterChain(
+			HttpSecurity http,
+			TrustedGatewayAuthenticationFilter trustedGatewayAuthenticationFilter) throws Exception {
+		return http
+				.csrf(csrf -> csrf.disable())
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				.httpBasic(httpBasic -> httpBasic.disable())
+				.formLogin(form -> form.disable())
 				.authorizeHttpRequests(auth -> auth
+						.requestMatchers(HttpMethod.POST,
+								"/api/v1/auth/register",
+								"/api/v1/auth/login",
+								"/api/v1/auth/refresh")
+							.permitAll()
+						.requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
+						.requestMatchers("/api/v1/admin/sessions/**", "/api/v1/admin/users/*/sessions/**")
+							.hasRole("SUPER_ADMIN")
+						.anyRequest().denyAll())
+				.addFilterBefore(trustedGatewayAuthenticationFilter, AbstractPreAuthenticatedProcessingFilter.class)
+				.build();
+	}
 
-						.requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh")
-						.permitAll()
-
-						.requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/actuator/**")
-						.permitAll()
-
-						.anyRequest().authenticated());
-
-		return http.build();
+	@Bean
+	UserDetailsService userDetailsService() {
+		return new InMemoryUserDetailsManager();
 	}
 }

@@ -3,24 +3,29 @@ server:
 
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/audit_db
+    url: jdbc:mysql://localhost:3307/audit_db
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
 
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_DEFAULT_USER:guest}
+    password: ${RABBITMQ_DEFAULT_PASS:guest}
 
-jwt:
-  public-key-path: classpath:keys/public.pem
-  issuer: ums-auth-service
+internal:
+  gateway:
+    secret: ${INTERNAL_GATEWAY_SECRET:local-dev-gateway-secret-change-me}
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET:local-dev-internal-service-secret-change-me}
 
 eureka:
   client:

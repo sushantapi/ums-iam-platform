@@ -22,4 +22,12 @@ public class UserDetailResponse {
 	private String mobile;
 
 	private Boolean active;
+
+	private String status;
+
+	private Boolean locked;
+
+	private java.time.Instant lockedUntil;
+
+	private java.time.Instant lastLoginAt;
 }

@@ -1,20 +1,62 @@
 server:
   port: 8086
+  error:
+    include-message: never
 
 spring:
+  application:
+    name: authentication-service
   datasource:
-    url: jdbc:mysql://uat-mysql:3306/auth_db
-    username: auth_uat
-    password: auth_uat_pwd
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${AUTH_DB_NAME:auth_db}?useSSL=${MYSQL_USE_SSL:true}&serverTimezone=UTC
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_DEFAULT_USER}
+    password: ${RABBITMQ_DEFAULT_PASS}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
 
 jwt:
-  issuer: ums-iam-platform
-  access-token-expiry-ms: 900000
-  refresh-token-expiry-ms: 604800000
+  private-key: ${JWT_PRIVATE_KEY:}
+  private-key-path: ${JWT_PRIVATE_KEY_PATH}
+  public-key: ${JWT_PUBLIC_KEY:}
+  public-key-path: ${JWT_PUBLIC_KEY_PATH}
+  key-id: ${JWT_KEY_ID}
+  issuer: ${JWT_ISSUER:ums-iam-platform}
+  audience: ${JWT_AUDIENCE:ums-api-gateway}
+  access-token-expiry-ms: ${JWT_EXPIRATION_MS:900000}
+  refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
 
-jwt:
-  private-key-path: keys/private_key.pem
-  public-key-path: keys/public_key.pem
-  issuer: ums-iam-platform
-  access-token-expiry-ms: 900000
-  refresh-token-expiry-ms: 604800000
+internal:
+  gateway:
+    secret: ${INTERNAL_GATEWAY_SECRET}
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized

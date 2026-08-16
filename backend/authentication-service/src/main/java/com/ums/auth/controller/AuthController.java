@@ -2,6 +2,7 @@ package com.ums.auth.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -45,9 +46,9 @@ public class AuthController {
 	}
 
 	@PostMapping("/logout")
-	public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request) {
+	public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request, Authentication authentication) {
 
-		authService.logout(request);
+		authService.logout(request, (java.util.UUID) authentication.getPrincipal());
 
 		return ResponseEntity.ok(ApiResponse.ok("Logout successful", null));
 	}
@@ -64,7 +65,7 @@ public class AuthController {
 	}
 
 	@PostMapping("/refresh")
-	public ResponseEntity<ApiResponse<TokenResponse>> refresh(@RequestBody RefreshTokenRequest request) {
+	public ResponseEntity<ApiResponse<TokenResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
 
 		TokenResponse response = authService.refreshToken(request);
 

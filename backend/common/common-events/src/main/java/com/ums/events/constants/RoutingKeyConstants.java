@@ -9,4 +9,6 @@ public class RoutingKeyConstants {
 
 	public static final String ROLE_ASSIGNED = "role.assigned";
 
+	public static final String ROLE_REVOKED = "role.revoked";
+
 }

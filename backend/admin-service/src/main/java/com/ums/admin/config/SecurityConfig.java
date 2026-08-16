@@ -2,44 +2,59 @@ package com.ums.admin.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
 
-import com.ums.security.filter.JwtAuthenticationFilter;
-
-import lombok.RequiredArgsConstructor;
+import com.ums.admin.security.InternalServiceAuthenticationFilter;
+import com.ums.admin.security.TrustedGatewayAuthenticationFilter;
 
 @Configuration
 @EnableMethodSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
-	private final JwtAuthenticationFilter jwtAuthenticationFilter;
+	@Bean
+	@Order(1)
+	SecurityFilterChain internalSecurityFilterChain(
+			HttpSecurity http,
+			InternalServiceAuthenticationFilter internalServiceAuthenticationFilter) throws Exception {
+		return http
+				.securityMatcher("/api/v1/internal/**", "/internal/**")
+				.csrf(csrf -> csrf.disable())
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				.httpBasic(httpBasic -> httpBasic.disable())
+				.formLogin(form -> form.disable())
+				.authorizeHttpRequests(auth -> auth.anyRequest().hasRole("INTERNAL_SERVICE"))
+				.addFilterBefore(internalServiceAuthenticationFilter, AbstractPreAuthenticatedProcessingFilter.class)
+				.build();
+	}
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
-		http
-
+	@Order(2)
+	SecurityFilterChain externalSecurityFilterChain(
+			HttpSecurity http,
+			TrustedGatewayAuthenticationFilter trustedGatewayAuthenticationFilter) throws Exception {
+		return http
 				.csrf(csrf -> csrf.disable())
-
-				.httpBasic(httpBasic -> httpBasic.disable())
-
-				.formLogin(form -> form.disable())
-
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
+				.httpBasic(httpBasic -> httpBasic.disable())
+				.formLogin(form -> form.disable())
 				.authorizeHttpRequests(auth -> auth
+						.requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info").permitAll()
+						.requestMatchers("/api/v1/admin/**").authenticated()
+						.anyRequest().denyAll())
+				.addFilterBefore(trustedGatewayAuthenticationFilter, AbstractPreAuthenticatedProcessingFilter.class)
+				.build();
+	}
 
-						.requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-
-						.anyRequest().authenticated())
-
-				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-
-		return http.build();
+	@Bean
+	UserDetailsService userDetailsService() {
+		return new InMemoryUserDetailsManager();
 	}
 }

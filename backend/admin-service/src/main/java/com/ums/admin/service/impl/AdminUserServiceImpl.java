@@ -1,11 +1,13 @@
 package com.ums.admin.service.impl;
 
-import java.util.List;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
+import com.ums.admin.client.AuthenticationServiceClient;
 import com.ums.admin.client.UserServiceClient;
-import com.ums.admin.dto.response.UserSummaryResponse;
+import com.ums.admin.dto.response.UserDetailResponse;
+import com.ums.admin.dto.response.UserSummaryPageResponse;
 import com.ums.admin.service.AdminUserService;
 
 import lombok.RequiredArgsConstructor;
@@ -14,27 +16,44 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AdminUserServiceImpl implements AdminUserService {
 
-	private final UserServiceClient userServiceClient;
+    private final UserServiceClient userServiceClient;
+    private final AuthenticationServiceClient authenticationServiceClient;
 
-	@Override
-	public List<UserSummaryResponse> getAllUsers() {
-		return userServiceClient.getAllUsers();
-	}
+    @Override
+    public UserSummaryPageResponse getUsers(int page, int size, String search) {
+        return userServiceClient.getUsers(page, size, search);
+    }
 
-	/*
-	 * @Override public UserDetailResponse getUserById(Long id) { return
-	 * userServiceClient.getUserById(id); }
-	 * 
-	 * @Override public String blockUser(Long id) {
-	 * 
-	 * userServiceClient.blockUser(id);
-	 * 
-	 * return "User blocked successfully"; }
-	 * 
-	 * @Override public String activateUser(Long id) {
-	 * 
-	 * userServiceClient.activateUser(id);
-	 * 
-	 * return "User activated successfully"; }
-	 */
+    @Override
+    public UserDetailResponse getUserById(UUID userId) {
+        var profile = userServiceClient.getUser(userId);
+        var account = authenticationServiceClient.getUser(userId);
+
+        return UserDetailResponse.builder()
+                .id(profile.getId())
+                .firstName(profile.getFirstName())
+                .lastName(profile.getLastName())
+                .email(profile.getEmail())
+                .active("ACTIVE".equals(account.status()))
+                .status(account.status())
+                .locked(account.locked())
+                .lockedUntil(account.lockedUntil())
+                .lastLoginAt(account.lastLoginAt())
+                .build();
+    }
+
+    @Override
+    public void activateUser(UUID userId, UUID actorUserId) {
+        authenticationServiceClient.activate(userId, actorUserId);
+    }
+
+    @Override
+    public void suspendUser(UUID userId, UUID actorUserId) {
+        authenticationServiceClient.suspend(userId, actorUserId);
+    }
+
+    @Override
+    public void unlockUser(UUID userId, UUID actorUserId) {
+        authenticationServiceClient.unlock(userId, actorUserId);
+    }
 }

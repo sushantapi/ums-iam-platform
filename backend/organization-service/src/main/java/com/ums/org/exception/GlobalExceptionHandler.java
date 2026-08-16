@@ -2,6 +2,7 @@ package com.ums.org.exception;
 
 import java.time.LocalDateTime;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -17,5 +18,20 @@ public class GlobalExceptionHandler {
 		String message = ex.getBindingResult().getFieldError().getDefaultMessage();
 
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(LocalDateTime.now(), message));
+	}
+
+	@ExceptionHandler(BadRequestException.class)
+	public ResponseEntity<?> handleBadRequest(BadRequestException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(LocalDateTime.now(), ex.getMessage()));
+	}
+
+	@ExceptionHandler(ResourceNotFoundException.class)
+	public ResponseEntity<?> handleNotFound(ResourceNotFoundException ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(LocalDateTime.now(), ex.getMessage()));
+	}
+
+	@ExceptionHandler(AccessDeniedException.class)
+	public ResponseEntity<?> handleAccessDenied(AccessDeniedException ex) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse(LocalDateTime.now(), ex.getMessage()));
 	}
 }

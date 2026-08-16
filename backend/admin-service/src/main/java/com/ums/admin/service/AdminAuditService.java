@@ -1,10 +1,14 @@
 package com.ums.admin.service;
 
-import java.util.List;
-
-import com.ums.admin.dto.response.AuditLogResponse;
+import com.ums.admin.dto.response.AuditLogPageResponse;
 
 public interface AdminAuditService {
 
-	List<AuditLogResponse> getAuditLogs();
+	AuditLogPageResponse getAuditLogs(
+			int page,
+			int size,
+			String actor,
+			String target,
+			String eventType,
+			String serviceName);
 }

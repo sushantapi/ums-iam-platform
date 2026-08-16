@@ -1,5 +1,7 @@
 package com.ums.auth.dto;
 
+import java.util.UUID;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -16,4 +18,8 @@ public class LoginRequest {
 
 	// Optional: track device for session table
 	private String deviceInfo;
+
+	private String client;
+
+	private UUID organizationId;
 }

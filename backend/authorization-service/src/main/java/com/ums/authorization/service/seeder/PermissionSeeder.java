@@ -1,5 +1,7 @@
 package com.ums.authorization.service.seeder;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 
 import com.ums.authorization.entity.Permission;
@@ -17,37 +19,30 @@ public class PermissionSeeder {
 	private final PermissionRepository permissionRepository;
 
 	public void seed() {
+		seedActions("USER", "READ", "WRITE", "CREATE", "UPDATE", "DELETE");
+		seedActions("ROLE", "READ", "WRITE", "CREATE", "UPDATE", "ASSIGN");
+		seedActions("ORGANIZATION", "READ", "WRITE", "CREATE", "UPDATE", "DELETE");
+		seedActions("AUDIT", "READ");
+		seedActions("DASHBOARD", "READ");
+		seedActions("NOTIFICATION_LOG", "READ");
+		seedActions("NOTIFICATION_TEMPLATE", "READ", "WRITE");
+		seedActions("SESSION", "READ", "WRITE");
+		seedActions("PAYROLL", "VIEW", "PROCESS");
+		seedActions("PROJECT", "CREATE", "UPDATE", "DELETE");
+		seedActions("DEPARTMENT", "READ", "WRITE", "CREATE", "UPDATE", "DELETE");
+	}
 
-		createPermission("USER", "CREATE");
-		createPermission("USER", "UPDATE");
-		createPermission("USER", "DELETE");
-
-		createPermission("ROLE", "CREATE");
-		createPermission("ROLE", "UPDATE");
-		createPermission("ROLE", "ASSIGN");
-
-		createPermission("ORGANIZATION", "CREATE");
-		createPermission("ORGANIZATION", "UPDATE");
-		createPermission("ORGANIZATION", "DELETE");
-
-		createPermission("PAYROLL", "VIEW");
-		createPermission("PAYROLL", "PROCESS");
-
-		createPermission("PROJECT", "CREATE");
-		createPermission("PROJECT", "UPDATE");
-		createPermission("PROJECT", "DELETE");
+	private void seedActions(String resourceCode, String... actions) {
+		List.of(actions).forEach(action -> createPermission(resourceCode, action));
 	}
 
 	private void createPermission(String resourceCode, String action) {
-
-		Resource resource = resourceRepository.findByCodeIgnoreCase(resourceCode).orElseThrow();
-
+		Resource resource = resourceRepository.findByCodeIgnoreCase(resourceCode)
+				.orElseThrow(() -> new IllegalStateException("Resource not found: " + resourceCode));
 		String permissionCode = resourceCode + "_" + action;
-
 		if (permissionRepository.findByCodeIgnoreCase(permissionCode).isEmpty()) {
-
 			permissionRepository.save(Permission.builder().code(permissionCode).resource(resource).action(action)
-					.description(permissionCode).build());
+					.description(permissionCode).active(true).build());
 		}
 	}
 }

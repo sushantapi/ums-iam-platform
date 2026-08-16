@@ -2,6 +2,8 @@ package com.ums.user.controller;
 
 import java.util.UUID;
 
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,7 +33,7 @@ public class UserController {
 	@GetMapping("/me")
 	public UserProfileResponse currentUser(Authentication authentication) {
 
-		return userService.getCurrentUser(authentication.getName());
+		return userService.getCurrentUser(currentUserId(authentication));
 	}
 
 	/**
@@ -41,13 +43,14 @@ public class UserController {
 	public UserProfileResponse updateProfile(Authentication authentication,
 			@Valid @RequestBody UpdateProfileRequest request) {
 
-		return userService.updateProfile(authentication.getName(), request);
+		return userService.updateProfile(currentUserId(authentication), request);
 	}
 
 	/**
 	 * Get User By ID
 	 */
 	@GetMapping("/{userId}")
+	@PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('USER_ADMIN') or hasAuthority('USER_READ')")
 	public UserProfileResponse getUserById(@PathVariable UUID userId) {
 
 		return userService.getUserById(userId);
@@ -59,8 +62,20 @@ public class UserController {
 	@DeleteMapping("/profile")
 	public String deleteProfile(Authentication authentication) {
 
-		userService.deleteProfile(authentication.getName());
+		userService.deleteProfile(currentUserId(authentication));
 
 		return "Profile deleted successfully";
+	}
+
+	private UUID currentUserId(Authentication authentication) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			throw new AccessDeniedException("Authenticated user is required");
+		}
+
+		try {
+			return UUID.fromString(authentication.getName());
+		} catch (IllegalArgumentException ex) {
+			throw new AccessDeniedException("Authenticated user id is invalid");
+		}
 	}
 }

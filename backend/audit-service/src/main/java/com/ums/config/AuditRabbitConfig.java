@@ -7,6 +7,7 @@ import org.springframework.amqp.core.TopicExchange;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.ums.events.constants.ExchangeConstants;
 import com.ums.events.constants.RabbitMQConstants;
 
 @Configuration

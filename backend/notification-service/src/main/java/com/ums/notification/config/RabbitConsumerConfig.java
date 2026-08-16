@@ -130,7 +130,6 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import com.ums.events.constants.ExchangeConstants;
 import com.ums.events.constants.RabbitMQConstants;
 import com.ums.events.constants.RoutingKeyConstants;
 
@@ -186,13 +185,46 @@ public class RabbitConsumerConfig {
 
 	@Bean
 	public TopicExchange authExchange() {
-		return new TopicExchange(ExchangeConstants.AUTH_EXCHANGE);
+		return new TopicExchange(RabbitMQConstants.AUTH_EXCHANGE);
 	}
 
 	@Bean
 	public Binding roleAssignedBinding(Queue roleAssignedQueue, TopicExchange authExchange) {
 
 		return BindingBuilder.bind(roleAssignedQueue).to(authExchange).with(RoutingKeyConstants.ROLE_ASSIGNED);
+	}
+
+	@Bean
+	public Queue emailVerificationQueue() {
+		return new Queue(RabbitMQConstants.NOTIFICATION_EMAIL_VERIFICATION_QUEUE, true);
+	}
+
+	@Bean
+	public Queue passwordResetQueue() {
+		return new Queue(RabbitMQConstants.NOTIFICATION_PASSWORD_RESET_QUEUE, true);
+	}
+
+	@Bean
+	public Queue mfaOtpQueue() {
+		return new Queue(RabbitMQConstants.NOTIFICATION_MFA_OTP_QUEUE, true);
+	}
+
+	@Bean
+	public Binding emailVerificationBinding(Queue emailVerificationQueue, TopicExchange authExchange) {
+		return BindingBuilder.bind(emailVerificationQueue).to(authExchange)
+				.with(RabbitMQConstants.EMAIL_VERIFICATION_ROUTING_KEY);
+	}
+
+	@Bean
+	public Binding passwordResetBinding(Queue passwordResetQueue, TopicExchange authExchange) {
+		return BindingBuilder.bind(passwordResetQueue).to(authExchange)
+				.with(RabbitMQConstants.PASSWORD_RESET_ROUTING_KEY);
+	}
+
+	@Bean
+	public Binding mfaOtpBinding(Queue mfaOtpQueue, TopicExchange authExchange) {
+		return BindingBuilder.bind(mfaOtpQueue).to(authExchange)
+				.with(RabbitMQConstants.MFA_OTP_ROUTING_KEY);
 	}
 
 }

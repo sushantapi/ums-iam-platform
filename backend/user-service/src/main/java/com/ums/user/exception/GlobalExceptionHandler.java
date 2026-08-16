@@ -4,12 +4,14 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -54,6 +56,30 @@ public class GlobalExceptionHandler {
 		response.put("timestamp", LocalDateTime.now());
 
 		return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+	}
+
+	/**
+	 * Authorization Exception
+	 */
+	@ExceptionHandler(AccessDeniedException.class)
+	public ResponseEntity<Map<String, Object>> handleAccessDeniedException(AccessDeniedException ex) {
+
+		Map<String, Object> response = new HashMap<>();
+
+		response.put("success", false);
+		response.put("message", ex.getMessage());
+		response.put("timestamp", LocalDateTime.now());
+
+		return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+	}
+
+	@ExceptionHandler(ResponseStatusException.class)
+	public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException ex) {
+		Map<String, Object> response = new HashMap<>();
+		response.put("success", false);
+		response.put("message", ex.getReason());
+		response.put("timestamp", LocalDateTime.now());
+		return new ResponseEntity<>(response, ex.getStatusCode());
 	}
 
 	/**

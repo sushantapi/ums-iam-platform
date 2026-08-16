@@ -1,19 +1,35 @@
-#server:
-#  port: 8083
-#
-#spring:
-#  application:
-#    name: AUTHORIZATION-SERVICE
-#
-#jwt:
-#  public-key-path: keys/public_key.pem
+internal:
+  gateway:
+    secret: ${INTERNAL_GATEWAY_SECRET:local-dev-gateway-secret-change-me}
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET:local-dev-internal-service-secret-change-me}
 
-#spring:
-#  application:
-#    name: authorization-service
-#
-#  profiles:
-#    active: ${SPRING_PROFILES_ACTIVE:dev}
-#
-#  config:
-#    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+spring:
+  application:
+    name: authorization-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+  rabbitmq:
+    publisher-confirm-type: correlated
+    publisher-returns: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

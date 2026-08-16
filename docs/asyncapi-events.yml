@@ -1,0 +1,166 @@
+asyncapi: 3.0.0
+
+info:
+  title: UMS IAM Platform - Event-Driven API
+  version: 1.0.0
+  description: Asynchronous API specification for UMS IAM Platform event streams
+  contact:
+    name: UMS IAM Support
+    email: support@umsiam.com
+    url: https://umsiam.com
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  rabbitmq:
+    host: localhost
+    port: 5672
+    protocol: amqp
+    description: RabbitMQ server for development
+
+channels:
+  user.created:
+    address: user.created.event
+    title: User Created Event
+    description: Fired when a new user is created in the system
+    messages:
+      UserCreatedMessage:
+        $ref: '#/components/messages/UserCreated'
+
+  user.updated:
+    address: user.updated.event
+    title: User Updated Event
+    description: Fired when a user is updated
+    messages:
+      UserUpdatedMessage:
+        $ref: '#/components/messages/UserUpdated'
+
+  role.assigned:
+    address: role.assigned.event
+    title: Role Assigned Event
+    description: Fired when a role is assigned to a user
+    messages:
+      RoleAssignedMessage:
+        $ref: '#/components/messages/RoleAssigned'
+
+  notification.email.send:
+    address: notification.email.send
+    title: Send Email Notification
+    description: Request to send an email notification
+    messages:
+      SendEmailMessage:
+        $ref: '#/components/messages/SendEmail'
+
+operations:
+  userCreatedPublish:
+    action: send
+    channel:
+      $ref: '#/channels/user.created'
+    messages:
+      - $ref: '#/components/messages/UserCreated'
+
+  userUpdatedPublish:
+    action: send
+    channel:
+      $ref: '#/channels/user.updated'
+    messages:
+      - $ref: '#/components/messages/UserUpdated'
+
+  roleAssignedPublish:
+    action: send
+    channel:
+      $ref: '#/channels/role.assigned'
+    messages:
+      - $ref: '#/components/messages/RoleAssigned'
+
+  sendEmailNotification:
+    action: send
+    channel:
+      $ref: '#/channels/notification.email.send'
+    messages:
+      - $ref: '#/components/messages/SendEmail'
+
+components:
+  messages:
+    UserCreated:
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          eventId:
+            type: string
+            format: uuid
+          timestamp:
+            type: string
+            format: date-time
+          userId:
+            type: string
+          email:
+            type: string
+            format: email
+          firstName:
+            type: string
+          lastName:
+            type: string
+          organizationId:
+            type: string
+
+    UserUpdated:
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          eventId:
+            type: string
+            format: uuid
+          timestamp:
+            type: string
+            format: date-time
+          userId:
+            type: string
+          email:
+            type: string
+            format: email
+          firstName:
+            type: string
+          lastName:
+            type: string
+
+    RoleAssigned:
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          eventId:
+            type: string
+            format: uuid
+          timestamp:
+            type: string
+            format: date-time
+          userId:
+            type: string
+          roleId:
+            type: string
+          roleName:
+            type: string
+
+    SendEmail:
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          to:
+            type: string
+            format: email
+          subject:
+            type: string
+          template:
+            type: string
+            enum:
+              - WELCOME
+              - VERIFY_EMAIL
+              - PASSWORD_RESET
+              - ROLE_ASSIGNMENT
+          templateData:
+            type: object

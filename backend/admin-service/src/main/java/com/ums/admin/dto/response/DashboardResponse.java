@@ -1,21 +1,20 @@
 package com.ums.admin.dto.response;
 
-import lombok.*;
+public record DashboardResponse(
+		UserMetrics users,
+		OrganizationMetrics organizations,
+		RoleMetrics roles,
+		AuditMetrics audit) {
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class DashboardResponse {
+	public record UserMetrics(long total, long active, long locked, long suspended) {
+	}
 
-	private long totalUsers;
+	public record OrganizationMetrics(long total, long active, long pendingInvitations) {
+	}
 
-	private long activeUsers;
+	public record RoleMetrics(long total) {
+	}
 
-	private long blockedUsers;
-
-	private long activeSessions;
-
-	private long todayLogins;
+	public record AuditMetrics(long eventsLast24Hours, long failedLogins) {
+	}
 }
