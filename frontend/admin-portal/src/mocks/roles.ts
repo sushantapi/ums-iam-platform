@@ -22,12 +22,10 @@ export const mockPermissions: PageResponse<PermissionResponse> = {
   content: [
     {
       id: "perm-users-read",
-      code: "users:read",
-      resource: "users",
-      action: "read",
+      code: "USER_READ",
+      action: "READ",
       description: "Read user records",
-      systemPermission: true,
-      rolesUsingPermission: 3,
+      active: true,
     },
   ],
   page: 0,

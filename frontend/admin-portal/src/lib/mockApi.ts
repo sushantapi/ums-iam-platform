@@ -61,7 +61,7 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
   if (url.pathname === "/api/v1/admin/roles") {
     return (url.search ? pageFrom(mockRoles, url) : clone(mockRoles.content)) as T;
   }
-  if (url.pathname === "/api/v1/admin/permissions") return pageFrom(mockPermissions, url) as T;
+  if (url.pathname === "/api/v1/admin/permissions") return clone(mockPermissions.content) as T;
   if (url.pathname === "/api/v1/admin/grants") return pageFrom(mockGrants, url) as T;
   if (url.pathname === "/api/v1/audit/events") return pageFrom(mockAuditEvents, url) as T;
 

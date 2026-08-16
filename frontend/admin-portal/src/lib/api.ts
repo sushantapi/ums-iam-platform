@@ -224,14 +224,11 @@ export type RoleResponse = {
 };
 
 export type PermissionResponse = {
-  id?: string;
-  code?: string;
-  resource?: string;
-  action?: string;
-  description?: string;
-  active?: boolean;
-  systemPermission?: boolean;
-  rolesUsingPermission?: number;
+  id: string;
+  code: string;
+  action: string;
+  description: string | null;
+  active: boolean;
 };
 
 export type AuditLogResponse = {
@@ -392,13 +389,11 @@ export const adminApi = {
     request<RoleResponse>("roles", `/api/v1/admin/roles/${roleId}`),
   rolePermissions: (roleId: string) =>
     request<PermissionResponse[]>("roles", `/api/v1/admin/roles/${roleId}/permissions`),
-  permissions: async (query: { page: number; size: number; search?: string }) => {
-    const payload = await request<PermissionResponse[] | PageResponse<PermissionResponse>>(
+  permissions: () =>
+    request<PermissionResponse[]>(
       "permissions",
-      withQuery("/api/v1/admin/permissions", query),
-    );
-    return normalizePage(payload, query.page, query.size);
-  },
+      "/api/v1/admin/permissions",
+    ),
   auditLogs: async (query: {
     page: number;
     size: number;
