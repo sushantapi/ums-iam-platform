@@ -1,5 +1,9 @@
 import { mockRequest } from "./mockApi";
 import { runtimeConfig, shouldUseMock, type MockFeature } from "./runtimeConfig";
+import {
+  redirectToLogin,
+  refreshAccessToken,
+} from "./auth/sessionManager";
 import { useAuthStore } from "../store/authStore";
 
 export type PageResponse<T> = {
@@ -34,25 +38,33 @@ async function request<T>(
     return mockRequest<T>(path, init);
   }
 
-  const accessToken = useAuthStore.getState().accessToken;
+  async function execute(accessToken: string | null) {
+    return fetch(`${runtimeConfig.apiBaseUrl}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken
+          ? { Authorization: `Bearer ${accessToken}` }
+          : {}),
+        ...init?.headers,
+      },
+    });
+  }
 
-  const response = await fetch(`${runtimeConfig.apiBaseUrl}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(accessToken
-        ? { Authorization: `Bearer ${accessToken}` }
-        : {}),
-      ...init?.headers,
-    },
-  });
+  let response = await execute(
+    useAuthStore.getState().accessToken,
+  );
 
   if (response.status === 401) {
-    useAuthStore.getState().clearSession();
+    const refreshedAccessToken = await refreshAccessToken();
 
-    if (window.location.pathname !== "/login") {
-      window.location.assign("/login");
+    if (refreshedAccessToken) {
+      response = await execute(refreshedAccessToken);
     }
+  }
+
+  if (response.status === 401) {
+    redirectToLogin();
   }
 
   if (!response.ok) {

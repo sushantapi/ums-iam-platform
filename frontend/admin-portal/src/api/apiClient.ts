@@ -2,7 +2,13 @@ import axios, {
   AxiosError,
   AxiosInstance,
   type AxiosRequestConfig,
+  type InternalAxiosRequestConfig,
 } from "axios";
+
+import {
+  redirectToLogin,
+  refreshAccessToken,
+} from "../lib/auth/sessionManager";
 import { useAuthStore } from "../store/authStore";
 
 const configuredBaseUrl = (
@@ -23,6 +29,10 @@ export interface ApiErrorResponse {
     rejectedValue?: unknown;
   }>;
 }
+
+type RetryableRequestConfig = InternalAxiosRequestConfig & {
+  _retry?: boolean;
+};
 
 class ApiClient {
   private client: AxiosInstance;
@@ -51,13 +61,38 @@ class ApiClient {
 
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError<ApiErrorResponse>) => {
-        if (error.response?.status === 401) {
-          useAuthStore.getState().clearSession();
+      async (error: AxiosError<ApiErrorResponse>) => {
+        const request = error.config as RetryableRequestConfig | undefined;
+        const url = request?.url ?? "";
 
-          if (window.location.pathname !== "/login") {
-            window.location.assign("/login");
+        const isLoginOrRegistration =
+          url.includes("/auth/login") ||
+          url.includes("/auth/register");
+
+        if (
+          error.response?.status === 401 &&
+          request &&
+          !request._retry &&
+          !isLoginOrRegistration
+        ) {
+          request._retry = true;
+
+          const accessToken = await refreshAccessToken();
+
+          if (accessToken) {
+            request.headers.Authorization = `Bearer ${accessToken}`;
+            return this.client.request(request);
           }
+
+          redirectToLogin();
+        }
+
+        if (
+          error.response?.status === 401 &&
+          !isLoginOrRegistration &&
+          request?._retry
+        ) {
+          redirectToLogin();
         }
 
         return Promise.reject(error);
