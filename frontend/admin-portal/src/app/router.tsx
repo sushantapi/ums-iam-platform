@@ -6,6 +6,7 @@ import {
 
 import { AdminShell } from "../components/layout/AdminShell";
 import { RequireAuth } from "../lib/auth/RequireAuth";
+import { ForbiddenPage } from "../features/auth/ForbiddenPage";
 import { LoginPage } from "../features/auth/LoginPage";
 import { auditRoutes } from "../features/audit/routes";
 import { dashboardRoutes } from "../features/dashboard/routes";
@@ -30,6 +31,11 @@ export function AppRouter() {
           </RequireAuth>
         }
       >
+        <Route
+          path="/forbidden"
+          element={<ForbiddenPage />}
+        />
+
         <Route
           index
           element={<Navigate to="/dashboard" replace />}

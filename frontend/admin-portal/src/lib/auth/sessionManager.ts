@@ -70,3 +70,8 @@ export function redirectToLogin() {
     window.location.assign("/login");
   }
 }
+export function redirectToForbidden() {
+  if (window.location.pathname !== "/forbidden") {
+    window.location.assign("/forbidden");
+  }
+}

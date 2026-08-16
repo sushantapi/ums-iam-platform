@@ -6,6 +6,7 @@ import axios, {
 } from "axios";
 
 import {
+  redirectToForbidden,
   redirectToLogin,
   refreshAccessToken,
 } from "../lib/auth/sessionManager";
@@ -65,15 +66,13 @@ class ApiClient {
         const request = error.config as RetryableRequestConfig | undefined;
         const url = request?.url ?? "";
 
-        const isLoginOrRegistration =
-          url.includes("/auth/login") ||
-          url.includes("/auth/register");
+        const isAuthEndpoint = url.includes("/auth/");
 
         if (
           error.response?.status === 401 &&
           request &&
           !request._retry &&
-          !isLoginOrRegistration
+          !isAuthEndpoint
         ) {
           request._retry = true;
 
@@ -89,10 +88,17 @@ class ApiClient {
 
         if (
           error.response?.status === 401 &&
-          !isLoginOrRegistration &&
+          !isAuthEndpoint &&
           request?._retry
         ) {
           redirectToLogin();
+        }
+
+        if (
+          error.response?.status === 403 &&
+          !isAuthEndpoint
+        ) {
+          redirectToForbidden();
         }
 
         return Promise.reject(error);

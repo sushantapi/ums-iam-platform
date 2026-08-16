@@ -1,6 +1,7 @@
 import { mockRequest } from "./mockApi";
 import { runtimeConfig, shouldUseMock, type MockFeature } from "./runtimeConfig";
 import {
+  redirectToForbidden,
   redirectToLogin,
   refreshAccessToken,
 } from "./auth/sessionManager";
@@ -65,6 +66,10 @@ async function request<T>(
 
   if (response.status === 401) {
     redirectToLogin();
+  }
+
+  if (response.status === 403) {
+    redirectToForbidden();
   }
 
   if (!response.ok) {
