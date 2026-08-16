@@ -66,7 +66,8 @@ jobs:
           fi
 
           if git ls-files | grep -Ei \
-            '(^|/)(\.env($|\.)|.*private.*\.pem$|.*\.key$|.*\.p12$|.*\.pfx$|.*\.jks$|id_rsa$|id_ed25519$)'
+            '(^|/)(\.env($|\.)|.*private.*\.pem$|.*\.key$|.*\.p12$|.*\.pfx$|.*\.jks$|id_rsa$|id_ed25519$)' | \
+            grep -Ev '(^|/)\.env\.example$'
           then
             echo "::error::Tracked private-key or local-secret candidate detected."
             exit 1
