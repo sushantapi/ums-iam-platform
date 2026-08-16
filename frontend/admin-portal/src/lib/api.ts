@@ -278,19 +278,14 @@ export type AdminSessionResponse = {
 };
 
 export type GrantResponse = {
-  id: string;
-  principal?: string;
-  principalId?: string;
-  principalType?: string;
-  roleId?: string;
-  roleName?: string;
-  organizationId?: string;
-  organizationName?: string;
-  scope?: string;
-  assignedBy?: string;
-  assignedAt?: string;
-  status?: string;
-  source?: string;
+  assignmentId: string;
+  roleId: string;
+  roleName: string;
+  scopeType: string;
+  scopeId: string;
+  active: boolean;
+  assignedAt: string;
+  expiresAt: string | null;
 };
 
 export type OrganizationSecurityPolicyResponse = {
@@ -426,19 +421,11 @@ export const adminApi = {
     request<void>("roles", `/api/v1/authorization/users/${userId}/roles/${roleId}`, {
       method: "DELETE",
     }),
-  grants: async (query: {
-    page: number;
-    size: number;
-    userId?: string;
-    roleId?: string;
-    organizationId?: string;
-  }) => {
-    const payload = await request<GrantResponse[] | PageResponse<GrantResponse>>(
+  grants: (query: { page: number; size: number }) =>
+    request<PageResponse<GrantResponse>>(
       "grants",
       withQuery("/api/v1/admin/grants", query),
-    );
-    return normalizePage(payload, query.page, query.size);
-  },
+    ),
   revokeGrant: (grantId: string) =>
     request<void>("grants", `/api/v1/admin/grants/${grantId}`, { method: "DELETE" }),
   organizations: async (query: { page: number; size: number; search?: string; status?: string }) => {
