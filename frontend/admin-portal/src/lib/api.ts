@@ -428,7 +428,7 @@ export const adminApi = {
     ),
   revokeGrant: (grantId: string) =>
     request<void>("grants", `/api/v1/admin/grants/${grantId}`, { method: "DELETE" }),
-  organizations: async (query: { page: number; size: number; search?: string; status?: string }) => {
+  organizations: async (query: { page: number; size: number; search?: string }) => {
     const payload = await request<OrganizationResponse[] | PageResponse<OrganizationResponse>>(
       "organizations",
       withQuery("/api/v1/admin/organizations", query),
