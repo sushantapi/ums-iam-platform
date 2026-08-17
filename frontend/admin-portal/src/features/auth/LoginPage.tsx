@@ -34,6 +34,7 @@ export function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [organizationId, setOrganizationId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +63,9 @@ export function LoginPage() {
         password,
         deviceInfo: navigator.userAgent,
         client: "ADMIN_PORTAL",
+        ...(organizationId.trim()
+          ? { organizationId: organizationId.trim() }
+          : {}),
       });
 
       setSession(session);
@@ -119,6 +123,18 @@ export function LoginPage() {
               onChange={(event) => setPassword(event.target.value)}
               disabled={submitting}
               required
+            />
+          </label>
+
+          <label>
+            Organization ID <span className="field-hint">(optional)</span>
+            <input
+              type="text"
+              name="organizationId"
+              value={organizationId}
+              onChange={(event) => setOrganizationId(event.target.value)}
+              placeholder="Required for organization-scoped admin access"
+              disabled={submitting}
             />
           </label>
 
