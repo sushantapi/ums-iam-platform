@@ -29,4 +29,24 @@ public class OrganizationAccessService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Organization service unavailable", ex);
         }
     }
+
+    public void assertUserBelongsToOrganization(UUID organizationId, UUID umsUserId) {
+        try {
+            boolean belongsToOrganization = organizationServiceClient.findOrganizationsForUser(umsUserId).stream()
+                    .anyMatch(organization -> organizationId.equals(organization.id()));
+
+            if (!belongsToOrganization) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "UMS user does not belong to organization");
+            }
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (FeignException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Organization service unavailable",
+                    ex);
+        }
+    }
 }

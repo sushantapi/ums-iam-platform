@@ -3,6 +3,8 @@ package com.ums.hrms.employee.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.ums.hrms.employee.dto.CreateEmployeeRequest;
@@ -59,11 +62,34 @@ class EmployeeServiceTests {
                 false);
 
         verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
+        verify(organizationAccessService).assertUserBelongsToOrganization(organizationId, umsUserId);
         verify(employeeAuditPublisher).publishCreated(any(Employee.class), org.mockito.ArgumentMatchers.eq(actorUserId));
         assertEquals(employeeId, response.id());
         assertEquals(organizationId, response.organizationId());
         assertEquals("EMP-001", response.employeeCode());
         assertEquals(EmployeeStatus.ACTIVE, response.status());
+    }
+
+    @Test
+    void createRejectsUmsUserOutsideOrganizationBeforePersistence() {
+        UUID organizationId = UUID.randomUUID();
+        UUID umsUserId = UUID.randomUUID();
+        UUID actorUserId = UUID.randomUUID();
+
+        doThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "UMS user does not belong to organization"))
+                .when(organizationAccessService)
+                .assertUserBelongsToOrganization(organizationId, umsUserId);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> employeeService.create(
+                        new CreateEmployeeRequest(organizationId, umsUserId, "EMP-001", null, null),
+                        actorUserId,
+                        false));
+
+        assertEquals(400, exception.getStatusCode().value());
+        verify(employeeRepository, never()).existsByOrganizationIdAndEmployeeCodeIgnoreCase(any(), any());
+        verify(employeeRepository, never()).save(any(Employee.class));
     }
 
     @Test

@@ -30,6 +30,7 @@ public class EmployeeService {
 
     public EmployeeResponse create(CreateEmployeeRequest request, UUID actorUserId, boolean superAdmin) {
         organizationAccessService.assertCanAccess(request.organizationId(), actorUserId, superAdmin);
+        organizationAccessService.assertUserBelongsToOrganization(request.organizationId(), request.umsUserId());
 
         String employeeCode = normalizeEmployeeCode(request.employeeCode());
         if (employeeRepository.existsByOrganizationIdAndEmployeeCodeIgnoreCase(request.organizationId(), employeeCode)) {

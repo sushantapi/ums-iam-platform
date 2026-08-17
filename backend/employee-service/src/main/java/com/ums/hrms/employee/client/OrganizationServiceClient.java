@@ -1,5 +1,6 @@
 package com.ums.hrms.employee.client;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.cloud.openfeign.FeignClient;
@@ -20,4 +21,10 @@ public interface OrganizationServiceClient {
             @PathVariable UUID organizationId,
             @RequestHeader("X-Actor-User-Id") UUID actorUserId,
             @RequestHeader("X-Actor-Super-Admin") boolean superAdmin);
+
+    @GetMapping("/api/v1/internal/organizations/by-user/{userId}")
+    List<OrganizationSummary> findOrganizationsForUser(@PathVariable UUID userId);
+
+    record OrganizationSummary(UUID id) {
+    }
 }
