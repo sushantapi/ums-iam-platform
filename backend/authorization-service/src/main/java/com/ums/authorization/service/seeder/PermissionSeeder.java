@@ -28,6 +28,7 @@ public class PermissionSeeder {
         seedActions("NOTIFICATION_TEMPLATE", "READ", "WRITE");
         seedActions("SESSION", "READ", "WRITE");
         seedActions("EMPLOYEE", "READ", "CREATE", "UPDATE");
+        seedActions("DESIGNATION", "READ", "CREATE", "UPDATE");
         seedActions("PAYROLL", "VIEW", "PROCESS");
         seedActions("PROJECT", "CREATE", "UPDATE", "DELETE");
         seedActions("DEPARTMENT", "READ", "WRITE", "CREATE", "UPDATE", "DELETE");
