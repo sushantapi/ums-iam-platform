@@ -6,6 +6,8 @@ server:
 internal:
   gateway:
     secret: ${INTERNAL_GATEWAY_SECRET}
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET}
 
 spring:
   application:
