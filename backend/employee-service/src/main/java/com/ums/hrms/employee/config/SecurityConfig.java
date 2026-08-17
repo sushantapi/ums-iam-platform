@@ -29,7 +29,7 @@ public class SecurityConfig {
                 .addFilterBefore(trustedGatewayAuthenticationFilter, AbstractPreAuthenticatedProcessingFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers("/api/v1/hrms/employees/**").authenticated()
+                        .requestMatchers("/api/v1/hrms/**").authenticated()
                         .anyRequest().denyAll())
                 .build();
     }

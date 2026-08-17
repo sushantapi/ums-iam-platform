@@ -35,6 +35,9 @@ class EmployeeServiceTests {
     private OrganizationAccessService organizationAccessService;
 
     @Mock
+    private OrganizationStructureReferenceService organizationStructureReferenceService;
+
+    @Mock
     private EmployeeAuditPublisher employeeAuditPublisher;
 
     @InjectMocks
@@ -46,6 +49,8 @@ class EmployeeServiceTests {
         UUID umsUserId = UUID.randomUUID();
         UUID actorUserId = UUID.randomUUID();
         UUID employeeId = UUID.randomUUID();
+        UUID departmentId = UUID.randomUUID();
+        UUID designationId = UUID.randomUUID();
 
         when(employeeRepository.existsByOrganizationIdAndEmployeeCodeIgnoreCase(organizationId, "EMP-001"))
                 .thenReturn(false);
@@ -57,15 +62,19 @@ class EmployeeServiceTests {
         });
 
         var response = employeeService.create(
-                new CreateEmployeeRequest(organizationId, umsUserId, " EMP-001 ", null, null),
+                new CreateEmployeeRequest(organizationId, umsUserId, " EMP-001 ", departmentId, designationId),
                 actorUserId,
                 false);
 
         verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
         verify(organizationAccessService).assertUserBelongsToOrganization(organizationId, umsUserId);
+        verify(organizationStructureReferenceService)
+                .validateActiveReferences(organizationId, departmentId, designationId);
         verify(employeeAuditPublisher).publishCreated(any(Employee.class), org.mockito.ArgumentMatchers.eq(actorUserId));
         assertEquals(employeeId, response.id());
         assertEquals(organizationId, response.organizationId());
+        assertEquals(departmentId, response.departmentId());
+        assertEquals(designationId, response.designationId());
         assertEquals("EMP-001", response.employeeCode());
         assertEquals(EmployeeStatus.ACTIVE, response.status());
     }
@@ -88,7 +97,29 @@ class EmployeeServiceTests {
                         false));
 
         assertEquals(400, exception.getStatusCode().value());
-        verify(employeeRepository, never()).existsByOrganizationIdAndEmployeeCodeIgnoreCase(any(), any());
+        verify(organizationStructureReferenceService, never()).validateActiveReferences(any(), any(), any());
+        verify(employeeRepository, never()).save(any(Employee.class));
+    }
+
+    @Test
+    void createRejectsInvalidOrganizationStructureBeforePersistence() {
+        UUID organizationId = UUID.randomUUID();
+        UUID umsUserId = UUID.randomUUID();
+        UUID actorUserId = UUID.randomUUID();
+        UUID departmentId = UUID.randomUUID();
+
+        doThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Department not found or inactive in organization"))
+                .when(organizationStructureReferenceService)
+                .validateActiveReferences(organizationId, departmentId, null);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> employeeService.create(
+                        new CreateEmployeeRequest(organizationId, umsUserId, "EMP-001", departmentId, null),
+                        actorUserId,
+                        false));
+
+        assertEquals(400, exception.getStatusCode().value());
         verify(employeeRepository, never()).save(any(Employee.class));
     }
 
@@ -135,6 +166,8 @@ class EmployeeServiceTests {
         UUID employeeId = UUID.randomUUID();
         UUID organizationId = UUID.randomUUID();
         UUID actorUserId = UUID.randomUUID();
+        UUID departmentId = UUID.randomUUID();
+        UUID designationId = UUID.randomUUID();
 
         Employee employee = Employee.builder()
                 .id(employeeId)
@@ -152,13 +185,22 @@ class EmployeeServiceTests {
 
         var response = employeeService.update(
                 employeeId,
-                new UpdateEmployeeRequest(organizationId, " EMP-002 ", null, null, EmployeeStatus.INACTIVE),
+                new UpdateEmployeeRequest(
+                        organizationId,
+                        " EMP-002 ",
+                        departmentId,
+                        designationId,
+                        EmployeeStatus.INACTIVE),
                 actorUserId,
                 false);
 
         verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
+        verify(organizationStructureReferenceService)
+                .validateActiveReferences(organizationId, departmentId, designationId);
         verify(employeeAuditPublisher).publishUpdated(employee, actorUserId);
         assertEquals("EMP-002", response.employeeCode());
+        assertEquals(departmentId, response.departmentId());
+        assertEquals(designationId, response.designationId());
         assertEquals(EmployeeStatus.INACTIVE, response.status());
     }
 }

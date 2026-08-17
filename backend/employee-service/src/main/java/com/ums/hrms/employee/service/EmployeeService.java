@@ -26,11 +26,16 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final OrganizationAccessService organizationAccessService;
+    private final OrganizationStructureReferenceService organizationStructureReferenceService;
     private final EmployeeAuditPublisher employeeAuditPublisher;
 
     public EmployeeResponse create(CreateEmployeeRequest request, UUID actorUserId, boolean superAdmin) {
         organizationAccessService.assertCanAccess(request.organizationId(), actorUserId, superAdmin);
         organizationAccessService.assertUserBelongsToOrganization(request.organizationId(), request.umsUserId());
+        organizationStructureReferenceService.validateActiveReferences(
+                request.organizationId(),
+                request.departmentId(),
+                request.designationId());
 
         String employeeCode = normalizeEmployeeCode(request.employeeCode());
         if (employeeRepository.existsByOrganizationIdAndEmployeeCodeIgnoreCase(request.organizationId(), employeeCode)) {
@@ -84,6 +89,10 @@ public class EmployeeService {
             boolean superAdmin) {
         organizationAccessService.assertCanAccess(request.organizationId(), actorUserId, superAdmin);
         Employee employee = findScoped(employeeId, request.organizationId());
+        organizationStructureReferenceService.validateActiveReferences(
+                request.organizationId(),
+                request.departmentId(),
+                request.designationId());
 
         String employeeCode = normalizeEmployeeCode(request.employeeCode());
         if (!employee.getEmployeeCode().equalsIgnoreCase(employeeCode)

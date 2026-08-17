@@ -23,6 +23,7 @@ public class ResourceSeeder {
         createResource("NOTIFICATION_TEMPLATE", "Notification Template Management");
         createResource("SESSION", "Session Management");
         createResource("EMPLOYEE", "HRMS Employee Management");
+        createResource("DESIGNATION", "HRMS Designation Management");
         createResource("PAYROLL", "Payroll Management");
         createResource("PROJECT", "Project Management");
         createResource("DEPARTMENT", "Department Management");
