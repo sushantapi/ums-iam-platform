@@ -14,17 +14,19 @@ public interface AdminOrganizationService {
 
 	OrganizationAdminResponse create(AdminCreateOrganizationRequest request, UUID actorUserId);
 
-	OrganizationAdminPageResponse list(int page, int size, String search);
+	OrganizationAdminPageResponse list(int page, int size, String search, UUID actorUserId, boolean superAdmin);
 
-	OrganizationAdminResponse get(UUID organizationId);
+	OrganizationAdminResponse get(UUID organizationId, UUID actorUserId, boolean superAdmin);
 
 	List<OrganizationAdminResponse> getForUser(UUID userId);
 
-	List<OrganizationMemberResponse> getMembers(UUID organizationId, UUID actorUserId);
+	List<OrganizationMemberResponse> getMembers(UUID organizationId, UUID actorUserId, boolean superAdmin);
 
-	OrganizationAdminResponse update(UUID organizationId, AdminUpdateOrganizationRequest request, UUID actorUserId);
+	OrganizationAdminResponse update(UUID organizationId, AdminUpdateOrganizationRequest request, UUID actorUserId,
+			boolean superAdmin);
 
-	void addMember(UUID organizationId, AdminAddOrganizationMemberRequest request, UUID actorUserId);
+	void addMember(UUID organizationId, AdminAddOrganizationMemberRequest request, UUID actorUserId,
+			boolean superAdmin);
 
-	void removeMember(UUID organizationId, UUID userId, UUID actorUserId);
+	void removeMember(UUID organizationId, UUID userId, UUID actorUserId, boolean superAdmin);
 }
