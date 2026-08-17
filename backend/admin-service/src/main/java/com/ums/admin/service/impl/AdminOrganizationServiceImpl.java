@@ -28,13 +28,13 @@ public class AdminOrganizationServiceImpl implements AdminOrganizationService {
 	}
 
 	@Override
-	public OrganizationAdminPageResponse list(int page, int size, String search) {
-		return organizationServiceClient.list(page, size, search);
+	public OrganizationAdminPageResponse list(int page, int size, String search, UUID actorUserId, boolean superAdmin) {
+		return organizationServiceClient.list(actorUserId, superAdmin, page, size, search);
 	}
 
 	@Override
-	public OrganizationAdminResponse get(UUID organizationId) {
-		return organizationServiceClient.get(organizationId);
+	public OrganizationAdminResponse get(UUID organizationId, UUID actorUserId, boolean superAdmin) {
+		return organizationServiceClient.get(organizationId, actorUserId, superAdmin);
 	}
 
 	@Override
@@ -43,22 +43,24 @@ public class AdminOrganizationServiceImpl implements AdminOrganizationService {
 	}
 
 	@Override
-	public List<OrganizationMemberResponse> getMembers(UUID organizationId, UUID actorUserId) {
-		return organizationServiceClient.members(organizationId, actorUserId);
+	public List<OrganizationMemberResponse> getMembers(UUID organizationId, UUID actorUserId, boolean superAdmin) {
+		return organizationServiceClient.members(organizationId, actorUserId, superAdmin);
 	}
 
 	@Override
-	public OrganizationAdminResponse update(UUID organizationId, AdminUpdateOrganizationRequest request, UUID actorUserId) {
-		return organizationServiceClient.update(organizationId, actorUserId, request);
+	public OrganizationAdminResponse update(UUID organizationId, AdminUpdateOrganizationRequest request, UUID actorUserId,
+			boolean superAdmin) {
+		return organizationServiceClient.update(organizationId, actorUserId, superAdmin, request);
 	}
 
 	@Override
-	public void addMember(UUID organizationId, AdminAddOrganizationMemberRequest request, UUID actorUserId) {
-		organizationServiceClient.addMember(organizationId, actorUserId, request);
+	public void addMember(UUID organizationId, AdminAddOrganizationMemberRequest request, UUID actorUserId,
+			boolean superAdmin) {
+		organizationServiceClient.addMember(organizationId, actorUserId, superAdmin, request);
 	}
 
 	@Override
-	public void removeMember(UUID organizationId, UUID userId, UUID actorUserId) {
-		organizationServiceClient.removeMember(organizationId, userId, actorUserId);
+	public void removeMember(UUID organizationId, UUID userId, UUID actorUserId, boolean superAdmin) {
+		organizationServiceClient.removeMember(organizationId, userId, actorUserId, superAdmin);
 	}
 }
