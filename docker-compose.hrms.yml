@@ -67,3 +67,68 @@ services:
       timeout: 10s
       retries: 5
       start_period: 180s
+
+  attendance-db-init:
+    image: mysql:8.0
+    container_name: ums-attendance-db-init
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      ATTENDANCE_DB_NAME: ${ATTENDANCE_DB_NAME:-attendance_db}
+    entrypoint:
+      - sh
+      - -c
+      - >
+        mysql -h mysql -uroot -p"$$MYSQL_ROOT_PASSWORD"
+        -e "CREATE DATABASE IF NOT EXISTS \`$$ATTENDANCE_DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        GRANT ALL PRIVILEGES ON \`$$ATTENDANCE_DB_NAME\`.* TO '$$MYSQL_USER'@'%';
+        FLUSH PRIVILEGES;"
+    networks:
+      - ums-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  attendance-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: attendance-service
+      args:
+        SERVICE_MODULE: attendance-service
+    image: attendance-service:1.0
+    container_name: ums-attendance-service
+    restart: unless-stopped
+    ports:
+      - "${ATTENDANCE_SERVICE_PORT:-8096}:8096"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS}
+      CONFIG_SERVER_URL: http://config-service:8888
+      SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${ATTENDANCE_DB_NAME:-attendance_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      INTERNAL_GATEWAY_SECRET: ${INTERNAL_GATEWAY_SECRET}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+      LOGGING_LEVEL_ROOT: ${LOG_LEVEL}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+    networks:
+      - ums-network
+    depends_on:
+      attendance-db-init:
+        condition: service_completed_successfully
+      config-service:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+      organization-service:
+        condition: service_healthy
+      employee-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8096/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
