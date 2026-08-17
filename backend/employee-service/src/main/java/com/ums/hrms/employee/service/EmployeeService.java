@@ -26,6 +26,7 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final OrganizationAccessService organizationAccessService;
+    private final EmployeeAuditPublisher employeeAuditPublisher;
 
     public EmployeeResponse create(CreateEmployeeRequest request, UUID actorUserId, boolean superAdmin) {
         organizationAccessService.assertCanAccess(request.organizationId(), actorUserId, superAdmin);
@@ -47,7 +48,9 @@ public class EmployeeService {
                 .status(EmployeeStatus.ACTIVE)
                 .build();
 
-        return toResponse(employeeRepository.save(employee));
+        Employee saved = employeeRepository.save(employee);
+        employeeAuditPublisher.publishCreated(saved, actorUserId);
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -92,7 +95,10 @@ public class EmployeeService {
         employee.setDepartmentId(request.departmentId());
         employee.setDesignationId(request.designationId());
         employee.setStatus(request.status());
-        return toResponse(employeeRepository.save(employee));
+
+        Employee saved = employeeRepository.save(employee);
+        employeeAuditPublisher.publishUpdated(saved, actorUserId);
+        return toResponse(saved);
     }
 
     private Employee findScoped(UUID employeeId, UUID organizationId) {

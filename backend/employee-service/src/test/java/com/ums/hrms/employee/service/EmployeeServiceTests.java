@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.ums.hrms.employee.dto.CreateEmployeeRequest;
+import com.ums.hrms.employee.dto.UpdateEmployeeRequest;
 import com.ums.hrms.employee.entity.Employee;
 import com.ums.hrms.employee.entity.EmployeeStatus;
 import com.ums.hrms.employee.repository.EmployeeRepository;
@@ -29,6 +30,9 @@ class EmployeeServiceTests {
 
     @Mock
     private OrganizationAccessService organizationAccessService;
+
+    @Mock
+    private EmployeeAuditPublisher employeeAuditPublisher;
 
     @InjectMocks
     private EmployeeService employeeService;
@@ -55,6 +59,7 @@ class EmployeeServiceTests {
                 false);
 
         verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
+        verify(employeeAuditPublisher).publishCreated(any(Employee.class), org.mockito.ArgumentMatchers.eq(actorUserId));
         assertEquals(employeeId, response.id());
         assertEquals(organizationId, response.organizationId());
         assertEquals("EMP-001", response.employeeCode());
@@ -97,5 +102,37 @@ class EmployeeServiceTests {
                         false));
 
         assertEquals(409, exception.getStatusCode().value());
+    }
+
+    @Test
+    void updatePublishesAuditForTenantScopedEmployee() {
+        UUID employeeId = UUID.randomUUID();
+        UUID organizationId = UUID.randomUUID();
+        UUID actorUserId = UUID.randomUUID();
+
+        Employee employee = Employee.builder()
+                .id(employeeId)
+                .organizationId(organizationId)
+                .umsUserId(UUID.randomUUID())
+                .employeeCode("EMP-001")
+                .status(EmployeeStatus.ACTIVE)
+                .build();
+
+        when(employeeRepository.findByIdAndOrganizationId(employeeId, organizationId))
+                .thenReturn(Optional.of(employee));
+        when(employeeRepository.existsByOrganizationIdAndEmployeeCodeIgnoreCase(organizationId, "EMP-002"))
+                .thenReturn(false);
+        when(employeeRepository.save(employee)).thenReturn(employee);
+
+        var response = employeeService.update(
+                employeeId,
+                new UpdateEmployeeRequest(organizationId, " EMP-002 ", null, null, EmployeeStatus.INACTIVE),
+                actorUserId,
+                false);
+
+        verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
+        verify(employeeAuditPublisher).publishUpdated(employee, actorUserId);
+        assertEquals("EMP-002", response.employeeCode());
+        assertEquals(EmployeeStatus.INACTIVE, response.status());
     }
 }
