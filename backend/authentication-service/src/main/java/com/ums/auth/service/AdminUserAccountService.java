@@ -2,10 +2,13 @@ package com.ums.auth.service;
 
 import java.util.UUID;
 
+import com.ums.auth.dto.admin.AdminCreateUserRequest;
 import com.ums.auth.dto.admin.AdminUserAccountResponse;
 import com.ums.auth.dto.admin.AdminUserMetricsResponse;
 
 public interface AdminUserAccountService {
+
+	AdminUserAccountResponse createUser(AdminCreateUserRequest request, UUID actorUserId);
 
 	AdminUserAccountResponse getUser(UUID userId);
 

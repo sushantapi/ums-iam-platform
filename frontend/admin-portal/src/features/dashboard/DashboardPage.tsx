@@ -6,7 +6,6 @@ import {
   KeyRound,
   ShieldAlert,
   UserCheck,
-  UserPlus,
   Users,
 } from "lucide-react";
 import { ErrorState } from "../../components/ui/ErrorState";
@@ -84,12 +83,6 @@ export function DashboardPage() {
       value: organizations.total,
       icon: Building2,
       helper: "Tenant count",
-    },
-    {
-      label: "Pending invites",
-      value: organizations.pendingInvitations,
-      icon: UserPlus,
-      helper: "Awaiting acceptance",
     },
     {
       label: "Total roles",

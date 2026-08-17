@@ -3,6 +3,7 @@ package com.ums.admin.controller;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ums.admin.dto.request.AdminAddOrganizationMemberRequest;
+import com.ums.admin.dto.request.AdminCreateOrganizationRequest;
 import com.ums.admin.dto.request.AdminUpdateOrganizationRequest;
 import com.ums.admin.dto.response.OrganizationAdminPageResponse;
 import com.ums.admin.dto.response.OrganizationAdminResponse;
@@ -34,36 +36,65 @@ public class AdminOrganizationController {
 
 	private final AdminOrganizationService adminOrganizationService;
 
+	@PostMapping
+	@PreAuthorize("hasRole('SUPER_ADMIN')")
+	public ResponseEntity<OrganizationAdminResponse> create(
+			@Valid @RequestBody AdminCreateOrganizationRequest request,
+			Authentication authentication) {
+		return ResponseEntity.status(HttpStatus.CREATED)
+				.body(adminOrganizationService.create(request, currentAdminId(authentication)));
+	}
+
 	@GetMapping
 	public OrganizationAdminPageResponse list(
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "20") int size,
-			@RequestParam(required = false) String search) {
-		return adminOrganizationService.list(page, size, search);
+			@RequestParam(required = false) String search,
+			Authentication authentication) {
+		return adminOrganizationService.list(
+				page,
+				size,
+				search,
+				currentAdminId(authentication),
+				isSuperAdmin(authentication));
 	}
 
 	@GetMapping("/{organizationId}")
-	public OrganizationAdminResponse get(@PathVariable UUID organizationId) {
-		return adminOrganizationService.get(organizationId);
+	public OrganizationAdminResponse get(@PathVariable UUID organizationId, Authentication authentication) {
+		return adminOrganizationService.get(
+				organizationId,
+				currentAdminId(authentication),
+				isSuperAdmin(authentication));
 	}
 
 	@GetMapping("/{organizationId}/members")
 	public List<OrganizationMemberResponse> members(@PathVariable UUID organizationId, Authentication authentication) {
-		return adminOrganizationService.getMembers(organizationId, currentAdminId(authentication));
+		return adminOrganizationService.getMembers(
+				organizationId,
+				currentAdminId(authentication),
+				isSuperAdmin(authentication));
 	}
 
 	@PutMapping("/{organizationId}")
 	@PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('ORGANIZATION_WRITE')")
 	public OrganizationAdminResponse update(@PathVariable UUID organizationId,
 			@Valid @RequestBody AdminUpdateOrganizationRequest request, Authentication authentication) {
-		return adminOrganizationService.update(organizationId, request, currentAdminId(authentication));
+		return adminOrganizationService.update(
+				organizationId,
+				request,
+				currentAdminId(authentication),
+				isSuperAdmin(authentication));
 	}
 
 	@PostMapping("/{organizationId}/members")
 	@PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('ORGANIZATION_WRITE')")
 	public ResponseEntity<Void> addMember(@PathVariable UUID organizationId,
 			@Valid @RequestBody AdminAddOrganizationMemberRequest request, Authentication authentication) {
-		adminOrganizationService.addMember(organizationId, request, currentAdminId(authentication));
+		adminOrganizationService.addMember(
+				organizationId,
+				request,
+				currentAdminId(authentication),
+				isSuperAdmin(authentication));
 		return ResponseEntity.noContent().build();
 	}
 
@@ -71,11 +102,20 @@ public class AdminOrganizationController {
 	@PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('ORGANIZATION_WRITE')")
 	public ResponseEntity<Void> removeMember(@PathVariable UUID organizationId, @PathVariable UUID userId,
 			Authentication authentication) {
-		adminOrganizationService.removeMember(organizationId, userId, currentAdminId(authentication));
+		adminOrganizationService.removeMember(
+				organizationId,
+				userId,
+				currentAdminId(authentication),
+				isSuperAdmin(authentication));
 		return ResponseEntity.noContent().build();
 	}
 
 	private UUID currentAdminId(Authentication authentication) {
 		return (UUID) authentication.getPrincipal();
+	}
+
+	private boolean isSuperAdmin(Authentication authentication) {
+		return authentication.getAuthorities().stream()
+				.anyMatch(authority -> "ROLE_SUPER_ADMIN".equals(authority.getAuthority()));
 	}
 }

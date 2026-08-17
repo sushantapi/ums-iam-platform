@@ -66,7 +66,7 @@ class AuthServiceRefreshTests {
 		when(sessionRepository.findByIdForRefresh(sessionId)).thenReturn(Optional.of(session));
 		when(jwtService.generateRefreshToken(userId.toString(), sessionId)).thenReturn(newToken);
 		when(jwtService.getRefreshTokenExpiryMs()).thenReturn(604800000L);
-		when(authorizationClient.getAuthorization(userId))
+		when(authorizationClient.getAuthorization(userId, "PLATFORM", "*"))
 				.thenReturn(UserAuthorizationResponse.builder().roles(List.of()).permissions(List.of()).build());
 		when(jwtService.generateAccessToken(any(), any(), any(), any(), any())).thenReturn("new-access-token");
 
@@ -91,7 +91,8 @@ class AuthServiceRefreshTests {
 		when(sessionRepository.findByIdForRefresh(sessionId)).thenReturn(Optional.of(session));
 		when(jwtService.generateRefreshToken(userId.toString(), sessionId)).thenReturn(newToken);
 		when(jwtService.getRefreshTokenExpiryMs()).thenReturn(604800000L);
-		when(authorizationClient.getAuthorization(userId)).thenThrow(new IllegalStateException("down"));
+		when(authorizationClient.getAuthorization(userId, "PLATFORM", "*"))
+				.thenThrow(new IllegalStateException("down"));
 
 		assertThatThrownBy(() -> authService.refreshToken(request(oldToken)))
 				.isInstanceOf(UmsException.class)

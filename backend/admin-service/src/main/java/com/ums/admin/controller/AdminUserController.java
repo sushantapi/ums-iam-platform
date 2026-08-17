@@ -2,24 +2,29 @@ package com.ums.admin.controller;
 
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.ums.admin.dto.response.UserDetailResponse;
-import com.ums.admin.dto.response.UserSummaryPageResponse;
-import com.ums.admin.dto.response.UserRoleAssignmentResponse;
+import com.ums.admin.dto.request.AdminCreateUserRequest;
 import com.ums.admin.dto.response.OrganizationAdminResponse;
+import com.ums.admin.dto.response.UserAccountResponse;
+import com.ums.admin.dto.response.UserDetailResponse;
+import com.ums.admin.dto.response.UserRoleAssignmentResponse;
+import com.ums.admin.dto.response.UserSummaryPageResponse;
 import com.ums.admin.service.AdminOrganizationService;
 import com.ums.admin.service.AdminRoleService;
 import com.ums.admin.service.AdminUserService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -31,6 +36,15 @@ public class AdminUserController {
     private final AdminUserService adminUserService;
     private final AdminRoleService adminRoleService;
     private final AdminOrganizationService adminOrganizationService;
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','USER_ADMIN') or hasAuthority('USER_WRITE')")
+    public ResponseEntity<UserAccountResponse> createUser(
+            @Valid @RequestBody AdminCreateUserRequest request,
+            Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(adminUserService.createUser(request, currentAdminId(authentication)));
+    }
 
     @GetMapping
     public UserSummaryPageResponse getUsers(

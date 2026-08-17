@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.ums.admin.dto.request.AdminAddOrganizationMemberRequest;
+import com.ums.admin.dto.request.AdminCreateOrganizationRequest;
 import com.ums.admin.dto.request.AdminUpdateOrganizationRequest;
 import com.ums.admin.dto.response.OrganizationAdminPageResponse;
 import com.ums.admin.dto.response.OrganizationAdminResponse;
@@ -23,34 +24,58 @@ import com.ums.admin.dto.response.OrganizationMetricsResponse;
 @FeignClient(name = "organization-service", contextId = "organizationAdminClient")
 public interface OrganizationServiceClient {
 
+	String ACTOR_HEADER = "X-Actor-User-Id";
+	String SUPER_ADMIN_HEADER = "X-Actor-Super-Admin";
+
 	@GetMapping("/api/v1/internal/organizations/metrics")
 	OrganizationMetricsResponse getMetrics();
 
+	@PostMapping("/api/v1/internal/organizations")
+	OrganizationAdminResponse create(
+			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
+			@RequestBody AdminCreateOrganizationRequest request);
+
 	@GetMapping("/api/v1/internal/organizations")
-	OrganizationAdminPageResponse list(@RequestParam int page, @RequestParam int size,
+	OrganizationAdminPageResponse list(
+			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
+			@RequestHeader(SUPER_ADMIN_HEADER) boolean superAdmin,
+			@RequestParam int page,
+			@RequestParam int size,
 			@RequestParam(required = false) String search);
 
 	@GetMapping("/api/v1/internal/organizations/{organizationId}")
-	OrganizationAdminResponse get(@PathVariable UUID organizationId);
+	OrganizationAdminResponse get(
+			@PathVariable UUID organizationId,
+			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
+			@RequestHeader(SUPER_ADMIN_HEADER) boolean superAdmin);
 
 	@GetMapping("/api/v1/internal/organizations/by-user/{userId}")
 	List<OrganizationAdminResponse> byUser(@PathVariable UUID userId);
 
 	@GetMapping("/api/v1/internal/organizations/{organizationId}/members")
-	List<OrganizationMemberResponse> members(@PathVariable UUID organizationId,
-			@RequestHeader("X-Actor-User-Id") UUID actorUserId);
+	List<OrganizationMemberResponse> members(
+			@PathVariable UUID organizationId,
+			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
+			@RequestHeader(SUPER_ADMIN_HEADER) boolean superAdmin);
 
 	@PutMapping("/api/v1/internal/organizations/{organizationId}")
-	OrganizationAdminResponse update(@PathVariable UUID organizationId,
-			@RequestHeader("X-Actor-User-Id") UUID actorUserId,
+	OrganizationAdminResponse update(
+			@PathVariable UUID organizationId,
+			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
+			@RequestHeader(SUPER_ADMIN_HEADER) boolean superAdmin,
 			@RequestBody AdminUpdateOrganizationRequest request);
 
 	@PostMapping("/api/v1/internal/organizations/{organizationId}/members")
-	void addMember(@PathVariable UUID organizationId,
-			@RequestHeader("X-Actor-User-Id") UUID actorUserId,
+	void addMember(
+			@PathVariable UUID organizationId,
+			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
+			@RequestHeader(SUPER_ADMIN_HEADER) boolean superAdmin,
 			@RequestBody AdminAddOrganizationMemberRequest request);
 
 	@DeleteMapping("/api/v1/internal/organizations/{organizationId}/members/{userId}")
-	void removeMember(@PathVariable UUID organizationId, @PathVariable UUID userId,
-			@RequestHeader("X-Actor-User-Id") UUID actorUserId);
+	void removeMember(
+			@PathVariable UUID organizationId,
+			@PathVariable UUID userId,
+			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
+			@RequestHeader(SUPER_ADMIN_HEADER) boolean superAdmin);
 }

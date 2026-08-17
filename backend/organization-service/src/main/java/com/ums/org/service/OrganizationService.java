@@ -17,7 +17,8 @@ public interface OrganizationService {
 
 	OrganizationResponse getOrganization(UUID organizationId, UUID actorUserId, boolean superAdmin);
 
-	OrganizationResponse updateOrganization(UUID organizationId, UpdateOrganizationRequest request, UUID actorUserId, boolean superAdmin);
+	OrganizationResponse updateOrganization(UUID organizationId, UpdateOrganizationRequest request, UUID actorUserId,
+			boolean superAdmin);
 
 	void addMember(UUID organizationId, AddMemberRequest request, UUID actorUserId, boolean superAdmin);
 
@@ -27,10 +28,12 @@ public interface OrganizationService {
 
 	OrganizationAdminPageResponse listOrganizations(int page, int size, String search);
 
+	OrganizationAdminPageResponse listOrganizationsForActor(int page, int size, String search, UUID actorUserId,
+			boolean superAdmin);
+
 	OrganizationAdminResponse getOrganizationForAdmin(UUID organizationId);
 
+	OrganizationAdminResponse getOrganizationForAdmin(UUID organizationId, UUID actorUserId, boolean superAdmin);
+
 	List<OrganizationAdminResponse> getOrganizationsForUser(UUID userId);
-	
-	
-	
 }

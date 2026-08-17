@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DataTable } from "../../components/ui/DataTable";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { LoadingState } from "../../components/ui/LoadingState";
@@ -16,7 +17,10 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function RoleAssignmentsPage() {
-  const [userId, setUserId] = useState("");
+  const [searchParams] = useSearchParams();
+  const [userId, setUserId] = useState(
+    () => searchParams.get("userId") ?? "",
+  );
   const [roleName, setRoleName] = useState("");
   const [scopeType, setScopeType] = useState<ScopeType>("PLATFORM");
   const [scopeId, setScopeId] = useState("*");

@@ -1,19 +1,20 @@
 package com.ums.auth.service;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.ums.auth.client.AuthorizationClient;
 import com.ums.auth.dto.LoginRequest;
@@ -35,7 +36,6 @@ import com.ums.events.publisher.AuditPublisher;
 
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,94 +46,112 @@ public class AuthService {
 
 	private static final int MAX_FAILED_ATTEMPTS = 5;
 	private static final int LOCKOUT_MINUTES = 30;
+	private static final String PLATFORM_SCOPE_TYPE = "PLATFORM";
+	private static final String PLATFORM_SCOPE_ID = "*";
+	private static final String ORGANIZATION_SCOPE_TYPE = "ORG";
 
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
-
 	private final AuditPublisher auditPublisher;
-
 	private final AuthorizationClient authorizationClient;
-
 	private final JwtService jwtService;
-
 	private final SessionRepository sessionRepository;
 	private final TokenBlacklistService blacklistService;
-
 	private final RabbitTemplate rabbitTemplate;
 
 	@Transactional
 	public TokenResponse register(RegisterRequest request, String ipAddress) {
-
 		String email = request.getEmail().trim().toLowerCase();
 
 		if (userRepository.existsByEmail(email)) {
 			throw new AuthException("Email already registered", "EMAIL_EXISTS");
 		}
 
-		User user = User.builder().email(email).passwordHash(passwordEncoder.encode(request.getPassword()))
-				.firstName(request.getFirstName().trim()).lastName(request.getLastName().trim())
-				.status(UserStatus.ACTIVE).provider(request.getProvider() != null ? request.getProvider() : "LOCAL")
-				.externalId(request.getExternalId()).build();
-
+		User user = User.builder()
+				.email(email)
+				.passwordHash(passwordEncoder.encode(request.getPassword()))
+				.firstName(request.getFirstName().trim())
+				.lastName(request.getLastName().trim())
+				.status(UserStatus.ACTIVE)
+				.provider(request.getProvider() != null ? request.getProvider() : "LOCAL")
+				.externalId(request.getExternalId())
+				.build();
 
 		User savedUser = userRepository.save(user);
 
 		authorizationClient.assignDefaultRole(savedUser.getId());
 
-		UserRegisteredEvent event = UserRegisteredEvent.builder().userId(savedUser.getId()).email(savedUser.getEmail())
-				.firstName(savedUser.getFirstName()).lastName(savedUser.getLastName()).build();
+		UserRegisteredEvent event = UserRegisteredEvent.builder()
+				.userId(savedUser.getId())
+				.email(savedUser.getEmail())
+				.firstName(savedUser.getFirstName())
+				.lastName(savedUser.getLastName())
+				.build();
 
-		rabbitTemplate.convertAndSend(RabbitMQConstants.USER_EXCHANGE, RabbitMQConstants.USER_REGISTERED_ROUTING_KEY,
+		rabbitTemplate.convertAndSend(
+				RabbitMQConstants.USER_EXCHANGE,
+				RabbitMQConstants.USER_REGISTERED_ROUTING_KEY,
 				event);
 
-		publishAuditEvent(AuditEvent.builder().eventType("auth.registration.completed")
-				.serviceName("authentication-service").userId(savedUser.getId().toString())
-				.userEmail(savedUser.getEmail()).action("REGISTER").entityType("USER")
-				.entityId(savedUser.getId().toString()).details("User registered successfully").ipAddress(ipAddress)
-				.timestamp(LocalDateTime.now()).build());
+		publishAuditEvent(AuditEvent.builder()
+				.eventType("auth.registration.completed")
+				.serviceName("authentication-service")
+				.userId(savedUser.getId().toString())
+				.userEmail(savedUser.getEmail())
+				.action("REGISTER")
+				.entityType("USER")
+				.entityId(savedUser.getId().toString())
+				.details("User registered successfully")
+				.ipAddress(ipAddress)
+				.timestamp(LocalDateTime.now())
+				.build());
 
-		Session session = Session.builder().user(savedUser).refreshTokenHash("pending").ipAddress(ipAddress)
+		Session session = Session.builder()
+				.user(savedUser)
+				.refreshTokenHash("pending")
+				.ipAddress(ipAddress)
 				.lastSeenAt(Instant.now())
-				.expiresAt(Instant.now().plusMillis(jwtService.getRefreshTokenExpiryMs())).build();
+				.expiresAt(Instant.now().plusMillis(jwtService.getRefreshTokenExpiryMs()))
+				.build();
 		String refreshToken = jwtService.generateRefreshToken(savedUser.getId().toString(), session.getId());
 		session.setRefreshTokenHash(hash(refreshToken));
 		sessionRepository.save(session);
 
 		log.info("User registered successfully: {}", savedUser.getEmail());
 
-		return buildTokenResponse(savedUser, refreshToken, session.getId());
+		return buildTokenResponse(savedUser, refreshToken, session.getId(), null);
 	}
 
 	@Transactional(noRollbackFor = AuthException.class)
 	public TokenResponse login(LoginRequest request, String ipAddress) {
-
 		String email = request.getEmail().trim().toLowerCase();
 
 		User user = userRepository.findByEmail(email).orElseThrow(() -> {
-
-			publishAuditEvent(AuditEvent.builder().eventType("auth.login.failed").serviceName("authentication-service")
-					.userEmail(email).action("LOGIN").entityType("USER").details("Email not found").ipAddress(ipAddress)
-					.timestamp(LocalDateTime.now()).build());
-
+			publishAuditEvent(AuditEvent.builder()
+					.eventType("auth.login.failed")
+					.serviceName("authentication-service")
+					.userEmail(email)
+					.action("LOGIN")
+					.entityType("USER")
+					.details("Email not found")
+					.ipAddress(ipAddress)
+					.timestamp(LocalDateTime.now())
+					.build());
 			return new AuthException("Invalid credentials", "INVALID_CREDENTIALS");
 		});
 
 		if (user.isLocked()) {
 			throw new AuthException("Account is locked. Please try again later.", "ACCOUNT_LOCKED");
 		}
-
 		if (user.getStatus() == UserStatus.SUSPENDED) {
 			throw new AuthException("Account suspended. Contact support.", "ACCOUNT_SUSPENDED");
 		}
-
 		if (user.getStatus() == UserStatus.DELETED) {
 			throw new AuthException("Invalid credentials", "INVALID_CREDENTIALS");
 		}
 
 		if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-
 			handleFailedLogin(user, ipAddress);
-
 			throw new AuthException("Invalid credentials", "INVALID_CREDENTIALS");
 		}
 
@@ -141,99 +159,132 @@ public class AuthService {
 		user.setLockedUntil(null);
 		user.setLastLoginAt(Instant.now());
 
-		Session session = Session.builder().user(user).refreshTokenHash("pending").ipAddress(ipAddress)
+		Session session = Session.builder()
+				.user(user)
+				.refreshTokenHash("pending")
+				.ipAddress(ipAddress)
 				.deviceInfo(request.getDeviceInfo())
 				.client(request.getClient())
 				.organizationId(request.getOrganizationId())
 				.lastSeenAt(Instant.now())
-				.expiresAt(Instant.now().plusMillis(jwtService.getRefreshTokenExpiryMs())).build();
+				.expiresAt(Instant.now().plusMillis(jwtService.getRefreshTokenExpiryMs()))
+				.build();
 		String refreshToken = jwtService.generateRefreshToken(user.getId().toString(), session.getId());
 		session.setRefreshTokenHash(hash(refreshToken));
 
 		sessionRepository.save(session);
 		userRepository.save(user);
 
-		publishAuditEvent(AuditEvent.builder().eventType("auth.login.succeeded").serviceName("authentication-service")
-				.userId(user.getId().toString()).userEmail(user.getEmail()).action("LOGIN").entityType("USER")
-				.entityId(user.getId().toString()).details("User logged in successfully").ipAddress(ipAddress)
-				.timestamp(LocalDateTime.now()).build());
+		publishAuditEvent(AuditEvent.builder()
+				.eventType("auth.login.succeeded")
+				.serviceName("authentication-service")
+				.userId(user.getId().toString())
+				.userEmail(user.getEmail())
+				.action("LOGIN")
+				.entityType("USER")
+				.entityId(user.getId().toString())
+				.details("User logged in successfully")
+				.ipAddress(ipAddress)
+				.timestamp(LocalDateTime.now())
+				.build());
 
 		log.info("Login successful: {}", email);
 
-		return buildTokenResponse(user, refreshToken, session.getId());
+		return buildTokenResponse(user, refreshToken, session.getId(), request.getOrganizationId());
 	}
 
 	private String hash(String token) {
-
 		return DigestUtils.sha256Hex(token);
 	}
 
 	private void handleFailedLogin(User user, String ipAddress) {
-
 		int attempts = user.getFailedLoginAttempts() + 1;
-
 		user.setFailedLoginAttempts(attempts);
 
 		if (attempts >= MAX_FAILED_ATTEMPTS) {
-
 			user.setLockedUntil(Instant.now().plusSeconds(LOCKOUT_MINUTES * 60L));
-
 			log.warn("User account locked: {}", user.getEmail());
 		}
 
 		userRepository.save(user);
 
-		publishAuditEvent(AuditEvent.builder().eventType("auth.login.failed").serviceName("authentication-service")
-				.userId(user.getId().toString()).userEmail(user.getEmail()).action("LOGIN").entityType("USER")
-				.entityId(user.getId().toString()).details("Invalid password").ipAddress(ipAddress)
-				.timestamp(LocalDateTime.now()).build());
+		publishAuditEvent(AuditEvent.builder()
+				.eventType("auth.login.failed")
+				.serviceName("authentication-service")
+				.userId(user.getId().toString())
+				.userEmail(user.getEmail())
+				.action("LOGIN")
+				.entityType("USER")
+				.entityId(user.getId().toString())
+				.details("Invalid password")
+				.ipAddress(ipAddress)
+				.timestamp(LocalDateTime.now())
+				.build());
 	}
 
-	/*
-	 * private TokenResponse buildTokenResponse(User user, String refreshToken) {
-	 * 
-	 * Set<String> roles =
-	 * user.getRoles().stream().map(Role::getName).collect(Collectors.toSet());
-	 * 
-	 * String accessToken = jwtService.generateAccessToken(user.getId().toString(),
-	 * user.getEmail(), roles);
-	 * 
-	 * return
-	 * TokenResponse.builder().accessToken(accessToken).refreshToken(refreshToken).
-	 * tokenType("Bearer") .expiresIn(jwtService.getAccessTokenExpiryMs() /
-	 * 1000).userId(user.getId().toString()) .email(user.getEmail()).build(); }
-	 */
+	private TokenResponse buildTokenResponse(User user, String refreshToken, UUID sessionId, UUID organizationId) {
+		Set<String> roles = new HashSet<>();
+		Set<String> permissions = new HashSet<>();
 
-	private TokenResponse buildTokenResponse(User user, String refreshToken, UUID sessionId) {
+		mergeAuthorization(user.getId(), PLATFORM_SCOPE_TYPE, PLATFORM_SCOPE_ID, roles, permissions);
 
-		UserAuthorizationResponse authorization;
+		if (organizationId != null) {
+			mergeAuthorization(
+					user.getId(),
+					ORGANIZATION_SCOPE_TYPE,
+					organizationId.toString(),
+					roles,
+					permissions);
+		}
 
+		String accessToken = jwtService.generateAccessToken(
+				user.getId().toString(),
+				user.getEmail(),
+				roles,
+				permissions,
+				sessionId);
+
+		return TokenResponse.builder()
+				.accessToken(accessToken)
+				.refreshToken(refreshToken)
+				.tokenType("Bearer")
+				.expiresIn(jwtService.getAccessTokenExpiryMs() / 1000)
+				.userId(user.getId().toString())
+				.email(user.getEmail())
+				.build();
+	}
+
+	private void mergeAuthorization(
+			UUID userId,
+			String scopeType,
+			String scopeId,
+			Set<String> roles,
+			Set<String> permissions) {
 		try {
-			authorization = authorizationClient.getAuthorization(user.getId());
+			UserAuthorizationResponse authorization = authorizationClient.getAuthorization(userId, scopeType, scopeId);
+			if (authorization.getRoles() != null) {
+				roles.addAll(authorization.getRoles());
+			}
+			if (authorization.getPermissions() != null) {
+				permissions.addAll(authorization.getPermissions());
+			}
 		} catch (Exception ex) {
-			log.error("Authorization service unavailable while issuing token for user {}", user.getId(), ex);
+			log.error(
+					"Authorization service unavailable while issuing token for user {} scopeType={} scopeId={}",
+					userId,
+					scopeType,
+					scopeId,
+					ex);
 			throw new UmsException(
 					"Authorization service is unavailable",
 					ex,
 					HttpStatus.SERVICE_UNAVAILABLE,
 					"AUTHORIZATION_UNAVAILABLE");
 		}
-
-		Set<String> roles = new HashSet<>(authorization.getRoles());
-
-		Set<String> permissions = new HashSet<>(authorization.getPermissions());
-
-		String accessToken = jwtService.generateAccessToken(user.getId().toString(), user.getEmail(), roles,
-				permissions, sessionId);
-
-		return TokenResponse.builder().accessToken(accessToken).refreshToken(refreshToken).tokenType("Bearer")
-				.expiresIn(jwtService.getAccessTokenExpiryMs() / 1000).userId(user.getId().toString())
-				.email(user.getEmail()).build();
 	}
 
 	@Transactional
 	public TokenResponse refreshToken(RefreshTokenRequest request) {
-
 		Claims claims;
 		try {
 			claims = jwtService.validateAndExtract(request.getRefreshToken());
@@ -244,7 +295,6 @@ public class AuthService {
 		if (!"REFRESH".equals(claims.get("type", String.class))
 				|| !StringUtils.hasText(claims.getId())
 				|| !StringUtils.hasText(claims.getSubject())) {
-
 			throw new AuthException("Invalid refresh token", "INVALID_REFRESH_TOKEN");
 		}
 
@@ -255,7 +305,6 @@ public class AuthService {
 		if (!secureEquals(session.getRefreshTokenHash(), hash(request.getRefreshToken()))) {
 			throw new AuthException("Refresh token has already been rotated", "REFRESH_TOKEN_REPLAYED");
 		}
-
 		if (session.isRevoked()) {
 			throw new AuthException("Session revoked", "SESSION_REVOKED");
 		}
@@ -269,41 +318,18 @@ public class AuthService {
 		}
 
 		String newRefreshToken = jwtService.generateRefreshToken(user.getId().toString(), session.getId());
-
 		session.setRefreshTokenHash(hash(newRefreshToken));
-
 		session.setLastSeenAt(Instant.now());
-
 		session.setExpiresAt(Instant.now().plusMillis(jwtService.getRefreshTokenExpiryMs()));
-
 		sessionRepository.save(session);
 
-		return buildTokenResponse(user, newRefreshToken, session.getId());
+		return buildTokenResponse(user, newRefreshToken, session.getId(), session.getOrganizationId());
 	}
-
-//	@Transactional
-//	public void logout(HttpServletRequest request) {
-//
-//		String token = request.getHeader("Authorization").replace("Bearer ", "");
-//
-//		Claims claims = jwtService.validateAndExtract(token);
-//
-//		String jti = claims.getId();
-//
-//		long ttl = claims.getExpiration().getTime() - System.currentTimeMillis();
-//
-//		blacklistService.blacklist(jti, ttl / 1000);
-//
-//		auditService.log(null, "LOGOUT", request.getRemoteAddr(), "SUCCESS");
-//	}
 
 	@Transactional
 	public void logout(HttpServletRequest request, UUID trustedUserId) {
-
 		try {
-
 			String token = extractToken(request);
-
 			Claims claims = jwtService.validateAndExtract(token);
 			if (!"ACCESS".equals(claims.get("type", String.class))
 					|| !StringUtils.hasText(claims.getId())
@@ -320,7 +346,6 @@ public class AuthService {
 			}
 
 			long ttl = claims.getExpiration().getTime() / 1000 - System.currentTimeMillis() / 1000;
-
 			if (ttl > 0) {
 				blacklistService.blacklist(jti, ttl);
 				blacklistService.revokeSession(sessionId, ttl);
@@ -329,19 +354,23 @@ public class AuthService {
 			session.setRevokedAt(Instant.now());
 			sessionRepository.save(session);
 
-			publishAuditEvent(AuditEvent.builder().eventType("auth.logout.completed")
-					.serviceName("authentication-service").userId(claims.getSubject()).action("LOGOUT")
-					.entityType("SESSION").entityId(sessionId.toString()).details("User logged out successfully")
-					.ipAddress(request.getRemoteAddr()).timestamp(LocalDateTime.now()).build());
+			publishAuditEvent(AuditEvent.builder()
+					.eventType("auth.logout.completed")
+					.serviceName("authentication-service")
+					.userId(claims.getSubject())
+					.action("LOGOUT")
+					.entityType("SESSION")
+					.entityId(sessionId.toString())
+					.details("User logged out successfully")
+					.ipAddress(request.getRemoteAddr())
+					.timestamp(LocalDateTime.now())
+					.build());
 
 			log.info("User logged out successfully. UserId={}", claims.getSubject());
-
 		} catch (AuthException ex) {
 			throw ex;
 		} catch (Exception ex) {
-
 			log.error("Logout failed", ex);
-
 			throw new AuthException("Logout failed", "LOGOUT_FAILED");
 		}
 	}
@@ -368,7 +397,6 @@ public class AuthService {
 	}
 
 	private void publishAuditEvent(AuditEvent event) {
-
 		try {
 			auditPublisher.publish(event);
 		} catch (Exception ex) {
@@ -377,13 +405,10 @@ public class AuthService {
 	}
 
 	private String extractToken(HttpServletRequest request) {
-
 		String authHeader = request.getHeader("Authorization");
-
 		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
 			throw new RuntimeException("Authorization token missing");
 		}
-
 		return authHeader.substring(7);
 	}
 }

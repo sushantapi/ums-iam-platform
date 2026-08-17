@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import userAdminService from "../../api/services/userAdminService";
 import { DataTable } from "../../components/ui/DataTable";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { FilterBar } from "../../components/ui/FilterBar";
@@ -29,6 +30,13 @@ export function UsersPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
+  const [message, setMessage] = useState<string>();
+  const [showCreate, setShowCreate] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -51,17 +59,50 @@ export function UsersPage() {
     setUsers(refreshed);
   }
 
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(undefined);
+    setMessage(undefined);
+    setCreating(true);
+
+    try {
+      const created = await userAdminService.create({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      setMessage(`User created: ${created.email} (${created.userId}).`);
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setPassword("");
+      setShowCreate(false);
+
+      try {
+        await refreshUsers();
+      } catch {
+        // User profile projection is event-driven and may appear shortly after creation.
+      }
+    } catch (err) {
+      setError(`User could not be created: ${(err as Error).message}`);
+    } finally {
+      setCreating(false);
+    }
+  }
+
   async function runUserAction(userId: string, action: string) {
     setError(undefined);
 
     try {
       if (action === "assign-role") {
-        navigate("/roles/assignments");
+        navigate(`/roles/assignments?userId=${encodeURIComponent(userId)}`);
         return;
       }
 
       if (action === "audit") {
-        navigate(`/audit/logs?target=${userId}`);
+        navigate(`/audit/logs?target=${encodeURIComponent(userId)}`);
         return;
       }
 
@@ -88,8 +129,84 @@ export function UsersPage() {
       <PageHeader
         eyebrow="Directory"
         title="Users"
-        description="Search, inspect, and administer supported user lifecycle actions across the IAM platform."
+        description="Create, search, inspect, and administer users across the IAM platform."
+        actions={
+          canManageUsers ? (
+            <button
+              type="button"
+              className="button-primary"
+              onClick={() => setShowCreate((current) => !current)}
+            >
+              {showCreate ? "Cancel" : "Create user"}
+            </button>
+          ) : undefined
+        }
       />
+
+      {showCreate && canManageUsers ? (
+        <section className="panel">
+          <h2>Create user</h2>
+          <form onSubmit={handleCreate}>
+            <label>
+              First name
+              <input
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+                disabled={creating}
+                required
+              />
+            </label>
+
+            <label>
+              Last name
+              <input
+                value={lastName}
+                onChange={(event) => setLastName(event.target.value)}
+                disabled={creating}
+                required
+              />
+            </label>
+
+            <label>
+              Email
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                disabled={creating}
+                required
+              />
+            </label>
+
+            <label>
+              Initial password
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                disabled={creating}
+                minLength={8}
+                autoComplete="new-password"
+                required
+              />
+            </label>
+
+            <p className="muted">
+              Minimum 8 characters with uppercase, lowercase, digit, and special character.
+            </p>
+
+            <button
+              type="submit"
+              className="button-primary"
+              disabled={creating}
+            >
+              {creating ? "Creating..." : "Create user"}
+            </button>
+          </form>
+        </section>
+      ) : null}
+
+      {message && <div className="notice">{message}</div>}
 
       <FilterBar>
         <label>

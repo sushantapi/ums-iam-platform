@@ -2,19 +2,23 @@ package com.ums.auth.controller;
 
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ums.auth.dto.admin.AdminCreateUserRequest;
 import com.ums.auth.dto.admin.AdminUserAccountResponse;
 import com.ums.auth.dto.admin.AdminUserMetricsResponse;
 import com.ums.auth.service.AdminSessionService;
 import com.ums.auth.service.AdminUserAccountService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -26,6 +30,14 @@ public class InternalUserAdminController {
 
 	private final AdminSessionService adminSessionService;
 	private final AdminUserAccountService adminUserAccountService;
+
+	@PostMapping
+	public ResponseEntity<AdminUserAccountResponse> create(
+			@RequestHeader(ACTOR_USER_HEADER) UUID actorUserId,
+			@Valid @RequestBody AdminCreateUserRequest request) {
+		return ResponseEntity.status(HttpStatus.CREATED)
+				.body(adminUserAccountService.createUser(request, actorUserId));
+	}
 
 	@GetMapping("/metrics")
 	public AdminUserMetricsResponse getMetrics() {

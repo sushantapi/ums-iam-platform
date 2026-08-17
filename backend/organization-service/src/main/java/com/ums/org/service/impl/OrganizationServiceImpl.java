@@ -1,7 +1,9 @@
 package com.ums.org.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import org.springframework.data.domain.PageRequest;
@@ -16,8 +18,8 @@ import com.ums.org.dto.AddMemberRequest;
 import com.ums.org.dto.CreateOrganizationRequest;
 import com.ums.org.dto.OrganizationMemberResponse;
 import com.ums.org.dto.OrganizationResponse;
-import com.ums.org.dto.UserResponse;
 import com.ums.org.dto.UpdateOrganizationRequest;
+import com.ums.org.dto.UserResponse;
 import com.ums.org.dto.admin.OrganizationAdminPageResponse;
 import com.ums.org.dto.admin.OrganizationAdminResponse;
 import com.ums.org.entity.Organization;
@@ -39,7 +41,6 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 @Transactional
-
 @Slf4j
 public class OrganizationServiceImpl implements OrganizationService {
 
@@ -48,12 +49,10 @@ public class OrganizationServiceImpl implements OrganizationService {
 	private final OrganizationAccessService accessService;
 	private final UserClient userClient;
 	private final OrganizationEventPublisher eventPublisher;
-
 	private final AuditPublisher auditPublisher;
 
 	@Override
 	public OrganizationResponse createOrganization(CreateOrganizationRequest request, UUID ownerId) {
-
 		UserResponse user = userClient.getUser(ownerId);
 
 		if (user == null) {
@@ -72,10 +71,8 @@ public class OrganizationServiceImpl implements OrganizationService {
 
 		memberRepository.save(ownerMembership);
 
-		// Business Event
 		publishOrganizationCreatedEvent(organization, user.email());
 
-		// Audit Event
 		publishAuditEvent(AuditEvent.builder().eventType("organization.created").serviceName("organization-service")
 				.userId(ownerId.toString()).userEmail(user.email()).action("ORGANIZATION_CREATE")
 				.entityType("ORGANIZATION").entityId(organization.getId().toString())
@@ -83,34 +80,25 @@ public class OrganizationServiceImpl implements OrganizationService {
 
 		return new OrganizationResponse(organization.getId(), organization.getName(), organization.getSlug(),
 				organization.getDescription());
-
 	}
 
 	private void publishOrganizationCreatedEvent(Organization organization, String ownerEmail) {
-
 		OrganizationCreatedEvent event = OrganizationCreatedEvent.builder().organizationId(organization.getId())
 				.organizationName(organization.getName()).ownerId(organization.getOwnerId()).ownerEmail(ownerEmail)
 				.createdAt(LocalDateTime.now()).build();
 
 		eventPublisher.publishOrganizationCreated(event);
-
 	}
 
 	private void publishAuditEvent(AuditEvent event) {
-
 		try {
-
 			auditPublisher.publish(event);
-
 		} catch (Exception ex) {
-
 			log.error("Failed to publish audit event", ex);
 		}
-
 	}
 
 	private String generateUniqueSlug(String name) {
-
 		String baseSlug = name.trim().toLowerCase().replaceAll("[^a-z0-9\\s]", "").replaceAll("\\s+", "-");
 
 		String slug = baseSlug;
@@ -123,21 +111,9 @@ public class OrganizationServiceImpl implements OrganizationService {
 		return slug;
 	}
 
-	/*
-	 * private void publishOrganizationCreatedEvent(Organization organization,
-	 * String ownerEmail) {
-	 * 
-	 * OrganizationCreatedEvent event =
-	 * OrganizationCreatedEvent.builder().organizationId(organization.getId())
-	 * .organizationName(organization.getName()).ownerId(organization.getOwnerId()).
-	 * ownerEmail(ownerEmail) .createdAt(LocalDateTime.now()).build();
-	 * 
-	 * eventPublisher.publishOrganizationCreated(event); }
-	 */
-
 	@Override
-	public OrganizationResponse updateOrganization(UUID organizationId, UpdateOrganizationRequest request, UUID actorUserId, boolean superAdmin) {
-
+	public OrganizationResponse updateOrganization(UUID organizationId, UpdateOrganizationRequest request, UUID actorUserId,
+			boolean superAdmin) {
 		Organization organization = organizationRepository.findById(organizationId)
 				.orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
 
@@ -167,7 +143,6 @@ public class OrganizationServiceImpl implements OrganizationService {
 
 	@Override
 	public void addMember(UUID organizationId, AddMemberRequest request, UUID actorUserId, boolean superAdmin) {
-
 		Organization organization = organizationRepository.findById(organizationId)
 				.orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
 
@@ -204,7 +179,6 @@ public class OrganizationServiceImpl implements OrganizationService {
 
 	@Override
 	public OrganizationResponse getOrganization(UUID organizationId, UUID actorUserId, boolean superAdmin) {
-
 		Organization organization = organizationRepository.findById(organizationId)
 				.orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
 
@@ -216,7 +190,6 @@ public class OrganizationServiceImpl implements OrganizationService {
 
 	@Override
 	public List<OrganizationMemberResponse> getMembers(UUID organizationId, UUID actorUserId, boolean superAdmin) {
-
 		Organization organization = organizationRepository.findById(organizationId)
 				.orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
 
@@ -230,7 +203,6 @@ public class OrganizationServiceImpl implements OrganizationService {
 
 	@Override
 	public void removeMember(UUID organizationId, UUID userId, UUID actorUserId, boolean superAdmin) {
-
 		Organization organization = organizationRepository.findById(organizationId)
 				.orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
 
@@ -254,14 +226,9 @@ public class OrganizationServiceImpl implements OrganizationService {
 
 	@Override
 	public OrganizationAdminPageResponse listOrganizations(int page, int size, String search) {
-		if (page < 0 || page > 100_000 || size < 1 || size > 200) {
-			throw new BadRequestException("Invalid page or size");
-		}
-		if (search != null && search.length() > 255) {
-			throw new BadRequestException("search must not exceed 255 characters");
-		}
+		validateAdminListRequest(page, size, search);
 
-		String query = search == null ? "" : escapeSearch(search.trim().toLowerCase(java.util.Locale.ROOT));
+		String query = search == null ? "" : escapeSearch(search.trim().toLowerCase(Locale.ROOT));
 		var pageable = PageRequest.of(page, size, Sort.by("name").ascending());
 		var organizations = query.isBlank()
 				? organizationRepository.findAll(pageable)
@@ -274,9 +241,47 @@ public class OrganizationServiceImpl implements OrganizationService {
 	}
 
 	@Override
+	public OrganizationAdminPageResponse listOrganizationsForActor(int page, int size, String search, UUID actorUserId,
+			boolean superAdmin) {
+		if (superAdmin) {
+			return listOrganizations(page, size, search);
+		}
+
+		validateAdminListRequest(page, size, search);
+		String query = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
+
+		List<OrganizationAdminResponse> scopedOrganizations = getOrganizationsForUser(actorUserId).stream()
+				.filter(organization -> query.isBlank()
+						|| organization.name().toLowerCase(Locale.ROOT).contains(query)
+						|| organization.slug().toLowerCase(Locale.ROOT).contains(query))
+				.sorted(Comparator.comparing(OrganizationAdminResponse::name, String.CASE_INSENSITIVE_ORDER))
+				.toList();
+
+		int totalElements = scopedOrganizations.size();
+		int fromIndex = Math.min(page * size, totalElements);
+		int toIndex = Math.min(fromIndex + size, totalElements);
+		int totalPages = totalElements == 0 ? 0 : (totalElements + size - 1) / size;
+
+		return new OrganizationAdminPageResponse(
+				scopedOrganizations.subList(fromIndex, toIndex),
+				page,
+				size,
+				totalElements,
+				totalPages);
+	}
+
+	@Override
 	public OrganizationAdminResponse getOrganizationForAdmin(UUID organizationId) {
 		return toAdminResponse(organizationRepository.findById(organizationId)
 				.orElseThrow(() -> new ResourceNotFoundException("Organization not found")));
+	}
+
+	@Override
+	public OrganizationAdminResponse getOrganizationForAdmin(UUID organizationId, UUID actorUserId, boolean superAdmin) {
+		Organization organization = organizationRepository.findById(organizationId)
+				.orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+		accessService.assertCanViewOrganization(actorUserId, organization, superAdmin);
+		return toAdminResponse(organization);
 	}
 
 	@Override
@@ -291,8 +296,16 @@ public class OrganizationServiceImpl implements OrganizationService {
 				organization.getDescription(), organization.getOwnerId(), organization.getStatus().name());
 	}
 
+	private void validateAdminListRequest(int page, int size, String search) {
+		if (page < 0 || page > 100_000 || size < 1 || size > 200) {
+			throw new BadRequestException("Invalid page or size");
+		}
+		if (search != null && search.length() > 255) {
+			throw new BadRequestException("search must not exceed 255 characters");
+		}
+	}
+
 	private String escapeSearch(String value) {
 		return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
 	}
-
 }
