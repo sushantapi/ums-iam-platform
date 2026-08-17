@@ -38,6 +38,7 @@ import lombok.RequiredArgsConstructor;
 public class InternalOrganizationController {
 
 	private static final String ACTOR_HEADER = "X-Actor-User-Id";
+	private static final String SUPER_ADMIN_HEADER = "X-Actor-Super-Admin";
 	private final OrganizationService organizationService;
 	private final OrganizationRepository organizationRepository;
 
@@ -59,15 +60,20 @@ public class InternalOrganizationController {
 
 	@GetMapping
 	public OrganizationAdminPageResponse list(
+			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
+			@RequestHeader(SUPER_ADMIN_HEADER) boolean superAdmin,
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "20") int size,
 			@RequestParam(required = false) String search) {
-		return organizationService.listOrganizations(page, size, search);
+		return organizationService.listOrganizationsForActor(page, size, search, actorUserId, superAdmin);
 	}
 
 	@GetMapping("/{organizationId}")
-	public OrganizationAdminResponse get(@PathVariable UUID organizationId) {
-		return organizationService.getOrganizationForAdmin(organizationId);
+	public OrganizationAdminResponse get(
+			@PathVariable UUID organizationId,
+			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
+			@RequestHeader(SUPER_ADMIN_HEADER) boolean superAdmin) {
+		return organizationService.getOrganizationForAdmin(organizationId, actorUserId, superAdmin);
 	}
 
 	@GetMapping("/by-user/{userId}")
@@ -76,31 +82,40 @@ public class InternalOrganizationController {
 	}
 
 	@GetMapping("/{organizationId}/members")
-	public List<OrganizationMemberResponse> members(@PathVariable UUID organizationId,
-			@RequestHeader(ACTOR_HEADER) UUID actorUserId) {
-		return organizationService.getMembers(organizationId, actorUserId, true);
+	public List<OrganizationMemberResponse> members(
+			@PathVariable UUID organizationId,
+			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
+			@RequestHeader(SUPER_ADMIN_HEADER) boolean superAdmin) {
+		return organizationService.getMembers(organizationId, actorUserId, superAdmin);
 	}
 
 	@PutMapping("/{organizationId}")
-	public OrganizationAdminResponse update(@PathVariable UUID organizationId,
+	public OrganizationAdminResponse update(
+			@PathVariable UUID organizationId,
 			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
+			@RequestHeader(SUPER_ADMIN_HEADER) boolean superAdmin,
 			@Valid @RequestBody UpdateOrganizationRequest request) {
-		organizationService.updateOrganization(organizationId, request, actorUserId, true);
-		return organizationService.getOrganizationForAdmin(organizationId);
+		organizationService.updateOrganization(organizationId, request, actorUserId, superAdmin);
+		return organizationService.getOrganizationForAdmin(organizationId, actorUserId, superAdmin);
 	}
 
 	@PostMapping("/{organizationId}/members")
-	public ResponseEntity<Void> addMember(@PathVariable UUID organizationId,
+	public ResponseEntity<Void> addMember(
+			@PathVariable UUID organizationId,
 			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
+			@RequestHeader(SUPER_ADMIN_HEADER) boolean superAdmin,
 			@Valid @RequestBody AddMemberRequest request) {
-		organizationService.addMember(organizationId, request, actorUserId, true);
+		organizationService.addMember(organizationId, request, actorUserId, superAdmin);
 		return ResponseEntity.noContent().build();
 	}
 
 	@DeleteMapping("/{organizationId}/members/{userId}")
-	public ResponseEntity<Void> removeMember(@PathVariable UUID organizationId, @PathVariable UUID userId,
-			@RequestHeader(ACTOR_HEADER) UUID actorUserId) {
-		organizationService.removeMember(organizationId, userId, actorUserId, true);
+	public ResponseEntity<Void> removeMember(
+			@PathVariable UUID organizationId,
+			@PathVariable UUID userId,
+			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
+			@RequestHeader(SUPER_ADMIN_HEADER) boolean superAdmin) {
+		organizationService.removeMember(organizationId, userId, actorUserId, superAdmin);
 		return ResponseEntity.noContent().build();
 	}
 }
