@@ -27,6 +27,7 @@ public class DepartmentService {
 
     private final DepartmentRepository departmentRepository;
     private final OrganizationAccessService organizationAccessService;
+    private final OrganizationStructureAuditPublisher organizationStructureAuditPublisher;
 
     public DepartmentResponse create(CreateDepartmentRequest request, UUID actorUserId, boolean superAdmin) {
         organizationAccessService.assertCanAccess(request.organizationId(), actorUserId, superAdmin);
@@ -44,7 +45,9 @@ public class DepartmentService {
                 .status(MasterDataStatus.ACTIVE)
                 .build();
 
-        return toResponse(departmentRepository.save(department));
+        Department saved = departmentRepository.save(department);
+        organizationStructureAuditPublisher.publishDepartmentCreated(saved, actorUserId);
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -94,7 +97,9 @@ public class DepartmentService {
         department.setDescription(normalizeDescription(request.description()));
         department.setStatus(request.status());
 
-        return toResponse(departmentRepository.save(department));
+        Department saved = departmentRepository.save(department);
+        organizationStructureAuditPublisher.publishDepartmentUpdated(saved, actorUserId);
+        return toResponse(saved);
     }
 
     private Department findScoped(UUID departmentId, UUID organizationId) {

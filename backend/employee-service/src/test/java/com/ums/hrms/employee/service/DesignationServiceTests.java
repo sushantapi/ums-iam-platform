@@ -30,6 +30,9 @@ class DesignationServiceTests {
     @Mock
     private OrganizationAccessService organizationAccessService;
 
+    @Mock
+    private OrganizationStructureAuditPublisher organizationStructureAuditPublisher;
+
     @InjectMocks
     private DesignationService designationService;
 
@@ -53,6 +56,8 @@ class DesignationServiceTests {
                 false);
 
         verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
+        verify(organizationStructureAuditPublisher)
+                .publishDesignationCreated(any(Designation.class), org.mockito.ArgumentMatchers.eq(actorUserId));
         assertEquals(designationId, response.id());
         assertEquals(organizationId, response.organizationId());
         assertEquals("SSE", response.code());

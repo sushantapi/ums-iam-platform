@@ -27,6 +27,7 @@ public class DesignationService {
 
     private final DesignationRepository designationRepository;
     private final OrganizationAccessService organizationAccessService;
+    private final OrganizationStructureAuditPublisher organizationStructureAuditPublisher;
 
     public DesignationResponse create(CreateDesignationRequest request, UUID actorUserId, boolean superAdmin) {
         organizationAccessService.assertCanAccess(request.organizationId(), actorUserId, superAdmin);
@@ -44,7 +45,9 @@ public class DesignationService {
                 .status(MasterDataStatus.ACTIVE)
                 .build();
 
-        return toResponse(designationRepository.save(designation));
+        Designation saved = designationRepository.save(designation);
+        organizationStructureAuditPublisher.publishDesignationCreated(saved, actorUserId);
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -94,7 +97,9 @@ public class DesignationService {
         designation.setDescription(normalizeDescription(request.description()));
         designation.setStatus(request.status());
 
-        return toResponse(designationRepository.save(designation));
+        Designation saved = designationRepository.save(designation);
+        organizationStructureAuditPublisher.publishDesignationUpdated(saved, actorUserId);
+        return toResponse(saved);
     }
 
     private Designation findScoped(UUID designationId, UUID organizationId) {

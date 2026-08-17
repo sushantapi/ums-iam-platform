@@ -30,6 +30,9 @@ class DepartmentServiceTests {
     @Mock
     private OrganizationAccessService organizationAccessService;
 
+    @Mock
+    private OrganizationStructureAuditPublisher organizationStructureAuditPublisher;
+
     @InjectMocks
     private DepartmentService departmentService;
 
@@ -53,6 +56,8 @@ class DepartmentServiceTests {
                 false);
 
         verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
+        verify(organizationStructureAuditPublisher)
+                .publishDepartmentCreated(any(Department.class), org.mockito.ArgumentMatchers.eq(actorUserId));
         assertEquals(departmentId, response.id());
         assertEquals(organizationId, response.organizationId());
         assertEquals("ENG", response.code());
