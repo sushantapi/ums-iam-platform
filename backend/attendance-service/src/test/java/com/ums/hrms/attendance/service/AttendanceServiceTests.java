@@ -3,6 +3,7 @@ package com.ums.hrms.attendance.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,6 +36,7 @@ class AttendanceServiceTests {
     @Mock AttendanceRepository attendanceRepository;
     @Mock OrganizationAccessService organizationAccessService;
     @Mock EmployeeReferenceService employeeReferenceService;
+    @Mock AttendanceAuditPublisher attendanceAuditPublisher;
     @InjectMocks AttendanceService attendanceService;
 
     private final UUID organizationId = UUID.randomUUID();
@@ -58,6 +60,7 @@ class AttendanceServiceTests {
 
         verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
         verify(employeeReferenceService).assertActiveEmployee(organizationId, employeeId);
+        verify(attendanceAuditPublisher).publishCreated(any(AttendanceRecord.class), eq(actorUserId));
         assertEquals(employeeId, response.employeeId());
         assertEquals(workDate, response.workDate());
         assertEquals("Office", response.notes());
@@ -78,6 +81,7 @@ class AttendanceServiceTests {
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
         verify(attendanceRepository, never()).save(any());
+        verify(attendanceAuditPublisher, never()).publishCreated(any(), any());
     }
 
     @Test
@@ -97,6 +101,7 @@ class AttendanceServiceTests {
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
         verify(attendanceRepository, never()).save(any());
+        verify(attendanceAuditPublisher, never()).publishCreated(any(), any());
     }
 
     @Test
@@ -141,6 +146,7 @@ class AttendanceServiceTests {
                 actorUserId,
                 false);
 
+        verify(attendanceAuditPublisher).publishUpdated(record, actorUserId);
         assertEquals(employeeId, response.employeeId());
         assertEquals(workDate, response.workDate());
         assertEquals(AttendanceStatus.HALF_DAY, response.status());

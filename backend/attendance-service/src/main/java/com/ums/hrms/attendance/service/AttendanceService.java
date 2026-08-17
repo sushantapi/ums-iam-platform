@@ -27,6 +27,7 @@ public class AttendanceService {
     private final AttendanceRepository attendanceRepository;
     private final OrganizationAccessService organizationAccessService;
     private final EmployeeReferenceService employeeReferenceService;
+    private final AttendanceAuditPublisher attendanceAuditPublisher;
 
     public AttendanceResponse create(CreateAttendanceRequest request, UUID actorUserId, boolean superAdmin) {
         organizationAccessService.assertCanAccess(request.organizationId(), actorUserId, superAdmin);
@@ -49,7 +50,9 @@ public class AttendanceService {
                 .createdBy(actorUserId)
                 .build();
 
-        return toResponse(attendanceRepository.save(record));
+        AttendanceRecord saved = attendanceRepository.save(record);
+        attendanceAuditPublisher.publishCreated(saved, actorUserId);
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -94,7 +97,9 @@ public class AttendanceService {
         record.setCheckOutAt(request.checkOutAt());
         record.setNotes(normalizeNotes(request.notes()));
 
-        return toResponse(attendanceRepository.save(record));
+        AttendanceRecord saved = attendanceRepository.save(record);
+        attendanceAuditPublisher.publishUpdated(saved, actorUserId);
+        return toResponse(saved);
     }
 
     private AttendanceRecord findScoped(UUID attendanceId, UUID organizationId) {
