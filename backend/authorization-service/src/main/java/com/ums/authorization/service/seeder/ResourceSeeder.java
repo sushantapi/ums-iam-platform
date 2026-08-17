@@ -24,6 +24,7 @@ public class ResourceSeeder {
         createResource("SESSION", "Session Management");
         createResource("EMPLOYEE", "HRMS Employee Management");
         createResource("DESIGNATION", "HRMS Designation Management");
+        createResource("ATTENDANCE", "HRMS Attendance Management");
         createResource("PAYROLL", "Payroll Management");
         createResource("PROJECT", "Project Management");
         createResource("DEPARTMENT", "Department Management");

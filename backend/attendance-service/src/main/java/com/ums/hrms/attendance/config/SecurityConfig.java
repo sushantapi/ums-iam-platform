@@ -1,4 +1,4 @@
-package com.ums.hrms.employee.config;
+package com.ums.hrms.attendance.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,20 +22,17 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            TrustedGatewayAuthenticationFilter trustedGatewayAuthenticationFilter,
-            InternalServiceAuthenticationFilter internalServiceAuthenticationFilter) throws Exception {
+            TrustedGatewayAuthenticationFilter trustedGatewayAuthenticationFilter) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable())
-                .addFilterBefore(internalServiceAuthenticationFilter, AbstractPreAuthenticatedProcessingFilter.class)
                 .addFilterBefore(trustedGatewayAuthenticationFilter, AbstractPreAuthenticatedProcessingFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers("/api/v1/internal/**").hasRole("INTERNAL_SERVICE")
-                        .requestMatchers("/api/v1/hrms/**").authenticated()
+                        .requestMatchers("/api/v1/hrms/attendance/**").authenticated()
                         .anyRequest().denyAll())
                 .build();
     }
