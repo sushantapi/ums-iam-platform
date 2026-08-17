@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
 
 @RestControllerAdvice
@@ -38,6 +39,17 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(NoResourceFoundException.class)
 	public ResponseEntity<String> handleNotFound(NoResourceFoundException ex) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Resource not found");
+	}
+
+	@ExceptionHandler(FeignException.class)
+	public ResponseEntity<String> handleFeignException(FeignException ex) {
+		int status = ex.status();
+		if (status >= 400 && status < 500) {
+			return ResponseEntity.status(status).body("Downstream request rejected");
+		}
+
+		log.error("Downstream service call failed", ex);
+		return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body("Downstream service unavailable");
 	}
 
 	@ExceptionHandler(Exception.class)
