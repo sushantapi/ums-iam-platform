@@ -83,7 +83,19 @@ async function request<T>(
   }
 
   const text = await response.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  if (!text) {
+    return undefined as T;
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (
+    contentType.includes("application/json") ||
+    contentType.includes("+json")
+  ) {
+    return JSON.parse(text) as T;
+  }
+
+  return text as T;
 }
 export type DashboardResponse = {
   users: {
