@@ -2,16 +2,21 @@ package com.ums.hrms.attendance.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 
 class TrustedGatewayAuthenticationFilterTests {
 
@@ -32,15 +37,13 @@ class TrustedGatewayAuthenticationFilterTests {
         request.addHeader(TrustedGatewayAuthenticationFilter.USER_ROLES_HEADER, "HR_ADMIN,HR_MANAGER");
         request.addHeader(TrustedGatewayAuthenticationFilter.USER_PERMISSIONS_HEADER, "ATTENDANCE_CREATE,ATTENDANCE_READ");
         AtomicReference<Authentication> captured = new AtomicReference<>();
-        MockFilterChain chain = new MockFilterChain((requestArg, responseArg) ->
-                captured.set(SecurityContextHolder.getContext().getAuthentication()));
 
-        filter.doFilter(request, new MockHttpServletResponse(), chain);
+        filter.doFilter(request, new MockHttpServletResponse(), capturingChain(captured));
 
         assertThat(captured.get()).isNotNull();
         assertThat(captured.get().getName()).isEqualTo(userId.toString());
         assertThat(captured.get().getAuthorities())
-                .extracting(AuthenticationAuthority -> AuthenticationAuthority.getAuthority())
+                .extracting("authority")
                 .containsExactlyInAnyOrder("ROLE_HR_ADMIN", "ROLE_HR_MANAGER", "ATTENDANCE_CREATE", "ATTENDANCE_READ");
     }
 
@@ -52,10 +55,8 @@ class TrustedGatewayAuthenticationFilterTests {
         request.addHeader(TrustedGatewayAuthenticationFilter.USER_ROLES_HEADER, "SUPER_ADMIN");
         request.addHeader(TrustedGatewayAuthenticationFilter.USER_PERMISSIONS_HEADER, "ATTENDANCE_CREATE");
         AtomicReference<Authentication> captured = new AtomicReference<>();
-        MockFilterChain chain = new MockFilterChain((requestArg, responseArg) ->
-                captured.set(SecurityContextHolder.getContext().getAuthentication()));
 
-        filter.doFilter(request, new MockHttpServletResponse(), chain);
+        filter.doFilter(request, new MockHttpServletResponse(), capturingChain(captured));
 
         assertThat(captured.get()).isNull();
     }
@@ -67,11 +68,19 @@ class TrustedGatewayAuthenticationFilterTests {
         request.addHeader(TrustedGatewayAuthenticationFilter.INTERNAL_GATEWAY_SECRET_HEADER, SECRET);
         request.addHeader(TrustedGatewayAuthenticationFilter.AUTHENTICATED_USER_HEADER, "not-a-uuid");
         AtomicReference<Authentication> captured = new AtomicReference<>();
-        MockFilterChain chain = new MockFilterChain((requestArg, responseArg) ->
-                captured.set(SecurityContextHolder.getContext().getAuthentication()));
 
-        filter.doFilter(request, new MockHttpServletResponse(), chain);
+        filter.doFilter(request, new MockHttpServletResponse(), capturingChain(captured));
 
         assertThat(captured.get()).isNull();
+    }
+
+    private FilterChain capturingChain(AtomicReference<Authentication> captured) {
+        return new FilterChain() {
+            @Override
+            public void doFilter(ServletRequest request, ServletResponse response)
+                    throws IOException, ServletException {
+                captured.set(SecurityContextHolder.getContext().getAuthentication());
+            }
+        };
     }
 }
