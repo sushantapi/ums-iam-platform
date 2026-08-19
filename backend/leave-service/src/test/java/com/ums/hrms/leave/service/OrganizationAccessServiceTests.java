@@ -2,9 +2,11 @@ package com.ums.hrms.leave.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -19,6 +21,7 @@ import com.ums.hrms.leave.client.OrganizationServiceClient;
 
 import feign.FeignException;
 import feign.Request;
+import feign.RequestTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class OrganizationAccessServiceTests {
@@ -38,8 +41,9 @@ class OrganizationAccessServiceTests {
 
     @Test
     void mapsForbiddenToAccessDenied() {
-        when(organizationServiceClient.assertAccessible(organizationId, actorUserId, false))
-                .thenThrow(new FeignException.Forbidden("forbidden", request()));
+        doThrow(new FeignException.Forbidden("forbidden", request(), null, Map.of()))
+                .when(organizationServiceClient)
+                .assertAccessible(organizationId, actorUserId, false);
 
         assertThrows(
                 AccessDeniedException.class,
@@ -48,8 +52,9 @@ class OrganizationAccessServiceTests {
 
     @Test
     void mapsNotFoundToOrganizationNotFound() {
-        when(organizationServiceClient.assertAccessible(organizationId, actorUserId, false))
-                .thenThrow(new FeignException.NotFound("not found", request()));
+        doThrow(new FeignException.NotFound("not found", request(), null, Map.of()))
+                .when(organizationServiceClient)
+                .assertAccessible(organizationId, actorUserId, false);
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
@@ -60,8 +65,9 @@ class OrganizationAccessServiceTests {
 
     @Test
     void mapsOtherFeignFailuresToBadGateway() {
-        when(organizationServiceClient.assertAccessible(organizationId, actorUserId, false))
-                .thenThrow(new FeignException.ServiceUnavailable("unavailable", request()));
+        doThrow(new FeignException.ServiceUnavailable("unavailable", request(), null, Map.of()))
+                .when(organizationServiceClient)
+                .assertAccessible(organizationId, actorUserId, false);
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
@@ -71,7 +77,12 @@ class OrganizationAccessServiceTests {
     }
 
     private Request request() {
-        return Request.create(Request.HttpMethod.GET, "/api/v1/internal/organizations/" + organizationId,
-                java.util.Map.of(), null, null, null);
+        return Request.create(
+                Request.HttpMethod.GET,
+                "/api/v1/internal/organizations/" + organizationId,
+                Map.of(),
+                null,
+                StandardCharsets.UTF_8,
+                new RequestTemplate());
     }
 }
