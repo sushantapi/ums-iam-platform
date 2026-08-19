@@ -1,0 +1,23 @@
+CREATE TABLE leave_requests (
+    id BINARY(16) NOT NULL,
+    organization_id BINARY(16) NOT NULL,
+    employee_id BINARY(16) NOT NULL,
+    leave_type VARCHAR(20) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    reason VARCHAR(2000) NULL,
+    status VARCHAR(20) NOT NULL,
+    requested_by BINARY(16) NOT NULL,
+    decided_by BINARY(16) NULL,
+    decided_at TIMESTAMP(6) NULL,
+    decision_comment VARCHAR(2000) NULL,
+    created_at TIMESTAMP(6) NOT NULL,
+    updated_at TIMESTAMP(6) NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT chk_leave_request_dates CHECK (end_date >= start_date),
+    CONSTRAINT chk_leave_request_type CHECK (leave_type IN ('ANNUAL', 'SICK', 'CASUAL', 'UNPAID')),
+    CONSTRAINT chk_leave_request_status CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED')),
+    INDEX idx_leave_requests_org_employee (organization_id, employee_id),
+    INDEX idx_leave_requests_org_status (organization_id, status),
+    INDEX idx_leave_requests_org_dates (organization_id, start_date, end_date)
+);
