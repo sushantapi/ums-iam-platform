@@ -145,7 +145,12 @@ public class LeaveService {
         leaveRequest.setDecidedAt(LocalDateTime.now());
         leaveRequest.setDecisionComment(normalizeText(request.decisionComment()));
 
-        return toResponse(leaveRequestRepository.save(leaveRequest));
+        LeaveRequest saved = leaveRequestRepository.save(leaveRequest);
+        // LastModifiedDate is populated by the JPA auditing listener during flush.
+        // Flush before mapping so the API response contains the audited timestamp
+        // instead of the pre-transition value held by the managed entity.
+        leaveRequestRepository.flush();
+        return toResponse(saved);
     }
 
     private void validateDateRange(LocalDate startDate, LocalDate endDate) {
