@@ -7,9 +7,11 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.ums.hrms.leave.config.JpaAuditConfig;
 import com.ums.hrms.leave.entity.LeaveRequest;
@@ -17,14 +19,20 @@ import com.ums.hrms.leave.entity.LeaveStatus;
 import com.ums.hrms.leave.entity.LeaveType;
 
 @DataJpaTest(properties = {
+        "spring.cloud.config.enabled=false",
+        "eureka.client.enabled=false",
         "spring.flyway.enabled=false",
-        "spring.jpa.hibernate.ddl-auto=create-drop"
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "management.health.rabbit.enabled=false"
 })
 @Import(JpaAuditConfig.class)
 class LeaveRequestRepositoryTests {
 
     @Autowired
     private LeaveRequestRepository leaveRequestRepository;
+
+    @MockitoBean
+    private ConnectionFactory connectionFactory;
 
     private final UUID organizationId = UUID.randomUUID();
     private final UUID employeeId = UUID.randomUUID();

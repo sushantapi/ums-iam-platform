@@ -13,9 +13,11 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.ums.hrms.leave.config.JpaAuditConfig;
 import com.ums.hrms.leave.dto.LeaveResponse;
@@ -28,8 +30,11 @@ import com.ums.hrms.leave.repository.LeaveRequestRepository;
 import jakarta.persistence.EntityManager;
 
 @DataJpaTest(properties = {
+        "spring.cloud.config.enabled=false",
+        "eureka.client.enabled=false",
         "spring.flyway.enabled=false",
-        "spring.jpa.hibernate.ddl-auto=create-drop"
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "management.health.rabbit.enabled=false"
 })
 @Import(JpaAuditConfig.class)
 class LeaveTransitionAuditingTests {
@@ -39,6 +44,9 @@ class LeaveTransitionAuditingTests {
 
     @Autowired
     private EntityManager entityManager;
+
+    @MockitoBean
+    private ConnectionFactory connectionFactory;
 
     private LeaveService leaveService;
 
