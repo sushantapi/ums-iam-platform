@@ -138,3 +138,68 @@ services:
       timeout: 10s
       retries: 5
       start_period: 180s
+
+  leave-db-init:
+    image: mysql:8.0
+    container_name: ums-leave-db-init
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      LEAVE_DB_NAME: ${LEAVE_DB_NAME:-leave_db}
+    entrypoint:
+      - sh
+      - -c
+      - >
+        mysql -h mysql -uroot -p"$$MYSQL_ROOT_PASSWORD"
+        -e "CREATE DATABASE IF NOT EXISTS \`$$LEAVE_DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        GRANT ALL PRIVILEGES ON \`$$LEAVE_DB_NAME\`.* TO '$$MYSQL_USER'@'%';
+        FLUSH PRIVILEGES;"
+    networks:
+      - ums-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  leave-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: leave-service
+      args:
+        SERVICE_MODULE: leave-service
+    image: leave-service:1.0
+    container_name: ums-leave-service
+    restart: unless-stopped
+    ports:
+      - "${LEAVE_SERVICE_PORT:-8097}:8097"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS}
+      CONFIG_SERVER_URL: http://config-service:8888
+      SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${LEAVE_DB_NAME:-leave_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      INTERNAL_GATEWAY_SECRET: ${INTERNAL_GATEWAY_SECRET}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+      LOGGING_LEVEL_ROOT: ${LOG_LEVEL}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+    networks:
+      - ums-network
+    depends_on:
+      leave-db-init:
+        condition: service_completed_successfully
+      config-service:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+      organization-service:
+        condition: service_healthy
+      employee-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8097/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
