@@ -3,6 +3,7 @@ package com.ums.hrms.leave.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -123,7 +124,7 @@ class LeaveServiceTests {
         var response = leaveService.list(organizationId, 0, 20, actorUserId, false);
 
         verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
-        verify(leaveRequestRepository).findAllByOrganizationId(organizationId, any());
+        verify(leaveRequestRepository).findAllByOrganizationId(eq(organizationId), any());
         assertEquals(organizationId, response.content().getFirst().organizationId());
     }
 
