@@ -29,6 +29,7 @@ public class LeaveService {
     private final LeaveRequestRepository leaveRequestRepository;
     private final OrganizationAccessService organizationAccessService;
     private final LeaveTenantValidationService employeeValidationService;
+    private final LeaveAuditPublisher leaveAuditPublisher;
 
     public LeaveResponse create(CreateLeaveRequest request, UUID actorUserId, boolean superAdmin) {
         organizationAccessService.assertCanAccess(request.organizationId(), actorUserId, superAdmin);
@@ -54,7 +55,9 @@ public class LeaveService {
         leaveRequest.setStatus(LeaveStatus.PENDING);
         leaveRequest.setRequestedBy(actorUserId);
 
-        return toResponse(leaveRequestRepository.save(leaveRequest));
+        LeaveRequest saved = leaveRequestRepository.save(leaveRequest);
+        leaveAuditPublisher.publishCreated(saved, actorUserId);
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -150,7 +153,20 @@ public class LeaveService {
         // Flush before mapping so the API response contains the audited timestamp
         // instead of the pre-transition value held by the managed entity.
         leaveRequestRepository.flush();
+        publishTransitionAudit(saved, actorUserId, targetStatus);
         return toResponse(saved);
+    }
+
+    private void publishTransitionAudit(
+            LeaveRequest leaveRequest,
+            UUID actorUserId,
+            LeaveStatus targetStatus) {
+        switch (targetStatus) {
+            case APPROVED -> leaveAuditPublisher.publishApproved(leaveRequest, actorUserId);
+            case REJECTED -> leaveAuditPublisher.publishRejected(leaveRequest, actorUserId);
+            case CANCELLED -> leaveAuditPublisher.publishCancelled(leaveRequest, actorUserId);
+            default -> throw new IllegalArgumentException("Unsupported leave transition audit status: " + targetStatus);
+        }
     }
 
     private void validateDateRange(LocalDate startDate, LocalDate endDate) {
