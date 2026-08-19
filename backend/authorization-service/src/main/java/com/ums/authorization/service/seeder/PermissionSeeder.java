@@ -30,6 +30,7 @@ public class PermissionSeeder {
         seedActions("EMPLOYEE", "READ", "CREATE", "UPDATE");
         seedActions("DESIGNATION", "READ", "CREATE", "UPDATE");
         seedActions("ATTENDANCE", "READ", "CREATE", "UPDATE");
+        seedActions("LEAVE", "READ", "REQUEST_CREATE", "APPROVE", "CANCEL");
         seedActions("PAYROLL", "VIEW", "PROCESS");
         seedActions("PROJECT", "CREATE", "UPDATE", "DELETE");
         seedActions("DEPARTMENT", "READ", "WRITE", "CREATE", "UPDATE", "DELETE");
