@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
@@ -22,15 +23,12 @@ import com.ums.hrms.leave.entity.LeaveType;
 @Import(JpaAuditConfig.class)
 class LeaveRequestRepositoryTests {
 
-    private final LeaveRequestRepository leaveRequestRepository;
+    @Autowired
+    private LeaveRequestRepository leaveRequestRepository;
 
     private final UUID organizationId = UUID.randomUUID();
     private final UUID employeeId = UUID.randomUUID();
     private final UUID actorUserId = UUID.randomUUID();
-
-    LeaveRequestRepositoryTests(LeaveRequestRepository leaveRequestRepository) {
-        this.leaveRequestRepository = leaveRequestRepository;
-    }
 
     @Test
     void overlappingPendingRequestBlocksNewRequest() {
