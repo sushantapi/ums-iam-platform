@@ -36,6 +36,7 @@ class LeaveServiceTests {
     @Mock LeaveRequestRepository leaveRequestRepository;
     @Mock OrganizationAccessService organizationAccessService;
     @Mock LeaveTenantValidationService employeeValidationService;
+    @Mock LeaveAuditPublisher leaveAuditPublisher;
     @InjectMocks LeaveService leaveService;
 
     private final UUID organizationId = UUID.randomUUID();
@@ -55,6 +56,7 @@ class LeaveServiceTests {
 
         verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
         verify(employeeValidationService).validateEmployeeBelongsToOrganization(employeeId, organizationId);
+        verify(leaveAuditPublisher).publishCreated(any(LeaveRequest.class), eq(actorUserId));
         assertEquals(LeaveStatus.PENDING, response.status());
         assertEquals(actorUserId, response.requestedBy());
         assertEquals("Vacation", response.reason());
@@ -71,6 +73,7 @@ class LeaveServiceTests {
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
         verify(leaveRequestRepository, never()).existsOverlappingActiveRequest(any(), any(), any(), any());
         verify(leaveRequestRepository, never()).save(any());
+        verify(leaveAuditPublisher, never()).publishCreated(any(), any());
     }
 
     @Test
@@ -85,6 +88,7 @@ class LeaveServiceTests {
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
         verify(leaveRequestRepository, never()).save(any());
+        verify(leaveAuditPublisher, never()).publishCreated(any(), any());
     }
 
     @Test
@@ -99,6 +103,7 @@ class LeaveServiceTests {
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
         verify(leaveRequestRepository, never()).save(any());
+        verify(leaveAuditPublisher, never()).publishCreated(any(), any());
     }
 
     @Test
@@ -115,6 +120,7 @@ class LeaveServiceTests {
         verify(leaveRequestRepository).existsOverlappingActiveRequest(
                 organizationId, employeeId, request.startDate(), request.endDate());
         verify(leaveRequestRepository).save(any(LeaveRequest.class));
+        verify(leaveAuditPublisher).publishCreated(any(LeaveRequest.class), eq(actorUserId));
     }
 
     @Test
@@ -178,6 +184,7 @@ class LeaveServiceTests {
 
         verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
         verify(leaveRequestRepository).findByIdAndOrganizationIdForUpdate(leaveId, organizationId);
+        verify(leaveAuditPublisher).publishApproved(leave, actorUserId);
         assertEquals(LeaveStatus.APPROVED, response.status());
         assertEquals(actorUserId, response.decidedBy());
         assertNotNull(response.decidedAt());
@@ -194,6 +201,7 @@ class LeaveServiceTests {
 
         var response = leaveService.reject(leaveId, transitionRequest("Insufficient coverage"), actorUserId, false);
 
+        verify(leaveAuditPublisher).publishRejected(leave, actorUserId);
         assertEquals(LeaveStatus.REJECTED, response.status());
         assertEquals(actorUserId, response.decidedBy());
         assertEquals("Insufficient coverage", response.decisionComment());
@@ -209,6 +217,7 @@ class LeaveServiceTests {
 
         var response = leaveService.cancel(leaveId, transitionRequest(null), actorUserId, false);
 
+        verify(leaveAuditPublisher).publishCancelled(leave, actorUserId);
         assertEquals(LeaveStatus.CANCELLED, response.status());
         assertEquals(actorUserId, response.decidedBy());
         assertNotNull(response.decidedAt());
@@ -227,6 +236,7 @@ class LeaveServiceTests {
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
         verify(leaveRequestRepository, never()).save(any());
+        verify(leaveAuditPublisher, never()).publishRejected(any(), any());
     }
 
     @Test
@@ -244,6 +254,7 @@ class LeaveServiceTests {
         verify(organizationAccessService).assertCanAccess(otherOrganizationId, actorUserId, false);
         verify(leaveRequestRepository).findByIdAndOrganizationIdForUpdate(leaveId, otherOrganizationId);
         verify(leaveRequestRepository, never()).save(any());
+        verify(leaveAuditPublisher, never()).publishApproved(any(), any());
     }
 
     private CreateLeaveRequest request(LocalDate startDate, LocalDate endDate, String reason) {
