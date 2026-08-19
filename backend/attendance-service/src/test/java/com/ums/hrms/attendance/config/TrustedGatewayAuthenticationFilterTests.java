@@ -45,6 +45,7 @@ class TrustedGatewayAuthenticationFilterTests {
         assertThat(captured.get().getAuthorities())
                 .extracting("authority")
                 .containsExactlyInAnyOrder("ROLE_HR_ADMIN", "ROLE_HR_MANAGER", "ATTENDANCE_CREATE", "ATTENDANCE_READ");
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 
     @Test
@@ -53,7 +54,20 @@ class TrustedGatewayAuthenticationFilterTests {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader(TrustedGatewayAuthenticationFilter.AUTHENTICATED_USER_HEADER, UUID.randomUUID().toString());
         request.addHeader(TrustedGatewayAuthenticationFilter.USER_ROLES_HEADER, "SUPER_ADMIN");
-        request.addHeader(TrustedGatewayAuthenticationFilter.USER_PERMISSIONS_HEADER, "ATTENDANCE_CREATE");
+        request.addHeader(TrustedGatewayAuthenticationFilter.USER_PERMISSIONS_HEADER, "*");
+        AtomicReference<Authentication> captured = new AtomicReference<>();
+
+        filter.doFilter(request, new MockHttpServletResponse(), capturingChain(captured));
+
+        assertThat(captured.get()).isNull();
+    }
+
+    @Test
+    void rejectsWrongGatewaySecret() throws Exception {
+        TrustedGatewayAuthenticationFilter filter = new TrustedGatewayAuthenticationFilter(SECRET);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(TrustedGatewayAuthenticationFilter.INTERNAL_GATEWAY_SECRET_HEADER, "wrong-secret");
+        request.addHeader(TrustedGatewayAuthenticationFilter.AUTHENTICATED_USER_HEADER, UUID.randomUUID().toString());
         AtomicReference<Authentication> captured = new AtomicReference<>();
 
         filter.doFilter(request, new MockHttpServletResponse(), capturingChain(captured));
@@ -72,6 +86,55 @@ class TrustedGatewayAuthenticationFilterTests {
         filter.doFilter(request, new MockHttpServletResponse(), capturingChain(captured));
 
         assertThat(captured.get()).isNull();
+    }
+
+    @Test
+    void rejectsMissingUserIdentityEvenWithTrustedGatewaySecret() throws Exception {
+        TrustedGatewayAuthenticationFilter filter = new TrustedGatewayAuthenticationFilter(SECRET);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(TrustedGatewayAuthenticationFilter.INTERNAL_GATEWAY_SECRET_HEADER, SECRET);
+        AtomicReference<Authentication> captured = new AtomicReference<>();
+
+        filter.doFilter(request, new MockHttpServletResponse(), capturingChain(captured));
+
+        assertThat(captured.get()).isNull();
+    }
+
+    @Test
+    void preservesExistingRolePrefixAndAddsRolePrefixWhenMissing() throws Exception {
+        UUID userId = UUID.randomUUID();
+        TrustedGatewayAuthenticationFilter filter = new TrustedGatewayAuthenticationFilter(SECRET);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(TrustedGatewayAuthenticationFilter.INTERNAL_GATEWAY_SECRET_HEADER, SECRET);
+        request.addHeader(TrustedGatewayAuthenticationFilter.AUTHENTICATED_USER_HEADER, userId.toString());
+        request.addHeader(TrustedGatewayAuthenticationFilter.USER_ROLES_HEADER, "ROLE_HR_MANAGER,HR_ADMIN");
+        AtomicReference<Authentication> captured = new AtomicReference<>();
+
+        filter.doFilter(request, new MockHttpServletResponse(), capturingChain(captured));
+
+        assertThat(captured.get().getAuthorities())
+                .extracting("authority")
+                .containsExactlyInAnyOrder("ROLE_HR_MANAGER", "ROLE_HR_ADMIN");
+        assertThat(captured.get().getAuthorities())
+                .extracting("authority")
+                .doesNotContain("ROLE_ROLE_HR_MANAGER");
+    }
+
+    @Test
+    void mapsPermissionsToAuthorities() throws Exception {
+        UUID userId = UUID.randomUUID();
+        TrustedGatewayAuthenticationFilter filter = new TrustedGatewayAuthenticationFilter(SECRET);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(TrustedGatewayAuthenticationFilter.INTERNAL_GATEWAY_SECRET_HEADER, SECRET);
+        request.addHeader(TrustedGatewayAuthenticationFilter.AUTHENTICATED_USER_HEADER, userId.toString());
+        request.addHeader(TrustedGatewayAuthenticationFilter.USER_PERMISSIONS_HEADER, "ATTENDANCE_CREATE,ATTENDANCE_READ");
+        AtomicReference<Authentication> captured = new AtomicReference<>();
+
+        filter.doFilter(request, new MockHttpServletResponse(), capturingChain(captured));
+
+        assertThat(captured.get().getAuthorities())
+                .extracting("authority")
+                .containsExactlyInAnyOrder("ATTENDANCE_CREATE", "ATTENDANCE_READ");
     }
 
     private FilterChain capturingChain(AtomicReference<Authentication> captured) {
