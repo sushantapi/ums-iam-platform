@@ -51,7 +51,8 @@ class LeaveTransitionAuditingTests {
         leaveService = new LeaveService(
                 leaveRequestRepository,
                 mock(OrganizationAccessService.class),
-                mock(LeaveTenantValidationService.class));
+                mock(LeaveTenantValidationService.class),
+                mock(LeaveAuditPublisher.class));
     }
 
     @ParameterizedTest(name = "{0} transition advances updatedAt")
