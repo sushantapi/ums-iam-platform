@@ -27,7 +27,7 @@ public class LeaveRequest extends BaseEntity {
     @Id
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(nullable = false, updatable = false, length = 36)
-    private UUID id;
+    private UUID id = UUID.randomUUID();
 
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(nullable = false, length = 36)
@@ -52,7 +52,7 @@ public class LeaveRequest extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private LeaveStatus status;
+    private LeaveStatus status = LeaveStatus.PENDING;
 
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(nullable = false, length = 36)
