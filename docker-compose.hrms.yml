@@ -180,6 +180,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${LEAVE_DB_NAME:-leave_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_RABBITMQ_HOST: ${RABBITMQ_HOST}
+      SPRING_RABBITMQ_PORT: ${RABBITMQ_PORT}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
       INTERNAL_GATEWAY_SECRET: ${INTERNAL_GATEWAY_SECRET}
       INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
       LOGGING_LEVEL_ROOT: ${LOG_LEVEL}
@@ -189,6 +193,8 @@ services:
     depends_on:
       leave-db-init:
         condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
       config-service:
         condition: service_healthy
       discovery-service:
