@@ -6,6 +6,9 @@ CREATE DATABASE IF NOT EXISTS organization_db CHARACTER SET utf8mb4 COLLATE utf8
 CREATE DATABASE IF NOT EXISTS notification_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE IF NOT EXISTS audit_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE IF NOT EXISTS admin_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS employee_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS attendance_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS leave_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Create users with proper privileges
 CREATE USER IF NOT EXISTS 'ums_user'@'%' IDENTIFIED BY 'ums_secure_password_change_me';
@@ -18,5 +21,8 @@ GRANT ALL PRIVILEGES ON organization_db.* TO 'ums_user'@'%';
 GRANT ALL PRIVILEGES ON notification_db.* TO 'ums_user'@'%';
 GRANT ALL PRIVILEGES ON audit_db.* TO 'ums_user'@'%';
 GRANT ALL PRIVILEGES ON admin_db.* TO 'ums_user'@'%';
+GRANT ALL PRIVILEGES ON employee_db.* TO 'ums_user'@'%';
+GRANT ALL PRIVILEGES ON attendance_db.* TO 'ums_user'@'%';
+GRANT ALL PRIVILEGES ON leave_db.* TO 'ums_user'@'%';
 
 FLUSH PRIVILEGES;
