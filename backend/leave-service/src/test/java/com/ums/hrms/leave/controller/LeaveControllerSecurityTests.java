@@ -47,4 +47,29 @@ class LeaveControllerSecurityTests {
                 "hasAuthority('LEAVE_READ')",
                 method.getAnnotation(PreAuthorize.class).value());
     }
+
+    @Test
+    void approveRequiresLeaveApprovePermission() throws Exception {
+        assertTransitionPermission("approve", "hasAuthority('LEAVE_APPROVE')");
+    }
+
+    @Test
+    void rejectRequiresLeaveApprovePermission() throws Exception {
+        assertTransitionPermission("reject", "hasAuthority('LEAVE_APPROVE')");
+    }
+
+    @Test
+    void cancelRequiresLeaveCancelPermission() throws Exception {
+        assertTransitionPermission("cancel", "hasAuthority('LEAVE_CANCEL')");
+    }
+
+    private void assertTransitionPermission(String methodName, String expected) throws Exception {
+        Method method = LeaveController.class.getMethod(
+                methodName,
+                java.util.UUID.class,
+                com.ums.hrms.leave.dto.LeaveTransitionRequest.class,
+                org.springframework.security.core.Authentication.class);
+
+        assertEquals(expected, method.getAnnotation(PreAuthorize.class).value());
+    }
 }

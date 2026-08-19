@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ums.hrms.leave.dto.CreateLeaveRequest;
 import com.ums.hrms.leave.dto.LeavePageResponse;
 import com.ums.hrms.leave.dto.LeaveResponse;
+import com.ums.hrms.leave.dto.LeaveTransitionRequest;
 import com.ums.hrms.leave.service.LeaveService;
 
 import jakarta.validation.Valid;
@@ -65,6 +66,45 @@ public class LeaveController {
         return leaveService.get(
                 id,
                 organizationId,
+                currentUserId(authentication),
+                isSuperAdmin(authentication));
+    }
+
+    @PostMapping("/{id}/approve")
+    @PreAuthorize("hasAuthority('LEAVE_APPROVE')")
+    public LeaveResponse approve(
+            @PathVariable UUID id,
+            @Valid @RequestBody LeaveTransitionRequest request,
+            Authentication authentication) {
+        return leaveService.approve(
+                id,
+                request,
+                currentUserId(authentication),
+                isSuperAdmin(authentication));
+    }
+
+    @PostMapping("/{id}/reject")
+    @PreAuthorize("hasAuthority('LEAVE_APPROVE')")
+    public LeaveResponse reject(
+            @PathVariable UUID id,
+            @Valid @RequestBody LeaveTransitionRequest request,
+            Authentication authentication) {
+        return leaveService.reject(
+                id,
+                request,
+                currentUserId(authentication),
+                isSuperAdmin(authentication));
+    }
+
+    @PostMapping("/{id}/cancel")
+    @PreAuthorize("hasAuthority('LEAVE_CANCEL')")
+    public LeaveResponse cancel(
+            @PathVariable UUID id,
+            @Valid @RequestBody LeaveTransitionRequest request,
+            Authentication authentication) {
+        return leaveService.cancel(
+                id,
+                request,
                 currentUserId(authentication),
                 isSuperAdmin(authentication));
     }

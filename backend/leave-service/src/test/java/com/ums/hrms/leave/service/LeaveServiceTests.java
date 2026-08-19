@@ -1,6 +1,7 @@
 package com.ums.hrms.leave.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -23,6 +24,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.ums.hrms.leave.dto.CreateLeaveRequest;
+import com.ums.hrms.leave.dto.LeaveTransitionRequest;
 import com.ums.hrms.leave.entity.LeaveRequest;
 import com.ums.hrms.leave.entity.LeaveStatus;
 import com.ums.hrms.leave.entity.LeaveType;
@@ -163,6 +165,87 @@ class LeaveServiceTests {
         verify(leaveRequestRepository, never()).findAllByOrganizationId(any(), any());
     }
 
+    @Test
+    void approveTransitionsPendingRequestAtomically() {
+        UUID leaveId = UUID.randomUUID();
+        LeaveRequest leave = leave(organizationId, employeeId, LeaveStatus.PENDING);
+        LeaveTransitionRequest request = transitionRequest("  Approved by manager  ");
+        when(leaveRequestRepository.findByIdAndOrganizationIdForUpdate(leaveId, organizationId))
+                .thenReturn(Optional.of(leave));
+        when(leaveRequestRepository.save(leave)).thenReturn(leave);
+
+        var response = leaveService.approve(leaveId, request, actorUserId, false);
+
+        verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
+        verify(leaveRequestRepository).findByIdAndOrganizationIdForUpdate(leaveId, organizationId);
+        assertEquals(LeaveStatus.APPROVED, response.status());
+        assertEquals(actorUserId, response.decidedBy());
+        assertNotNull(response.decidedAt());
+        assertEquals("Approved by manager", response.decisionComment());
+    }
+
+    @Test
+    void rejectTransitionsPendingRequest() {
+        UUID leaveId = UUID.randomUUID();
+        LeaveRequest leave = leave(organizationId, employeeId, LeaveStatus.PENDING);
+        when(leaveRequestRepository.findByIdAndOrganizationIdForUpdate(leaveId, organizationId))
+                .thenReturn(Optional.of(leave));
+        when(leaveRequestRepository.save(leave)).thenReturn(leave);
+
+        var response = leaveService.reject(leaveId, transitionRequest("Insufficient coverage"), actorUserId, false);
+
+        assertEquals(LeaveStatus.REJECTED, response.status());
+        assertEquals(actorUserId, response.decidedBy());
+        assertEquals("Insufficient coverage", response.decisionComment());
+    }
+
+    @Test
+    void cancelTransitionsPendingRequest() {
+        UUID leaveId = UUID.randomUUID();
+        LeaveRequest leave = leave(organizationId, employeeId, LeaveStatus.PENDING);
+        when(leaveRequestRepository.findByIdAndOrganizationIdForUpdate(leaveId, organizationId))
+                .thenReturn(Optional.of(leave));
+        when(leaveRequestRepository.save(leave)).thenReturn(leave);
+
+        var response = leaveService.cancel(leaveId, transitionRequest(null), actorUserId, false);
+
+        assertEquals(LeaveStatus.CANCELLED, response.status());
+        assertEquals(actorUserId, response.decidedBy());
+        assertNotNull(response.decidedAt());
+    }
+
+    @Test
+    void transitionRejectsNonPendingRequest() {
+        UUID leaveId = UUID.randomUUID();
+        LeaveRequest leave = leave(organizationId, employeeId, LeaveStatus.APPROVED);
+        when(leaveRequestRepository.findByIdAndOrganizationIdForUpdate(leaveId, organizationId))
+                .thenReturn(Optional.of(leave));
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> leaveService.reject(leaveId, transitionRequest("Cannot change"), actorUserId, false));
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
+        verify(leaveRequestRepository, never()).save(any());
+    }
+
+    @Test
+    void transitionUsesTenantScopedLockedLookup() {
+        UUID leaveId = UUID.randomUUID();
+        when(leaveRequestRepository.findByIdAndOrganizationIdForUpdate(leaveId, otherOrganizationId))
+                .thenReturn(Optional.empty());
+        LeaveTransitionRequest request = new LeaveTransitionRequest(otherOrganizationId, null);
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> leaveService.approve(leaveId, request, actorUserId, false));
+
+        assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
+        verify(organizationAccessService).assertCanAccess(otherOrganizationId, actorUserId, false);
+        verify(leaveRequestRepository).findByIdAndOrganizationIdForUpdate(leaveId, otherOrganizationId);
+        verify(leaveRequestRepository, never()).save(any());
+    }
+
     private CreateLeaveRequest request(LocalDate startDate, LocalDate endDate, String reason) {
         return new CreateLeaveRequest(
                 organizationId,
@@ -171,6 +254,10 @@ class LeaveServiceTests {
                 startDate,
                 endDate,
                 reason);
+    }
+
+    private LeaveTransitionRequest transitionRequest(String comment) {
+        return new LeaveTransitionRequest(organizationId, comment);
     }
 
     private LeaveRequest leave(UUID organization, UUID employee, LeaveStatus status) {

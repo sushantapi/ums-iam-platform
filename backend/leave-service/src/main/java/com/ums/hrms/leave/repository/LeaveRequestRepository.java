@@ -7,16 +7,30 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.ums.hrms.leave.entity.LeaveRequest;
+
+import jakarta.persistence.LockModeType;
 
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID> {
 
     Page<LeaveRequest> findAllByOrganizationId(UUID organizationId, Pageable pageable);
 
     Optional<LeaveRequest> findByIdAndOrganizationId(UUID id, UUID organizationId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select l
+            from LeaveRequest l
+            where l.id = :id
+              and l.organizationId = :organizationId
+            """)
+    Optional<LeaveRequest> findByIdAndOrganizationIdForUpdate(
+            @Param("id") UUID id,
+            @Param("organizationId") UUID organizationId);
 
     @Query("""
             select count(l) > 0
