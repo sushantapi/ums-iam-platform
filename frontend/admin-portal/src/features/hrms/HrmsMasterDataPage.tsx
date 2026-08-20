@@ -11,10 +11,8 @@ import {
   type MasterDataStatus,
 } from "../../lib/api";
 import { hasAdminCapability } from "../../lib/auth/capabilities";
-import {
-  getStoredHrmsOrganizationId,
-  HrmsOrganizationScope,
-} from "./HrmsOrganizationScope";
+import { HrmsOrganizationScope } from "./HrmsOrganizationScope";
+import { getStoredHrmsOrganizationId } from "./hrmsOrganizationScopeStorage";
 
 type Kind = "departments" | "designations";
 type MasterRecord = DepartmentResponse | DesignationResponse;
