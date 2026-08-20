@@ -1,6 +1,9 @@
 import { Route } from "react-router-dom";
 
 import { RequireCapability } from "../../lib/auth/RequireCapability";
+import { EmployeeDetailPage } from "./EmployeeDetailPage";
+import { EmployeesPage } from "./EmployeesPage";
+import { HrmsMasterDataPage } from "./HrmsMasterDataPage";
 import { HrmsModulePage } from "./HrmsModulePage";
 
 export const hrmsRoutes = (
@@ -9,7 +12,15 @@ export const hrmsRoutes = (
       path="/hrms/employees"
       element={
         <RequireCapability capability="hrms.employees.read">
-          <HrmsModulePage module="employees" />
+          <EmployeesPage />
+        </RequireCapability>
+      }
+    />
+    <Route
+      path="/hrms/employees/:employeeId"
+      element={
+        <RequireCapability capability="hrms.employees.read">
+          <EmployeeDetailPage />
         </RequireCapability>
       }
     />
@@ -17,7 +28,7 @@ export const hrmsRoutes = (
       path="/hrms/departments"
       element={
         <RequireCapability capability="hrms.departments.read">
-          <HrmsModulePage module="departments" />
+          <HrmsMasterDataPage kind="departments" />
         </RequireCapability>
       }
     />
@@ -25,7 +36,7 @@ export const hrmsRoutes = (
       path="/hrms/designations"
       element={
         <RequireCapability capability="hrms.designations.read">
-          <HrmsModulePage module="designations" />
+          <HrmsMasterDataPage kind="designations" />
         </RequireCapability>
       }
     />
