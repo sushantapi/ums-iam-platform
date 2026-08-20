@@ -12,7 +12,7 @@ import {
   type EmployeeStatus,
 } from "../../lib/api";
 import { hasAdminCapability } from "../../lib/auth/capabilities";
-import { getStoredHrmsOrganizationId } from "./HrmsOrganizationScope";
+import { getStoredHrmsOrganizationId } from "./hrmsOrganizationScopeStorage";
 
 export function EmployeeDetailPage() {
   const { employeeId = "" } = useParams();
