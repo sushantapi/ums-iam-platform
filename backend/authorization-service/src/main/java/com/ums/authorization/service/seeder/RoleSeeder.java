@@ -24,6 +24,7 @@ public class RoleSeeder {
 			"COMPLIANCE",
 			"NOTIFICATION_ADMIN",
 			"HR_MANAGER",
+			"PAYROLL_ADMIN",
 			"PAYROLL_MANAGER",
 			"EMPLOYEE");
 

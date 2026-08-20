@@ -64,6 +64,11 @@ spring:
           predicates:
             - Path=/api/v1/hrms/leaves/**
 
+        - id: payroll-service
+          uri: lb://payroll-service
+          predicates:
+            - Path=/api/v1/hrms/payroll/**
+
         - id: employee-service
           uri: lb://employee-service
           predicates:

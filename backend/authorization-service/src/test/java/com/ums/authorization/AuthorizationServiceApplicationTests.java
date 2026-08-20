@@ -45,6 +45,11 @@ class AuthorizationServiceApplicationTests {
 			"LEAVE_APPROVE",
 			"LEAVE_CANCEL");
 
+	private static final List<String> PAYROLL_PERMISSIONS = List.of(
+			"PAYROLL_READ",
+			"PAYROLL_STRUCTURE_MANAGE",
+			"PAYROLL_RUN_MANAGE");
+
 	@Autowired
 	private MockMvc mockMvc;
 
@@ -70,19 +75,33 @@ class AuthorizationServiceApplicationTests {
 	@Test
 	void leaveResourceAndPermissionsAreSeeded() {
 		assertTrue(resourceRepository.existsByCodeIgnoreCase("LEAVE"));
-		LEAVE_PERMISSIONS.forEach(permissionCode -> assertTrue(
-				permissionRepository.existsByCodeIgnoreCase(permissionCode),
-				() -> "Missing leave permission: " + permissionCode));
+		assertPermissionsSeeded(LEAVE_PERMISSIONS);
 	}
 
 	@Test
 	void hrManagerReceivesAllLeavePermissions() {
-		assertRoleHasAllLeavePermissions("HR_MANAGER");
+		assertRoleHasPermissions("HR_MANAGER", LEAVE_PERMISSIONS);
 	}
 
 	@Test
 	void superAdminAutomaticallyReceivesAllLeavePermissions() {
-		assertRoleHasAllLeavePermissions("SUPER_ADMIN");
+		assertRoleHasPermissions("SUPER_ADMIN", LEAVE_PERMISSIONS);
+	}
+
+	@Test
+	void payrollResourceAndCanonicalPermissionsAreSeeded() {
+		assertTrue(resourceRepository.existsByCodeIgnoreCase("PAYROLL"));
+		assertPermissionsSeeded(PAYROLL_PERMISSIONS);
+	}
+
+	@Test
+	void payrollAdminReceivesCanonicalPayrollPermissions() {
+		assertRoleHasPermissions("PAYROLL_ADMIN", PAYROLL_PERMISSIONS);
+	}
+
+	@Test
+	void superAdminAutomaticallyReceivesCanonicalPayrollPermissions() {
+		assertRoleHasPermissions("SUPER_ADMIN", PAYROLL_PERMISSIONS);
 	}
 
 	@Test
@@ -147,11 +166,17 @@ class AuthorizationServiceApplicationTests {
 		mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isForbidden());
 	}
 
-	private void assertRoleHasAllLeavePermissions(String roleName) {
+	private void assertPermissionsSeeded(List<String> permissionCodes) {
+		permissionCodes.forEach(permissionCode -> assertTrue(
+				permissionRepository.existsByCodeIgnoreCase(permissionCode),
+				() -> "Missing permission: " + permissionCode));
+	}
+
+	private void assertRoleHasPermissions(String roleName, List<String> permissionCodes) {
 		var role = roleRepository.findByNameIgnoreCase(roleName)
 				.orElseThrow(() -> new AssertionError("Missing role: " + roleName));
 
-		LEAVE_PERMISSIONS.forEach(permissionCode -> {
+		permissionCodes.forEach(permissionCode -> {
 			var permission = permissionRepository.findByCodeIgnoreCase(permissionCode)
 					.orElseThrow(() -> new AssertionError("Missing permission: " + permissionCode));
 			assertTrue(
@@ -159,5 +184,4 @@ class AuthorizationServiceApplicationTests {
 					() -> roleName + " missing permission: " + permissionCode);
 		});
 	}
-
 }

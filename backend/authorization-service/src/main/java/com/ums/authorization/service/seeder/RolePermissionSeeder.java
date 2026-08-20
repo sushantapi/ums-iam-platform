@@ -41,7 +41,9 @@ public class RolePermissionSeeder {
                 "EMPLOYEE_READ", "EMPLOYEE_CREATE", "EMPLOYEE_UPDATE",
                 "ATTENDANCE_READ", "ATTENDANCE_CREATE", "ATTENDANCE_UPDATE",
                 "LEAVE_READ", "LEAVE_REQUEST_CREATE", "LEAVE_APPROVE", "LEAVE_CANCEL");
-        assignMany("PAYROLL_MANAGER", "PAYROLL_VIEW", "PAYROLL_PROCESS");
+        assignMany("PAYROLL_ADMIN", "PAYROLL_READ", "PAYROLL_STRUCTURE_MANAGE", "PAYROLL_RUN_MANAGE");
+        assignMany("PAYROLL_MANAGER", "PAYROLL_VIEW", "PAYROLL_PROCESS",
+                "PAYROLL_READ", "PAYROLL_STRUCTURE_MANAGE", "PAYROLL_RUN_MANAGE");
     }
 
     private void assignMany(String roleName, String... permissionCodes) {
