@@ -1,6 +1,7 @@
 import { Route } from "react-router-dom";
 
 import { RequireCapability } from "../../lib/auth/RequireCapability";
+import { AttendancePage } from "./AttendancePage";
 import { EmployeeDetailPage } from "./EmployeeDetailPage";
 import { EmployeesPage } from "./EmployeesPage";
 import { HrmsMasterDataPage } from "./HrmsMasterDataPage";
@@ -44,7 +45,7 @@ export const hrmsRoutes = (
       path="/hrms/attendance"
       element={
         <RequireCapability capability="hrms.attendance.read">
-          <HrmsModulePage module="attendance" />
+          <AttendancePage />
         </RequireCapability>
       }
     />
