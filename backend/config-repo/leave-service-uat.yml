@@ -1,0 +1,40 @@
+server:
+  port: ${LEAVE_SERVICE_PORT:8097}
+  error:
+    include-message: never
+
+internal:
+  gateway:
+    secret: ${INTERNAL_GATEWAY_SECRET}
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET}
+
+spring:
+  application:
+    name: leave-service
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${LEAVE_DB_NAME:leave_db}?useSSL=${MYSQL_USE_SSL:true}&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE}
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.value}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -5,6 +5,7 @@ on:
     paths:
       - "backend/**"
       - "docker-compose.yml"
+      - "docker-compose.hrms.yml"
       - "docker-compose.monitoring.yml"
       - ".github/workflows/backend-ci.yml"
 
@@ -12,6 +13,7 @@ on:
     paths:
       - "backend/**"
       - "docker-compose.yml"
+      - "docker-compose.hrms.yml"
       - "docker-compose.monitoring.yml"
       - ".github/workflows/backend-ci.yml"
 
@@ -100,6 +102,7 @@ jobs:
             grep -hEo \
               '\$\{[A-Z][A-Z0-9_]*(:\?[^}]*)?\}' \
               docker-compose.yml \
+              docker-compose.hrms.yml \
               docker-compose.monitoring.yml |
             sed -E 's/^\$\{([A-Z][A-Z0-9_]*).*/\1/' |
             sort -u
@@ -118,6 +121,11 @@ jobs:
           done
 
           docker compose config -q
+
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.hrms.yml \
+            config -q
 
           docker compose \
             -f docker-compose.monitoring.yml \

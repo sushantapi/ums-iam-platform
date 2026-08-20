@@ -1,10 +1,13 @@
 package com.ums.authorization;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +17,10 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.ums.authorization.repository.PermissionRepository;
+import com.ums.authorization.repository.ResourceRepository;
+import com.ums.authorization.repository.RolePermissionRepository;
+import com.ums.authorization.repository.RoleRepository;
 import com.ums.authorization.service.AuthorizationService;
 
 @SpringBootTest(properties = {
@@ -32,14 +39,50 @@ import com.ums.authorization.service.AuthorizationService;
 @AutoConfigureMockMvc
 class AuthorizationServiceApplicationTests {
 
+	private static final List<String> LEAVE_PERMISSIONS = List.of(
+			"LEAVE_READ",
+			"LEAVE_REQUEST_CREATE",
+			"LEAVE_APPROVE",
+			"LEAVE_CANCEL");
+
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Autowired
+	private ResourceRepository resourceRepository;
+
+	@Autowired
+	private PermissionRepository permissionRepository;
+
+	@Autowired
+	private RoleRepository roleRepository;
+
+	@Autowired
+	private RolePermissionRepository rolePermissionRepository;
 
 	@MockitoBean
 	private AuthorizationService authorizationService;
 
 	@Test
 	void contextLoads() {
+	}
+
+	@Test
+	void leaveResourceAndPermissionsAreSeeded() {
+		assertTrue(resourceRepository.existsByCodeIgnoreCase("LEAVE"));
+		LEAVE_PERMISSIONS.forEach(permissionCode -> assertTrue(
+				permissionRepository.existsByCodeIgnoreCase(permissionCode),
+				() -> "Missing leave permission: " + permissionCode));
+	}
+
+	@Test
+	void hrManagerReceivesAllLeavePermissions() {
+		assertRoleHasAllLeavePermissions("HR_MANAGER");
+	}
+
+	@Test
+	void superAdminAutomaticallyReceivesAllLeavePermissions() {
+		assertRoleHasAllLeavePermissions("SUPER_ADMIN");
 	}
 
 	@Test
@@ -102,6 +145,19 @@ class AuthorizationServiceApplicationTests {
 		mockMvc.perform(get("/actuator/info")).andExpect(status().isOk());
 		mockMvc.perform(get("/api/test/role")).andExpect(status().isForbidden());
 		mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isForbidden());
+	}
+
+	private void assertRoleHasAllLeavePermissions(String roleName) {
+		var role = roleRepository.findByNameIgnoreCase(roleName)
+				.orElseThrow(() -> new AssertionError("Missing role: " + roleName));
+
+		LEAVE_PERMISSIONS.forEach(permissionCode -> {
+			var permission = permissionRepository.findByCodeIgnoreCase(permissionCode)
+					.orElseThrow(() -> new AssertionError("Missing permission: " + permissionCode));
+			assertTrue(
+					rolePermissionRepository.existsByRole_IdAndPermission_Id(role.getId(), permission.getId()),
+					() -> roleName + " missing permission: " + permissionCode);
+		});
 	}
 
 }
