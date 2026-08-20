@@ -5,8 +5,8 @@ import { AttendancePage } from "./AttendancePage";
 import { EmployeeDetailPage } from "./EmployeeDetailPage";
 import { EmployeesPage } from "./EmployeesPage";
 import { HrmsMasterDataPage } from "./HrmsMasterDataPage";
-import { HrmsModulePage } from "./HrmsModulePage";
 import { LeavePage } from "./LeavePage";
+import { PayrollPage } from "./PayrollPage";
 
 export const hrmsRoutes = (
   <>
@@ -62,7 +62,7 @@ export const hrmsRoutes = (
       path="/hrms/payroll"
       element={
         <RequireCapability capability="hrms.payroll.read">
-          <HrmsModulePage module="payroll" />
+          <PayrollPage />
         </RequireCapability>
       }
     />
