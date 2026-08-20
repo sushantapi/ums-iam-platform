@@ -6,6 +6,7 @@ import { EmployeeDetailPage } from "./EmployeeDetailPage";
 import { EmployeesPage } from "./EmployeesPage";
 import { HrmsMasterDataPage } from "./HrmsMasterDataPage";
 import { HrmsModulePage } from "./HrmsModulePage";
+import { LeavePage } from "./LeavePage";
 
 export const hrmsRoutes = (
   <>
@@ -53,7 +54,7 @@ export const hrmsRoutes = (
       path="/hrms/leave"
       element={
         <RequireCapability capability="hrms.leave.read">
-          <HrmsModulePage module="leave" />
+          <LeavePage />
         </RequireCapability>
       }
     />
