@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { hrmsSidebarSection } from "../../features/hrms/navigation";
 import { sidebarSections } from "../../features/iam/screenBlueprints";
 import { getAdminCapabilities } from "../../lib/auth/capabilities";
 import { useAuthStore } from "../../store/authStore";
@@ -13,7 +14,7 @@ export function Sidebar() {
 
   const capabilities = getAdminCapabilities();
 
-  const visibleSections = sidebarSections
+  const visibleIamSections = sidebarSections
     .map(({ section, screens }) => ({
       section,
       screens: screens.filter(
@@ -24,6 +25,22 @@ export function Sidebar() {
       ),
     }))
     .filter(({ screens }) => screens.length > 0);
+
+  const visibleHrmsScreens = hrmsSidebarSection.screens.filter((screen) =>
+    capabilities.has(screen.requiredCapability),
+  );
+
+  const visibleSections = [
+    ...visibleIamSections,
+    ...(visibleHrmsScreens.length > 0
+      ? [
+          {
+            section: hrmsSidebarSection.section,
+            screens: visibleHrmsScreens,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <aside className="sidebar">
