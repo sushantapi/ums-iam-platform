@@ -18,11 +18,15 @@ CREATE TABLE hrms_salary_structures (
     ),
     CONSTRAINT chk_salary_structure_dates CHECK (
         effective_to IS NULL OR effective_to >= effective_from
-    ),
-    INDEX idx_salary_structure_org_employee (organization_id, employee_id),
-    INDEX idx_salary_structure_org_employee_dates (organization_id, employee_id, effective_from, effective_to),
-    INDEX idx_salary_structure_org_active (organization_id, active)
+    )
 );
+
+CREATE INDEX idx_salary_structure_org_employee
+    ON hrms_salary_structures (organization_id, employee_id);
+CREATE INDEX idx_salary_structure_org_employee_dates
+    ON hrms_salary_structures (organization_id, employee_id, effective_from, effective_to);
+CREATE INDEX idx_salary_structure_org_active
+    ON hrms_salary_structures (organization_id, active);
 
 CREATE TABLE hrms_payroll_runs (
     id CHAR(36) NOT NULL,
@@ -39,10 +43,13 @@ CREATE TABLE hrms_payroll_runs (
     PRIMARY KEY (id),
     CONSTRAINT uk_payroll_run_org_month UNIQUE (organization_id, payroll_month),
     CONSTRAINT chk_payroll_run_month CHECK (payroll_month REGEXP '^[0-9]{4}-(0[1-9]|1[0-2])$'),
-    CONSTRAINT chk_payroll_run_status CHECK (status IN ('DRAFT', 'PROCESSED', 'FINALIZED')),
-    INDEX idx_payroll_run_org_status (organization_id, status),
-    INDEX idx_payroll_run_org_month (organization_id, payroll_month)
+    CONSTRAINT chk_payroll_run_status CHECK (status IN ('DRAFT', 'PROCESSED', 'FINALIZED'))
 );
+
+CREATE INDEX idx_payroll_run_org_status
+    ON hrms_payroll_runs (organization_id, status);
+CREATE INDEX idx_payroll_run_org_month
+    ON hrms_payroll_runs (organization_id, payroll_month);
 
 CREATE TABLE hrms_payroll_entries (
     id CHAR(36) NOT NULL,
@@ -68,7 +75,10 @@ CREATE TABLE hrms_payroll_entries (
     CONSTRAINT fk_payroll_entry_run FOREIGN KEY (payroll_run_id)
         REFERENCES hrms_payroll_runs(id),
     CONSTRAINT fk_payroll_entry_salary_structure FOREIGN KEY (salary_structure_id)
-        REFERENCES hrms_salary_structures(id),
-    INDEX idx_payroll_entry_org_run (organization_id, payroll_run_id),
-    INDEX idx_payroll_entry_org_employee (organization_id, employee_id)
+        REFERENCES hrms_salary_structures(id)
 );
+
+CREATE INDEX idx_payroll_entry_org_run
+    ON hrms_payroll_entries (organization_id, payroll_run_id);
+CREATE INDEX idx_payroll_entry_org_employee
+    ON hrms_payroll_entries (organization_id, employee_id);
