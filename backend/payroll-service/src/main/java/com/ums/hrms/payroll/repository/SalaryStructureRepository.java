@@ -32,4 +32,17 @@ public interface SalaryStructureRepository extends JpaRepository<SalaryStructure
             @Param("employeeId") UUID employeeId,
             @Param("effectiveFrom") LocalDate effectiveFrom,
             @Param("effectiveTo") LocalDate effectiveTo);
+
+    @Query("""
+            select s
+            from SalaryStructure s
+            where s.organizationId = :organizationId
+              and s.active = true
+              and s.effectiveFrom <= :effectiveOn
+              and (s.effectiveTo is null or s.effectiveTo >= :effectiveOn)
+            order by s.employeeId
+            """)
+    List<SalaryStructure> findAllActiveEffectiveOn(
+            @Param("organizationId") UUID organizationId,
+            @Param("effectiveOn") LocalDate effectiveOn);
 }
