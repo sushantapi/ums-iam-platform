@@ -14,10 +14,8 @@ import {
   type PageResponse,
 } from "../../lib/api";
 import { hasAdminCapability } from "../../lib/auth/capabilities";
-import {
-  getStoredHrmsOrganizationId,
-  HrmsOrganizationScope,
-} from "./HrmsOrganizationScope";
+import { HrmsOrganizationScope } from "./HrmsOrganizationScope";
+import { getStoredHrmsOrganizationId } from "./hrmsOrganizationScopeStorage";
 
 const pageSize = 20;
 
