@@ -31,6 +31,7 @@ class SalaryStructureServiceTests {
     @Mock SalaryStructureRepository repository;
     @Mock OrganizationAccessService organizationAccessService;
     @Mock PayrollTenantValidationService employeeValidationService;
+    @Mock PayrollAuditPublisher payrollAuditPublisher;
     @InjectMocks SalaryStructureService service;
 
     private UUID organizationId;
@@ -45,7 +46,7 @@ class SalaryStructureServiceTests {
     }
 
     @Test
-    void createsValidatedSalaryStructureWithDefaults() {
+    void createsValidatedSalaryStructureWithDefaultsAndAudit() {
         CreateSalaryStructureRequest request = request(
                 null,
                 new BigDecimal("50000.00"),
@@ -66,6 +67,7 @@ class SalaryStructureServiceTests {
 
         verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
         verify(employeeValidationService).validateActiveEmployee(employeeId, organizationId);
+        verify(payrollAuditPublisher).publishSalaryStructureCreated(any(SalaryStructure.class), org.mockito.ArgumentMatchers.eq(actorUserId));
         assertEquals("INR", response.currency());
         assertEquals(actorUserId, response.createdBy());
         assertEquals(new BigDecimal("50000.00"), response.basicPay());
@@ -75,13 +77,8 @@ class SalaryStructureServiceTests {
     @Test
     void rejectsNegativeMoneyBeforePersistence() {
         CreateSalaryStructureRequest request = request(
-                "INR",
-                new BigDecimal("-1.00"),
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                LocalDate.of(2026, 8, 1),
-                null,
-                true);
+                "INR", new BigDecimal("-1.00"), BigDecimal.ZERO, BigDecimal.ZERO,
+                LocalDate.of(2026, 8, 1), null, true);
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
@@ -89,18 +86,14 @@ class SalaryStructureServiceTests {
 
         assertEquals(400, ex.getStatusCode().value());
         verify(repository, never()).save(any());
+        verify(payrollAuditPublisher, never()).publishSalaryStructureCreated(any(), any());
     }
 
     @Test
     void rejectsInvalidEffectiveDateRange() {
         CreateSalaryStructureRequest request = request(
-                "INR",
-                new BigDecimal("50000.00"),
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                LocalDate.of(2026, 9, 1),
-                LocalDate.of(2026, 8, 31),
-                true);
+                "INR", new BigDecimal("50000.00"), BigDecimal.ZERO, BigDecimal.ZERO,
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 8, 31), true);
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
@@ -114,18 +107,10 @@ class SalaryStructureServiceTests {
     @Test
     void rejectsOverlappingEffectiveRange() {
         CreateSalaryStructureRequest request = request(
-                "INR",
-                new BigDecimal("50000.00"),
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                LocalDate.of(2026, 8, 1),
-                LocalDate.of(2026, 8, 31),
-                true);
+                "INR", new BigDecimal("50000.00"), BigDecimal.ZERO, BigDecimal.ZERO,
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), true);
         when(repository.countOverlappingEffectiveRanges(
-                organizationId,
-                employeeId,
-                request.effectiveFrom(),
-                request.effectiveTo())).thenReturn(1L);
+                organizationId, employeeId, request.effectiveFrom(), request.effectiveTo())).thenReturn(1L);
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,

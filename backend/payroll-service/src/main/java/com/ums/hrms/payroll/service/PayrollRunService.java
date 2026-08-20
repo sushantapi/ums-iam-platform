@@ -36,6 +36,7 @@ public class PayrollRunService {
     private final PayrollEntryRepository payrollEntryRepository;
     private final SalaryStructureRepository salaryStructureRepository;
     private final OrganizationAccessService organizationAccessService;
+    private final PayrollAuditPublisher payrollAuditPublisher;
 
     public PayrollRunResponse create(
             CreatePayrollRunRequest request,
@@ -115,7 +116,9 @@ public class PayrollRunService {
         run.setStatus(PayrollRunStatus.PROCESSED);
         run.setProcessedBy(actorUserId);
         run.setProcessedAt(LocalDateTime.now());
-        return toRunResponse(payrollRunRepository.save(run));
+        PayrollRun saved = payrollRunRepository.save(run);
+        payrollAuditPublisher.publishPayrollRunProcessed(saved, actorUserId, entries.size());
+        return toRunResponse(saved);
     }
 
     public PayrollRunResponse finalizeRun(
@@ -137,7 +140,9 @@ public class PayrollRunService {
         run.setStatus(PayrollRunStatus.FINALIZED);
         run.setFinalizedBy(actorUserId);
         run.setFinalizedAt(LocalDateTime.now());
-        return toRunResponse(payrollRunRepository.save(run));
+        PayrollRun saved = payrollRunRepository.save(run);
+        payrollAuditPublisher.publishPayrollRunFinalized(saved, actorUserId);
+        return toRunResponse(saved);
     }
 
     @Transactional(readOnly = true)

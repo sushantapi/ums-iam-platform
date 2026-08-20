@@ -41,6 +41,7 @@ class PayrollRunServiceTests {
     @Mock PayrollEntryRepository payrollEntryRepository;
     @Mock SalaryStructureRepository salaryStructureRepository;
     @Mock OrganizationAccessService organizationAccessService;
+    @Mock PayrollAuditPublisher payrollAuditPublisher;
     @InjectMocks PayrollRunService payrollRunService;
 
     private UUID organizationId;
@@ -57,40 +58,30 @@ class PayrollRunServiceTests {
     @Test
     void rejectsDuplicateOrganizationMonthOnCreate() {
         YearMonth month = YearMonth.of(2026, 8);
-        when(payrollRunRepository.existsByOrganizationIdAndPayrollMonth(organizationId, month))
-                .thenReturn(true);
+        when(payrollRunRepository.existsByOrganizationIdAndPayrollMonth(organizationId, month)).thenReturn(true);
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
-                () -> payrollRunService.create(
-                        new CreatePayrollRunRequest(organizationId, month),
-                        actorUserId,
-                        false));
+                () -> payrollRunService.create(new CreatePayrollRunRequest(organizationId, month), actorUserId, false));
 
         assertEquals(409, ex.getStatusCode().value());
         verify(payrollRunRepository, never()).saveAndFlush(any());
     }
 
     @Test
-    void processesDraftRunIntoImmutableMoneySnapshots() {
+    void processesDraftRunIntoImmutableMoneySnapshotsAndAudits() {
         PayrollRun run = run(PayrollRunStatus.DRAFT);
         SalaryStructure structure = salaryStructure(
-                new BigDecimal("50000.00"),
-                new BigDecimal("5000.00"),
-                new BigDecimal("2500.00"));
+                new BigDecimal("50000.00"), new BigDecimal("5000.00"), new BigDecimal("2500.00"));
 
         when(payrollRunRepository.findByIdAndOrganizationIdForUpdate(runId, organizationId))
                 .thenReturn(java.util.Optional.of(run));
-        when(salaryStructureRepository.findAllActiveEffectiveOn(
-                organizationId, LocalDate.of(2026, 8, 31)))
+        when(salaryStructureRepository.findAllActiveEffectiveOn(organizationId, LocalDate.of(2026, 8, 31)))
                 .thenReturn(List.of(structure));
         when(payrollRunRepository.save(run)).thenReturn(run);
 
         var response = payrollRunService.process(
-                runId,
-                new PayrollTransitionRequest(organizationId),
-                actorUserId,
-                false);
+                runId, new PayrollTransitionRequest(organizationId), actorUserId, false);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<PayrollEntry>> captor = ArgumentCaptor.forClass(List.class);
@@ -104,37 +95,32 @@ class PayrollRunServiceTests {
         assertEquals(new BigDecimal("52500.00"), entry.getNetPay());
         assertEquals(PayrollRunStatus.PROCESSED, response.status());
         assertEquals(actorUserId, response.processedBy());
+        verify(payrollAuditPublisher).publishPayrollRunProcessed(run, actorUserId, 1);
 
         structure.setBasicPay(new BigDecimal("99999.00"));
         assertEquals(new BigDecimal("50000.00"), entry.getBasicPay());
     }
 
     @Test
-    void rejectsNegativeNetPayWithoutPersistingEntries() {
+    void rejectsNegativeNetPayWithoutPersistingEntriesOrAudit() {
         PayrollRun run = run(PayrollRunStatus.DRAFT);
         SalaryStructure structure = salaryStructure(
-                new BigDecimal("1000.00"),
-                new BigDecimal("0.00"),
-                new BigDecimal("1200.00"));
+                new BigDecimal("1000.00"), new BigDecimal("0.00"), new BigDecimal("1200.00"));
 
         when(payrollRunRepository.findByIdAndOrganizationIdForUpdate(runId, organizationId))
                 .thenReturn(java.util.Optional.of(run));
-        when(salaryStructureRepository.findAllActiveEffectiveOn(
-                organizationId, LocalDate.of(2026, 8, 31)))
+        when(salaryStructureRepository.findAllActiveEffectiveOn(organizationId, LocalDate.of(2026, 8, 31)))
                 .thenReturn(List.of(structure));
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
-                () -> payrollRunService.process(
-                        runId,
-                        new PayrollTransitionRequest(organizationId),
-                        actorUserId,
-                        false));
+                () -> payrollRunService.process(runId, new PayrollTransitionRequest(organizationId), actorUserId, false));
 
         assertEquals(409, ex.getStatusCode().value());
         assertEquals(PayrollRunStatus.DRAFT, run.getStatus());
         assertNull(run.getProcessedBy());
         verify(payrollEntryRepository, never()).saveAll(anyList());
+        verify(payrollAuditPublisher, never()).publishPayrollRunProcessed(any(), any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
@@ -145,11 +131,7 @@ class PayrollRunServiceTests {
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
-                () -> payrollRunService.process(
-                        runId,
-                        new PayrollTransitionRequest(organizationId),
-                        actorUserId,
-                        false));
+                () -> payrollRunService.process(runId, new PayrollTransitionRequest(organizationId), actorUserId, false));
 
         assertEquals(409, ex.getStatusCode().value());
         verify(salaryStructureRepository, never()).findAllActiveEffectiveOn(any(), any());
@@ -160,55 +142,45 @@ class PayrollRunServiceTests {
         PayrollRun run = run(PayrollRunStatus.DRAFT);
         when(payrollRunRepository.findByIdAndOrganizationIdForUpdate(runId, organizationId))
                 .thenReturn(java.util.Optional.of(run));
-        when(salaryStructureRepository.findAllActiveEffectiveOn(
-                organizationId, LocalDate.of(2026, 8, 31)))
+        when(salaryStructureRepository.findAllActiveEffectiveOn(organizationId, LocalDate.of(2026, 8, 31)))
                 .thenReturn(List.of());
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
-                () -> payrollRunService.process(
-                        runId,
-                        new PayrollTransitionRequest(organizationId),
-                        actorUserId,
-                        false));
+                () -> payrollRunService.process(runId, new PayrollTransitionRequest(organizationId), actorUserId, false));
 
         assertEquals(409, ex.getStatusCode().value());
         verify(payrollEntryRepository, never()).saveAll(anyList());
     }
 
     @Test
-    void finalizesOnlyProcessedRun() {
+    void finalizesOnlyProcessedRunAndAudits() {
         PayrollRun run = run(PayrollRunStatus.PROCESSED);
         when(payrollRunRepository.findByIdAndOrganizationIdForUpdate(runId, organizationId))
                 .thenReturn(java.util.Optional.of(run));
         when(payrollRunRepository.save(run)).thenReturn(run);
 
         var response = payrollRunService.finalizeRun(
-                runId,
-                new PayrollTransitionRequest(organizationId),
-                actorUserId,
-                false);
+                runId, new PayrollTransitionRequest(organizationId), actorUserId, false);
 
         assertEquals(PayrollRunStatus.FINALIZED, response.status());
         assertEquals(actorUserId, response.finalizedBy());
+        verify(payrollAuditPublisher).publishPayrollRunFinalized(run, actorUserId);
     }
 
     @Test
-    void rejectsFinalizeFromDraft() {
+    void rejectsFinalizeFromDraftWithoutAudit() {
         PayrollRun run = run(PayrollRunStatus.DRAFT);
         when(payrollRunRepository.findByIdAndOrganizationIdForUpdate(runId, organizationId))
                 .thenReturn(java.util.Optional.of(run));
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
-                () -> payrollRunService.finalizeRun(
-                        runId,
-                        new PayrollTransitionRequest(organizationId),
-                        actorUserId,
-                        false));
+                () -> payrollRunService.finalizeRun(runId, new PayrollTransitionRequest(organizationId), actorUserId, false));
 
         assertEquals(409, ex.getStatusCode().value());
         assertEquals(PayrollRunStatus.DRAFT, run.getStatus());
+        verify(payrollAuditPublisher, never()).publishPayrollRunFinalized(any(), any());
     }
 
     private PayrollRun run(PayrollRunStatus status) {
@@ -221,10 +193,7 @@ class PayrollRunServiceTests {
         return run;
     }
 
-    private SalaryStructure salaryStructure(
-            BigDecimal basic,
-            BigDecimal allowance,
-            BigDecimal deduction) {
+    private SalaryStructure salaryStructure(BigDecimal basic, BigDecimal allowance, BigDecimal deduction) {
         SalaryStructure structure = new SalaryStructure();
         structure.setId(UUID.randomUUID());
         structure.setOrganizationId(organizationId);

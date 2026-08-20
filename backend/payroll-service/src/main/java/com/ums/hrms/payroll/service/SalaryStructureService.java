@@ -1,7 +1,6 @@
 package com.ums.hrms.payroll.service;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -26,6 +25,7 @@ public class SalaryStructureService {
     private final SalaryStructureRepository salaryStructureRepository;
     private final OrganizationAccessService organizationAccessService;
     private final PayrollTenantValidationService employeeValidationService;
+    private final PayrollAuditPublisher payrollAuditPublisher;
 
     public SalaryStructureResponse create(
             CreateSalaryStructureRequest request,
@@ -57,7 +57,9 @@ public class SalaryStructureService {
         structure.setActive(request.active() == null || request.active());
         structure.setCreatedBy(actorUserId);
 
-        return toResponse(salaryStructureRepository.save(structure));
+        SalaryStructure saved = salaryStructureRepository.save(structure);
+        payrollAuditPublisher.publishSalaryStructureCreated(saved, actorUserId);
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
