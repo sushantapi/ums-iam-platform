@@ -1,0 +1,22 @@
+package com.ums.hrms.payroll.client;
+
+import java.util.UUID;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.ums.hrms.payroll.config.InternalServiceFeignConfig;
+
+@FeignClient(
+        name = "employee-service",
+        contextId = "payrollEmployeeReferenceClient",
+        configuration = InternalServiceFeignConfig.class)
+public interface EmployeeClient {
+
+    @GetMapping("/api/v1/internal/hrms/employees/{employeeId}")
+    EmployeeInternalResponse getEmployee(
+            @PathVariable UUID employeeId,
+            @RequestParam UUID organizationId);
+}
