@@ -25,7 +25,10 @@ import com.ums.hrms.payroll.service.SalaryStructureService;
 
 @WebMvcTest(SalaryStructureController.class)
 @Import({SecurityConfig.class, TrustedGatewayAuthenticationFilter.class})
-@TestPropertySource(properties = "internal.gateway.secret=test-gateway-secret")
+@TestPropertySource(properties = {
+        "internal.gateway.secret=test-gateway-secret",
+        "spring.cloud.config.enabled=false"
+})
 class SalaryStructureControllerSecurityTests {
 
     private static final UUID USER_ID = UUID.randomUUID();
