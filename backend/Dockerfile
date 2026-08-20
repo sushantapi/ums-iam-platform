@@ -85,6 +85,13 @@ EXPOSE 8097
 ENTRYPOINT ["java","-jar","app.jar"]
 
 
+FROM eclipse-temurin:21-jre AS payroll-service
+WORKDIR /app
+COPY --from=build /workspace/payroll-service/target/*.jar app.jar
+EXPOSE 8098
+ENTRYPOINT ["java","-jar","app.jar"]
+
+
 FROM eclipse-temurin:21-jre AS notification-service
 WORKDIR /app
 COPY --from=build /workspace/notification-service/target/*.jar app.jar
