@@ -3,6 +3,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { LeaveResponse } from "./leaveApi";
 
 const mocks = vi.hoisted(() => ({
   employees: vi.fn(),
@@ -58,7 +59,7 @@ const employee = {
   updatedAt: "2026-08-20T09:00:00",
 };
 
-const pendingLeave = {
+const pendingLeave: LeaveResponse = {
   id: "leave-1",
   organizationId: "org-1",
   employeeId: "emp-1",
@@ -75,7 +76,7 @@ const pendingLeave = {
   updatedAt: "2026-08-20T09:00:00",
 };
 
-const approvedLeave = {
+const approvedLeave: LeaveResponse = {
   ...pendingLeave,
   status: "APPROVED",
   decidedBy: "manager-1",
@@ -83,7 +84,7 @@ const approvedLeave = {
   decisionComment: "Approved",
 };
 
-function page(content: typeof pendingLeave[]) {
+function page(content: LeaveResponse[]) {
   return {
     content,
     page: 0,
