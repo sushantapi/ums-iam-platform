@@ -38,6 +38,7 @@ public class SalaryStructure extends BaseEntity {
     @Column(name = "employee_id", nullable = false, length = 36)
     private UUID employeeId;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(nullable = false, length = 3)
     private String currency = "INR";
 
