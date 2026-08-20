@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: payroll-service
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+internal:
+  gateway:
+    secret: ${INTERNAL_GATEWAY_SECRET:local-dev-gateway-secret-change-me}
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET:local-dev-internal-service-secret-change-me}

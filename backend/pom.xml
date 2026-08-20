@@ -27,6 +27,7 @@
         <module>employee-service</module>
         <module>attendance-service</module>
         <module>leave-service</module>
+        <module>payroll-service</module>
         <module>api-gateway</module>
     </modules>
 </project>
