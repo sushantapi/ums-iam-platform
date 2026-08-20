@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react";
 import { FilterBar } from "../../components/ui/FilterBar";
-
-const storageKey = "ums-hrms-organization-id";
-
-export function getStoredHrmsOrganizationId(): string {
-  return window.localStorage.getItem(storageKey) ?? "";
-}
+import { setStoredHrmsOrganizationId } from "./hrmsOrganizationScopeStorage";
 
 export function HrmsOrganizationScope({
   organizationId,
@@ -22,11 +17,7 @@ export function HrmsOrganizationScope({
 
   function apply() {
     const normalized = value.trim();
-    if (normalized) {
-      window.localStorage.setItem(storageKey, normalized);
-    } else {
-      window.localStorage.removeItem(storageKey);
-    }
+    setStoredHrmsOrganizationId(normalized);
     onChange(normalized);
   }
 
