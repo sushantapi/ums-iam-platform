@@ -10,6 +10,7 @@ import { LoginPage } from "../features/auth/LoginPage";
 import { auditRoutes } from "../features/audit/routes";
 import { dashboardRoutes } from "../features/dashboard/routes";
 import { grantRoutes } from "../features/grants/routes";
+import { hrmsRoutes } from "../features/hrms/routes";
 import { organizationRoutes } from "../features/organizations/routes";
 import { permissionRoutes } from "../features/permissions/routes";
 import { roleRoutes } from "../features/roles/routes";
@@ -47,6 +48,7 @@ export function AppRouter() {
         {grantRoutes}
         {auditRoutes}
         {sessionRoutes}
+        {hrmsRoutes}
       </Route>
 
       <Route
