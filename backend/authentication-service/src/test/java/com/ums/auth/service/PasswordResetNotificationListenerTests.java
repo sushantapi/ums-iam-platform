@@ -21,15 +21,15 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import com.ums.auth.entity.PasswordResetToken;
 import com.ums.auth.repository.PasswordResetTokenRepository;
 import com.ums.events.constants.RabbitMQConstants;
+import com.ums.events.event.AuditEvent;
 import com.ums.events.event.PasswordResetEvent;
-import com.ums.events.publisher.AuditPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class PasswordResetNotificationListenerTests {
 
 	@Mock private RabbitTemplate rabbitTemplate;
 	@Mock private PasswordResetTokenRepository passwordResetTokenRepository;
-	@Mock private AuditPublisher auditPublisher;
+	@Mock private PasswordRecoveryAuditOutboxService auditOutboxService;
 
 	@InjectMocks
 	private PasswordResetNotificationListener listener;
@@ -52,7 +52,7 @@ class PasswordResetNotificationListenerTests {
 	}
 
 	@Test
-	void notificationFailureRevokesTokenAndDoesNotLeakRawToken() {
+	void notificationFailureRevokesTokenAndRecordsDurableAudit() {
 		UUID tokenId = UUID.randomUUID();
 		PasswordResetToken token = PasswordResetToken.builder().id(tokenId).build();
 		when(passwordResetTokenRepository.findById(tokenId)).thenReturn(Optional.of(token));
@@ -67,7 +67,12 @@ class PasswordResetNotificationListenerTests {
 
 		verify(passwordResetTokenRepository).save(token);
 		org.assertj.core.api.Assertions.assertThat(token.getRevokedAt()).isNotNull();
-		verify(auditPublisher).publish(any());
+		ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+		verify(auditOutboxService).recordInNewTransaction(auditCaptor.capture());
+		org.assertj.core.api.Assertions.assertThat(auditCaptor.getValue().getEventType())
+				.isEqualTo("auth.password_reset.notification_failed");
+		org.assertj.core.api.Assertions.assertThat(auditCaptor.getValue().getDetails())
+				.doesNotContain("opaque");
 	}
 
 	@Test
@@ -83,5 +88,6 @@ class PasswordResetNotificationListenerTests {
 				tokenId, "user@example.com", "https://app.example.test/reset-password?token=opaque", "127.0.0.1"));
 
 		verify(passwordResetTokenRepository, never()).save(any(PasswordResetToken.class));
+		verify(auditOutboxService).recordInNewTransaction(any(AuditEvent.class));
 	}
 }

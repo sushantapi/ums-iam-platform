@@ -35,8 +35,7 @@ import com.ums.auth.exception.AuthException;
 import com.ums.auth.repository.PasswordResetTokenRepository;
 import com.ums.auth.repository.SessionRepository;
 import com.ums.auth.repository.UserRepository;
-import com.ums.events.event.PasswordResetEvent;
-import com.ums.events.publisher.AuditPublisher;
+import com.ums.events.event.AuditEvent;
 
 @ExtendWith(MockitoExtension.class)
 class PasswordRecoveryServiceTests {
@@ -47,7 +46,7 @@ class PasswordRecoveryServiceTests {
 	@Mock private PasswordEncoder passwordEncoder;
 	@Mock private TokenBlacklistService tokenBlacklistService;
 	@Mock private JwtService jwtService;
-	@Mock private AuditPublisher auditPublisher;
+	@Mock private PasswordRecoveryAuditOutboxService auditOutboxService;
 	@Mock private ApplicationEventPublisher eventPublisher;
 
 	@InjectMocks
@@ -85,6 +84,11 @@ class PasswordRecoveryServiceTests {
 		assertThat(stored.getTokenHash()).doesNotContain(rawToken);
 		assertThat(event.tokenId()).isEqualTo(stored.getId());
 		verify(passwordResetTokenRepository).revokeActiveTokens(eq(user.getId()), any(), any());
+
+		ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+		verify(auditOutboxService).record(auditCaptor.capture());
+		assertThat(auditCaptor.getValue().getEventType()).isEqualTo("auth.password_reset.requested");
+		assertThat(auditCaptor.getValue().getUserEmail()).isEqualTo("user@example.com");
 	}
 
 	@Test
@@ -95,6 +99,10 @@ class PasswordRecoveryServiceTests {
 
 		verify(passwordResetTokenRepository, never()).save(any());
 		verify(eventPublisher, never()).publishEvent(any());
+		ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+		verify(auditOutboxService).record(auditCaptor.capture());
+		assertThat(auditCaptor.getValue().getEventType()).isEqualTo("auth.password_reset.requested");
+		assertThat(auditCaptor.getValue().getUserId()).isNull();
 	}
 
 	@Test
@@ -130,6 +138,9 @@ class PasswordRecoveryServiceTests {
 		verify(userRepository).save(user);
 		verify(passwordResetTokenRepository).save(resetToken);
 		verify(sessionRepository).saveAll(List.of(session));
+		ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+		verify(auditOutboxService).record(auditCaptor.capture());
+		assertThat(auditCaptor.getValue().getEventType()).isEqualTo("auth.password_reset.completed");
 	}
 
 	@Test
@@ -165,6 +176,9 @@ class PasswordRecoveryServiceTests {
 				.isInstanceOf(AuthException.class)
 				.hasMessage("Invalid or expired reset token")
 				.extracting("errorCode").isEqualTo("INVALID_PASSWORD_RESET_TOKEN");
+		ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+		verify(auditOutboxService).recordInNewTransaction(auditCaptor.capture());
+		assertThat(auditCaptor.getValue().getEventType()).isEqualTo("auth.password_reset.failed");
 	}
 
 	private User activeLocalUser() {

@@ -30,7 +30,8 @@ import com.ums.events.publisher.AuditPublisher;
 		"management.health.redis.enabled=false",
 		"internal.gateway.secret=test-gateway-secret",
 		"internal.service.secret=test-internal-service-secret",
-		"security.password-reset.reset-page-url=http://localhost:5174/reset-password"
+		"security.password-reset.reset-page-url=http://localhost:5174/reset-password",
+		"security.password-reset.audit-outbox.enabled=false"
 })
 @AutoConfigureMockMvc
 class AuthenticationServiceApplicationTests {

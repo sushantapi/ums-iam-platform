@@ -26,7 +26,6 @@ import com.ums.auth.repository.PasswordResetTokenRepository;
 import com.ums.auth.repository.SessionRepository;
 import com.ums.auth.repository.UserRepository;
 import com.ums.events.event.AuditEvent;
-import com.ums.events.publisher.AuditPublisher;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +45,7 @@ public class PasswordRecoveryService {
 	private final PasswordEncoder passwordEncoder;
 	private final TokenBlacklistService tokenBlacklistService;
 	private final JwtService jwtService;
-	private final AuditPublisher auditPublisher;
+	private final PasswordRecoveryAuditOutboxService auditOutboxService;
 	private final ApplicationEventPublisher eventPublisher;
 
 	@Value("${security.password-reset.ttl-minutes:15}")
@@ -64,7 +63,7 @@ public class PasswordRecoveryService {
 			issueResetToken(eligibleUser.get(), ipAddress);
 		}
 
-		publishAuditEvent(AuditEvent.builder()
+		recordAuditEvent(AuditEvent.builder()
 				.eventType("auth.password_reset.requested")
 				.serviceName("authentication-service")
 				.userId(eligibleUser.map(User::getId).map(Object::toString).orElse(null))
@@ -99,7 +98,7 @@ public class PasswordRecoveryService {
 		passwordResetTokenRepository.save(resetToken);
 		revokeSessions(user, now);
 
-		publishAuditEvent(AuditEvent.builder()
+		recordAuditEvent(AuditEvent.builder()
 				.eventType("auth.password_reset.completed")
 				.serviceName("authentication-service")
 				.userId(user.getId().toString())
@@ -147,7 +146,7 @@ public class PasswordRecoveryService {
 	}
 
 	private AuthException invalidResetToken(String ipAddress, User user) {
-		publishAuditEvent(AuditEvent.builder()
+		recordRejectedAuditEvent(AuditEvent.builder()
 				.eventType("auth.password_reset.failed")
 				.serviceName("authentication-service")
 				.userId(user == null ? null : user.getId().toString())
@@ -181,11 +180,16 @@ public class PasswordRecoveryService {
 		return user.getStatus() == UserStatus.ACTIVE && LOCAL_PROVIDER.equalsIgnoreCase(user.getProvider());
 	}
 
-	private void publishAuditEvent(AuditEvent event) {
+	private void recordAuditEvent(AuditEvent event) {
+		auditOutboxService.record(event);
+	}
+
+	private void recordRejectedAuditEvent(AuditEvent event) {
 		try {
-			auditPublisher.publish(event);
+			auditOutboxService.recordInNewTransaction(event);
 		} catch (Exception ex) {
-			log.error("Failed to publish password recovery audit event", ex);
+			log.error("Failed to persist rejected password recovery audit event; errorType={}",
+					ex.getClass().getSimpleName());
 		}
 	}
 }

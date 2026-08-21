@@ -10,7 +10,6 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import com.ums.auth.repository.PasswordResetTokenRepository;
 import com.ums.events.constants.RabbitMQConstants;
 import com.ums.events.event.AuditEvent;
-import com.ums.events.publisher.AuditPublisher;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +21,7 @@ public class PasswordResetNotificationListener {
 
 	private final RabbitTemplate rabbitTemplate;
 	private final PasswordResetTokenRepository passwordResetTokenRepository;
-	private final AuditPublisher auditPublisher;
+	private final PasswordRecoveryAuditOutboxService auditOutboxService;
 
 	@TransactionalEventListener
 	public void handle(PasswordResetNotificationEvent event) {
@@ -34,7 +33,7 @@ public class PasswordResetNotificationListener {
 		} catch (Exception ex) {
 			revokeToken(event);
 			log.error("Password reset notification dispatch failed for tokenId={}", event.tokenId(), ex);
-			publishAuditFailure(event);
+			recordAuditFailure(event);
 		}
 	}
 
@@ -48,9 +47,9 @@ public class PasswordResetNotificationListener {
 		});
 	}
 
-	private void publishAuditFailure(PasswordResetNotificationEvent event) {
+	private void recordAuditFailure(PasswordResetNotificationEvent event) {
 		try {
-			auditPublisher.publish(AuditEvent.builder()
+			auditOutboxService.recordInNewTransaction(AuditEvent.builder()
 					.eventType("auth.password_reset.notification_failed")
 					.serviceName("authentication-service")
 					.userEmail(event.recipientEmail())
@@ -62,7 +61,8 @@ public class PasswordResetNotificationListener {
 					.timestamp(java.time.LocalDateTime.now())
 					.build());
 		} catch (Exception auditException) {
-			log.error("Failed to publish password recovery notification failure audit event", auditException);
+			log.error("Failed to persist password recovery notification failure audit event; errorType={}",
+					auditException.getClass().getSimpleName());
 		}
 	}
 }
