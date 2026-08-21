@@ -34,6 +34,11 @@ spring:
     username: ${RABBITMQ_DEFAULT_USER}
     password: ${RABBITMQ_DEFAULT_PASS}
 
+organization:
+  invitation:
+    expiry-hours: ${ORGANIZATION_INVITATION_EXPIRY_HOURS:72}
+    accept-page-url: ${ORGANIZATION_INVITATION_ACCEPT_URL:http://localhost:5174/accept-invitation}
+
 management:
   endpoints:
     web:

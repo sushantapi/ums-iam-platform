@@ -1,109 +1,23 @@
-/*
- * package com.ums.notification.service.impl;
- * 
- * import java.util.Map;
- * 
- * import org.springframework.mail.SimpleMailMessage; import
- * org.springframework.mail.javamail.JavaMailSender; import
- * org.springframework.stereotype.Service;
- * 
- * import com.ums.notification.service.EmailService; import
- * com.ums.notification.service.TemplateService;
- * 
- * import lombok.RequiredArgsConstructor;
- * 
- * @Service
- * 
- * @RequiredArgsConstructor public class EmailServiceImpl implements
- * EmailService {
- * 
- * private final JavaMailSender mailSender;
- * 
- * private final TemplateService templateService;
- * 
- * @Override public void sendWelcomeEmail(String email, String firstName) {
- * 
- * SimpleMailMessage message = new SimpleMailMessage();
- * 
- * message.setTo(email);
- * 
- * message.setSubject(templateService.getSubject("WELCOME_EMAIL"));
- * 
- * String body = templateService.buildTemplate("WELCOME_EMAIL", Map.of("name",
- * firstName));
- * 
- * message.setText(body);
- * 
- * mailSender.send(message); }
- * 
- * @Override public void sendVerificationEmail(String email, String firstName,
- * String verificationLink) {
- * 
- * SimpleMailMessage message = new SimpleMailMessage();
- * 
- * message.setTo(email);
- * 
- * message.setSubject(templateService.getSubject("EMAIL_VERIFICATION"));
- * 
- * String body = templateService.buildTemplate("EMAIL_VERIFICATION",
- * Map.of("name", firstName, "verificationLink", verificationLink));
- * 
- * message.setText(body);
- * 
- * mailSender.send(message); }
- * 
- * @Override public void sendPasswordResetEmail(String email, String firstName,
- * String resetLink) {
- * 
- * SimpleMailMessage message = new SimpleMailMessage();
- * 
- * message.setTo(email);
- * 
- * message.setSubject(templateService.getSubject("PASSWORD_RESET"));
- * 
- * String body = templateService.buildTemplate("PASSWORD_RESET", Map.of("name",
- * firstName, "resetLink", resetLink));
- * 
- * message.setText(body);
- * 
- * mailSender.send(message); }
- * 
- * @Override public void sendOtpEmail(String email, String otp) {
- * 
- * SimpleMailMessage message = new SimpleMailMessage();
- * 
- * message.setTo(email);
- * 
- * message.setSubject(templateService.getSubject("MFA_OTP"));
- * 
- * String body = templateService.buildTemplate("MFA_OTP", Map.of("name", email,
- * "otp", otp));
- * 
- * message.setText(body);
- * 
- * mailSender.send(message); } }
- */
-
 package com.ums.notification.service.impl;
 
 import java.util.Map;
 import java.util.UUID;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ums.events.event.organization.OrganizationInviteEvent;
-import com.ums.notification.service.EmailService;
-import com.ums.notification.service.NotificationAuditService;
-import com.ums.notification.service.NotificationEventService;
-import com.ums.notification.service.TemplateService;
 import com.ums.notification.entity.NotificationEvent;
 import com.ums.notification.enums.NotificationChannel;
 import com.ums.notification.enums.NotificationStatus;
 import com.ums.notification.enums.NotificationType;
+import com.ums.notification.service.EmailService;
+import com.ums.notification.service.NotificationAuditService;
+import com.ums.notification.service.NotificationEventService;
+import com.ums.notification.service.TemplateService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -113,37 +27,31 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
 
+	private static final String ORGANIZATION_INVITATION_TEMPLATE = "ORGANIZATION_INVITATION";
+
 	private final JavaMailSender mailSender;
-
 	private final TemplateService templateService;
-
 	private final NotificationAuditService auditService;
-
 	private final NotificationEventService eventService;
-
 	private final ObjectMapper objectMapper;
 
 	@Override
 	public void sendWelcomeEmail(String email, String firstName) {
-
 		sendEmail("WELCOME_EMAIL", email, Map.of("name", firstName));
 	}
 
 	@Override
 	public void sendVerificationEmail(String email, String firstName, String verificationLink) {
-
 		sendEmail("EMAIL_VERIFICATION", email, Map.of("name", firstName, "verificationLink", verificationLink));
 	}
 
 	@Override
 	public void sendPasswordResetEmail(String email, String firstName, String resetLink) {
-
 		sendEmail("PASSWORD_RESET", email, Map.of("name", firstName, "resetLink", resetLink));
 	}
 
 	@Override
 	public void sendOtpEmail(String email, String otp) {
-
 		sendEmail("MFA_OTP", email, Map.of("name", email, "otp", otp));
 	}
 
@@ -159,37 +67,26 @@ public class EmailServiceImpl implements EmailService {
 
 		try {
 			subject = templateService.getSubject(templateCode);
-
 			log.info("Sending {} email to {}", templateCode, maskEmail(recipientEmail));
-
 			String body = templateService.buildTemplate(templateCode, variables);
 
 			SimpleMailMessage message = new SimpleMailMessage();
-
 			message.setTo(recipientEmail);
 			message.setSubject(subject);
 			message.setText(body);
-
 			mailSender.send(message);
 
 			auditService.logSuccess(templateCode, recipientEmail, subject);
 			eventService.markProcessed(event.getId());
-
 			log.info("{} email sent successfully to {}", templateCode, maskEmail(recipientEmail));
-
 		} catch (Exception ex) {
-
 			log.error("Failed to send {} email to {}", templateCode, maskEmail(recipientEmail), ex);
-
 			auditService.logFailure(templateCode, recipientEmail, subject, ex.getMessage());
 			eventService.markFailed(event.getId(), ex.getMessage());
 		}
 	}
 
-	private NotificationEvent createEvent(
-			String templateCode,
-			String recipientEmail,
-			Map<String, Object> variables) {
+	private NotificationEvent createEvent(String templateCode, String recipientEmail, Map<String, Object> variables) {
 		try {
 			NotificationEvent event = NotificationEvent.builder()
 					.recipient(recipientEmail)
@@ -224,30 +121,68 @@ public class EmailServiceImpl implements EmailService {
 		if (event == null || event.getEmail() == null || event.getEmail().isBlank()) {
 			throw new IllegalArgumentException("Organization invitation email is required");
 		}
+		if (event.getInviteLink() == null || event.getInviteLink().isBlank()) {
+			throw new IllegalArgumentException("Organization invitation link is required");
+		}
 
-		Map<String, Object> variables = new java.util.HashMap<>();
-		variables.put("organizationName", event.getOrganizationName() == null ? "your organization" : event.getOrganizationName());
-		variables.put("inviteLink", event.getInviteLink() == null ? "" : event.getInviteLink());
+		String subject = ORGANIZATION_INVITATION_TEMPLATE;
+		String organizationName = event.getOrganizationName() == null || event.getOrganizationName().isBlank()
+				? "your organization"
+				: event.getOrganizationName();
 
-		sendEmail("ORGANIZATION_INVITATION", event.getEmail(), variables);
+		try {
+			subject = templateService.getSubject(ORGANIZATION_INVITATION_TEMPLATE);
+			String body = templateService.buildTemplate(ORGANIZATION_INVITATION_TEMPLATE,
+					Map.of("organizationName", organizationName, "inviteLink", event.getInviteLink()));
+
+			SimpleMailMessage message = new SimpleMailMessage();
+			message.setTo(event.getEmail());
+			message.setSubject(subject);
+			message.setText(body);
+			mailSender.send(message);
+		} catch (Exception ex) {
+			String failureType = ex.getClass().getName();
+			safeInvitationAuditFailure(event.getEmail(), subject, failureType);
+			log.warn("Organization invitation email delivery failed for {} failureType={}",
+					maskEmail(event.getEmail()), failureType);
+			throw new IllegalStateException("Organization invitation email delivery failed");
+		}
+
+		safeInvitationAuditSuccess(event.getEmail(), subject);
+		log.info("Organization invitation email sent to {}", maskEmail(event.getEmail()));
 	}
 
 	@Override
 	public void sendOrganizationCreatedEmail(String email, String organizationName) {
-
 		sendEmail("ORGANIZATION_CREATED", email, Map.of("organizationName", organizationName));
+	}
+
+	private void safeInvitationAuditSuccess(String email, String subject) {
+		try {
+			auditService.logSuccess(ORGANIZATION_INVITATION_TEMPLATE, email, subject);
+		} catch (RuntimeException auditFailure) {
+			log.warn("Organization invitation delivery audit write failed status=SENT failureType={}",
+					auditFailure.getClass().getName());
+		}
+	}
+
+	private void safeInvitationAuditFailure(String email, String subject, String failureType) {
+		try {
+			auditService.logFailure(ORGANIZATION_INVITATION_TEMPLATE, email, subject, failureType);
+		} catch (RuntimeException auditFailure) {
+			log.warn("Organization invitation delivery audit write failed status=FAILED failureType={}",
+					auditFailure.getClass().getName());
+		}
 	}
 
 	private String maskEmail(String email) {
 		if (email == null || email.isBlank()) {
 			return "<blank>";
 		}
-
 		int atIndex = email.indexOf('@');
 		if (atIndex <= 1) {
 			return "***";
 		}
-
 		return email.charAt(0) + "***" + email.substring(atIndex);
 	}
 }

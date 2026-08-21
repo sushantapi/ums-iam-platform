@@ -269,6 +269,8 @@ public class OrganizationServiceImpl implements OrganizationService {
 
 		try {
 			OrganizationInvitation saved = invitationRepository.saveAndFlush(invitation);
+			eventPublisher.publishOrganizationInvitationAfterCommit(saved.getId(), saved.getNormalizedEmail(),
+					organization.getName(), issuedToken.rawToken());
 			return toInvitationResponse(saved);
 		} catch (DataIntegrityViolationException ex) {
 			throw new BadRequestException("A pending invitation already exists for this email");

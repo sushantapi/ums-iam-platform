@@ -60,31 +60,22 @@ class OrganizationInvitationServiceTests {
 
 	@Mock
 	private OrganizationRepository organizationRepository;
-
 	@Mock
 	private OrganizationMemberRepository memberRepository;
-
 	@Mock
 	private OrganizationInvitationRepository invitationRepository;
-
 	@Mock
 	private OrganizationAccessService accessService;
-
 	@Mock
 	private UserClient userClient;
-
 	@Mock
 	private OrganizationInvitationTokenService invitationTokenService;
-
 	@Mock
 	private OrganizationInvitationProperties invitationProperties;
-
 	@Mock
 	private OrganizationEventPublisher eventPublisher;
-
 	@Mock
 	private AuditPublisher auditPublisher;
-
 	@InjectMocks
 	private OrganizationServiceImpl service;
 
@@ -103,7 +94,7 @@ class OrganizationInvitationServiceTests {
 	}
 
 	@Test
-	void createInvitationNormalizesEmailAndPersistsOnlyTokenHash() {
+	void createInvitationNormalizesEmailPersistsOnlyHashAndSchedulesPostCommitNotification() {
 		when(invitationRepository.findByOrganizationIdAndNormalizedEmailAndStatus(
 				ORGANIZATION_ID, EMAIL, OrganizationInvitationStatus.PENDING)).thenReturn(Optional.empty());
 		when(userClient.getUsers(0, 200, EMAIL)).thenReturn(emptyUsers());
@@ -140,6 +131,8 @@ class OrganizationInvitationServiceTests {
 				.collect(Collectors.toSet());
 		assertThat(responseFields).doesNotContain("rawToken", "token", "tokenHash", "inviteLink", "activeEmailKey");
 		verify(accessService).assertCanManageMembers(ACTOR_ID, organization, false);
+		verify(eventPublisher).publishOrganizationInvitationAfterCommit(
+				INVITATION_ID, EMAIL, "Example Org", RAW_TOKEN);
 	}
 
 	@Test

@@ -12,4 +12,9 @@ public class OrganizationInviteEvent {
 	private String email;
 	private String organizationName;
 	private String inviteLink;
+
+	@Override
+	public String toString() {
+		return "OrganizationInviteEvent[REDACTED]";
+	}
 }
