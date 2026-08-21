@@ -6,20 +6,18 @@ import type { ApiErrorResponse } from "../../api/apiClient";
 import authService from "../../api/services/authService";
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).+$/;
+const GENERIC_RESET_ERROR =
+  "Password reset could not be completed. The link may be invalid or expired.";
 
 function getRecoveryError(error: unknown): string {
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
-    return (
-      error.response?.data?.message ||
-      "Password reset could not be completed. The link may be invalid or expired."
-    );
+    const status = error.response?.status;
+    if (status !== undefined && status < 500) {
+      return error.response?.data?.message || GENERIC_RESET_ERROR;
+    }
   }
 
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Password reset could not be completed. The link may be invalid or expired.";
+  return GENERIC_RESET_ERROR;
 }
 
 export function ResetPasswordPage() {
@@ -61,6 +59,7 @@ export function ResetPasswordPage() {
         token,
         newPassword,
       });
+      window.history.replaceState({}, document.title, "/reset-password");
       setSuccess(responseMessage || "Password reset successful. Please sign in again.");
       setNewPassword("");
       setConfirmPassword("");

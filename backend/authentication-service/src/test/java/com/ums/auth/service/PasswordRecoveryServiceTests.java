@@ -4,9 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,7 +21,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -37,7 +35,6 @@ import com.ums.auth.exception.AuthException;
 import com.ums.auth.repository.PasswordResetTokenRepository;
 import com.ums.auth.repository.SessionRepository;
 import com.ums.auth.repository.UserRepository;
-import com.ums.events.constants.RabbitMQConstants;
 import com.ums.events.event.PasswordResetEvent;
 import com.ums.events.publisher.AuditPublisher;
 
@@ -50,8 +47,8 @@ class PasswordRecoveryServiceTests {
 	@Mock private PasswordEncoder passwordEncoder;
 	@Mock private TokenBlacklistService tokenBlacklistService;
 	@Mock private JwtService jwtService;
-	@Mock private RabbitTemplate rabbitTemplate;
 	@Mock private AuditPublisher auditPublisher;
+	@Mock private ApplicationEventPublisher eventPublisher;
 
 	@InjectMocks
 	private PasswordRecoveryService service;
@@ -63,7 +60,7 @@ class PasswordRecoveryServiceTests {
 	}
 
 	@Test
-	void knownEmailStoresOnlyHashAndPublishesResetLink() {
+	void knownEmailStoresOnlyHashAndPublishesResetEvent() {
 		User user = activeLocalUser();
 		ForgotPasswordRequest request = forgotRequest("USER@EXAMPLE.COM");
 		when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
@@ -78,16 +75,15 @@ class PasswordRecoveryServiceTests {
 		assertThat(stored.getTokenHash()).hasSize(64);
 		assertThat(stored.getExpiresAt()).isAfter(Instant.now());
 
-		ArgumentCaptor<PasswordResetEvent> eventCaptor = ArgumentCaptor.forClass(PasswordResetEvent.class);
-		verify(rabbitTemplate).convertAndSend(
-				eq(RabbitMQConstants.AUTH_EXCHANGE),
-				eq(RabbitMQConstants.PASSWORD_RESET_ROUTING_KEY),
-				eventCaptor.capture());
-		String resetLink = eventCaptor.getValue().getResetLink();
-		assertThat(resetLink).startsWith("https://app.example.test/reset-password?token=");
-		String rawToken = resetLink.substring(resetLink.indexOf("token=") + 6);
+		ArgumentCaptor<PasswordResetNotificationEvent> eventCaptor =
+				ArgumentCaptor.forClass(PasswordResetNotificationEvent.class);
+		verify(eventPublisher).publishEvent(eventCaptor.capture());
+		PasswordResetNotificationEvent event = eventCaptor.getValue();
+		assertThat(event.resetLink()).startsWith("https://app.example.test/reset-password?token=");
+		String rawToken = event.resetLink().substring(event.resetLink().indexOf("token=") + 6);
 		assertThat(stored.getTokenHash()).isEqualTo(DigestUtils.sha256Hex(rawToken));
 		assertThat(stored.getTokenHash()).doesNotContain(rawToken);
+		assertThat(event.tokenId()).isEqualTo(stored.getId());
 		verify(passwordResetTokenRepository).revokeActiveTokens(eq(user.getId()), any(), any());
 	}
 
@@ -98,29 +94,7 @@ class PasswordRecoveryServiceTests {
 		service.requestPasswordReset(forgotRequest("missing@example.com"), "127.0.0.1");
 
 		verify(passwordResetTokenRepository, never()).save(any());
-		verify(rabbitTemplate, never()).convertAndSend(any(String.class), any(String.class), any(Object.class));
-	}
-
-	@Test
-	void notificationDispatchFailureRevokesIssuedToken() {
-		User user = activeLocalUser();
-		when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
-		when(passwordResetTokenRepository.save(any(PasswordResetToken.class)))
-				.thenAnswer(invocation -> invocation.getArgument(0));
-		doThrow(new RuntimeException("broker unavailable"))
-				.when(rabbitTemplate)
-				.convertAndSend(
-						eq(RabbitMQConstants.AUTH_EXCHANGE),
-						eq(RabbitMQConstants.PASSWORD_RESET_ROUTING_KEY),
-						any(Object.class));
-
-		service.requestPasswordReset(forgotRequest("user@example.com"), "127.0.0.1");
-
-		ArgumentCaptor<PasswordResetToken> tokenCaptor = ArgumentCaptor.forClass(PasswordResetToken.class);
-		verify(passwordResetTokenRepository, times(2)).save(tokenCaptor.capture());
-		List<PasswordResetToken> savedTokens = tokenCaptor.getAllValues();
-		assertThat(savedTokens).hasSize(2);
-		assertThat(savedTokens.get(1).getRevokedAt()).isNotNull();
+		verify(eventPublisher, never()).publishEvent(any());
 	}
 
 	@Test

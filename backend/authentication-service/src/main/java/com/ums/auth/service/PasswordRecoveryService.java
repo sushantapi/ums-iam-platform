@@ -9,8 +9,8 @@ import java.util.Locale;
 import java.util.Optional;
 
 import org.apache.commons.codec.digest.DigestUtils;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,9 +25,7 @@ import com.ums.auth.exception.AuthException;
 import com.ums.auth.repository.PasswordResetTokenRepository;
 import com.ums.auth.repository.SessionRepository;
 import com.ums.auth.repository.UserRepository;
-import com.ums.events.constants.RabbitMQConstants;
 import com.ums.events.event.AuditEvent;
-import com.ums.events.event.PasswordResetEvent;
 import com.ums.events.publisher.AuditPublisher;
 
 import lombok.RequiredArgsConstructor;
@@ -48,13 +46,13 @@ public class PasswordRecoveryService {
 	private final PasswordEncoder passwordEncoder;
 	private final TokenBlacklistService tokenBlacklistService;
 	private final JwtService jwtService;
-	private final RabbitTemplate rabbitTemplate;
 	private final AuditPublisher auditPublisher;
+	private final ApplicationEventPublisher eventPublisher;
 
 	@Value("${security.password-reset.ttl-minutes:15}")
 	private long resetTokenTtlMinutes;
 
-	@Value("${security.password-reset.reset-page-url:http://localhost:5174/reset-password}")
+	@Value("${security.password-reset.reset-page-url}")
 	private String resetPageUrl;
 
 	@Transactional
@@ -127,28 +125,8 @@ public class PasswordRecoveryService {
 				.build();
 		passwordResetTokenRepository.save(resetToken);
 
-		try {
-			rabbitTemplate.convertAndSend(
-					RabbitMQConstants.AUTH_EXCHANGE,
-					RabbitMQConstants.PASSWORD_RESET_ROUTING_KEY,
-					new PasswordResetEvent(user.getEmail(), buildResetLink(rawToken)));
-		} catch (Exception ex) {
-			resetToken.setRevokedAt(Instant.now());
-			passwordResetTokenRepository.save(resetToken);
-			log.error("Password reset notification dispatch failed for userId={}", user.getId(), ex);
-			publishAuditEvent(AuditEvent.builder()
-					.eventType("auth.password_reset.notification_failed")
-					.serviceName("authentication-service")
-					.userId(user.getId().toString())
-					.userEmail(user.getEmail())
-					.action("PASSWORD_RESET_REQUEST")
-					.entityType("USER")
-					.entityId(user.getId().toString())
-					.details("Password reset notification dispatch failed")
-					.ipAddress(ipAddress)
-					.timestamp(LocalDateTime.now())
-					.build());
-		}
+		eventPublisher.publishEvent(new PasswordResetNotificationEvent(
+				resetToken.getId(), user.getEmail(), buildResetLink(rawToken), ipAddress));
 	}
 
 	private void revokeSessions(User user, Instant revokedAt) {
