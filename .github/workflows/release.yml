@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (vMAJOR.MINOR.PATCH)"
+        required: true
+        default: "v1.0.0"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Create GitHub Release
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate release request
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version must match vMAJOR.MINOR.PATCH, for example v1.0.0."
+            exit 1
+          fi
+
+          if [[ "$GITHUB_REF_NAME" != "main" ]]; then
+            echo "::error::Releases may only be created from main."
+            exit 1
+          fi
+
+          notes_file="docs/releases/${VERSION}.md"
+          if [[ ! -f "$notes_file" ]]; then
+            echo "::error::Release notes file not found: $notes_file"
+            exit 1
+          fi
+
+          git fetch --tags --force
+          if git show-ref --verify --quiet "refs/tags/${VERSION}"; then
+            echo "::error::Tag ${VERSION} already exists and will not be overwritten."
+            exit 1
+          fi
+
+      - name: Create GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          gh release create "$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "UMS IAM + HRMS Basic ${VERSION#v}" \
+            --notes-file "docs/releases/${VERSION}.md"
+
+      - name: Verify release target
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          git fetch origin "refs/tags/${VERSION}:refs/tags/${VERSION}"
+          tag_sha="$(git rev-list -n 1 "$VERSION")"
+
+          if [[ "$tag_sha" != "$GITHUB_SHA" ]]; then
+            echo "::error::Tag ${VERSION} points to ${tag_sha}, expected ${GITHUB_SHA}."
+            exit 1
+          fi
+
+          gh release view "$VERSION" --json tagName,url --jq '.tagName + " " + .url'
+          echo "Release ${VERSION} verified at ${GITHUB_SHA}."

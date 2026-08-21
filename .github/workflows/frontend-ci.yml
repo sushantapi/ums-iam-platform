@@ -4,11 +4,11 @@ on:
   push:
     paths:
       - "frontend/admin-portal/**"
+      - "docs/releases/**"
+      - "docs/architecture/**"
       - ".github/workflows/frontend-ci.yml"
+      - ".github/workflows/release.yml"
   pull_request:
-    paths:
-      - "frontend/admin-portal/**"
-      - ".github/workflows/frontend-ci.yml"
   workflow_dispatch:
 
 permissions:
