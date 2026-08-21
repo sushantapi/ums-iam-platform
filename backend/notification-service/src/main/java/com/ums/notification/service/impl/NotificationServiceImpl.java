@@ -9,6 +9,7 @@ import com.ums.events.event.organization.OrganizationCreatedEvent;
 import com.ums.events.event.user.UserRegisteredEvent;
 import com.ums.notification.service.EmailService;
 import com.ums.notification.service.NotificationService;
+import com.ums.notification.service.PasswordResetEmailService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,44 +20,35 @@ import lombok.extern.slf4j.Slf4j;
 public class NotificationServiceImpl implements NotificationService {
 
 	private final EmailService emailService;
+	private final PasswordResetEmailService passwordResetEmailService;
 
 	@Override
 	public void processUserRegistered(UserRegisteredEvent event) {
-
 		log.info("Processing UserRegisteredEvent for userId={}", event.getUserId());
-
 		emailService.sendWelcomeEmail(event.getEmail(), event.getFirstName());
 	}
 
 	@Override
 	public void processEmailVerification(EmailVerificationEvent event) {
-
 		log.info("Processing EmailVerificationEvent");
-
 		emailService.sendVerificationEmail(event.getEmail(), event.getEmail(), event.getOtp());
 	}
 
 	@Override
 	public void processPasswordReset(PasswordResetEvent event) {
-
 		log.info("Processing PasswordResetEvent");
-
-		emailService.sendPasswordResetEmail(event.getEmail(), event.getEmail(), event.getOtp());
+		passwordResetEmailService.send(event.getEmail(), event.getResetLink());
 	}
 
 	@Override
 	public void processMfaOtp(MfaOtpEvent event) {
-
 		log.info("Processing MfaOtpEvent");
-
 		emailService.sendOtpEmail(event.getEmail(), event.getOtp());
 	}
 
 	@Override
 	public void sendOrganizationCreatedEmail(OrganizationCreatedEvent event) {
-
 		log.info("Processing OrganizationCreatedEvent for organizationId={}", event.getOrganizationId());
-
 		emailService.sendOrganizationCreatedEmail(event.getOwnerEmail(), event.getOrganizationName());
 	}
 }

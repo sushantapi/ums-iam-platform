@@ -10,5 +10,5 @@ import lombok.NoArgsConstructor;
 public class PasswordResetEvent {
 
 	private String email;
-	private String otp;
+	private String resetLink;
 }

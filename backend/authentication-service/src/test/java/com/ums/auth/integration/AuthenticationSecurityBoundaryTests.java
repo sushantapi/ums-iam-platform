@@ -1,6 +1,8 @@
 package com.ums.auth.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -17,7 +19,10 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ums.auth.config.SecurityConfig;
 import com.ums.auth.controller.AdminSessionController;
 import com.ums.auth.controller.AuthController;
@@ -26,6 +31,7 @@ import com.ums.auth.security.InternalServiceAuthenticationFilter;
 import com.ums.auth.security.TrustedGatewayAuthenticationFilter;
 import com.ums.auth.service.AdminSessionService;
 import com.ums.auth.service.AuthService;
+import com.ums.auth.service.PasswordRecoveryService;
 
 @WebMvcTest(
 		controllers = { AuthController.class, AdminSessionController.class },
@@ -43,15 +49,23 @@ class AuthenticationSecurityBoundaryTests {
 	private static final String AUTHENTICATED_USER_HEADER = "X-Authenticated-User";
 	private static final String USER_ROLES_HEADER = "X-User-Roles";
 	private static final String TEST_GATEWAY_SECRET = "test-gateway-secret";
+	private static final String PASSWORD_RESET_MESSAGE =
+			"If an account exists for that email, password reset instructions have been sent.";
 
 	@MockitoBean
 	private AuthService authService;
+
+	@MockitoBean
+	private PasswordRecoveryService passwordRecoveryService;
 
 	@MockitoBean
 	private AdminSessionService adminSessionService;
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	@Test
 	void publicAuthRoutesDoNotRequireGatewayTrust() throws Exception {
@@ -74,6 +88,64 @@ class AuthenticationSecurityBoundaryTests {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"refreshToken\":\"refresh-token\"}"))
 				.andExpect(status().isOk());
+		mockMvc.perform(post("/api/v1/auth/forgot-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"user@example.com\"}"))
+				.andExpect(status().isOk());
+		mockMvc.perform(post("/api/v1/auth/reset-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"token\":\"opaque-reset-token\",\"newPassword\":\"NewPassword@123\"}"))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void forgotPasswordUsesIdenticalOutwardResponseForKnownAndUnknownEmails() throws Exception {
+		doNothing().when(passwordRecoveryService).requestPasswordReset(any(), any());
+
+		MvcResult knownEmail = mockMvc.perform(post("/api/v1/auth/forgot-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"user@example.com\"}"))
+				.andExpect(status().isOk())
+				.andReturn();
+
+		MvcResult unknownEmail = mockMvc.perform(post("/api/v1/auth/forgot-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"missing@example.com\"}"))
+				.andExpect(status().isOk())
+				.andReturn();
+
+		assertThat(knownEmail.getResponse().getStatus())
+				.isEqualTo(unknownEmail.getResponse().getStatus());
+
+		ObjectNode knownBody = (ObjectNode) objectMapper.readTree(knownEmail.getResponse().getContentAsString());
+		ObjectNode unknownBody = (ObjectNode) objectMapper.readTree(unknownEmail.getResponse().getContentAsString());
+
+		assertThat(knownBody.get("success").asBoolean()).isTrue();
+		assertThat(knownBody.get("message").asText()).isEqualTo(PASSWORD_RESET_MESSAGE);
+		assertThat(unknownBody.get("success").asBoolean()).isTrue();
+		assertThat(unknownBody.get("message").asText()).isEqualTo(PASSWORD_RESET_MESSAGE);
+		assertThat(knownBody.get("data")).isNull();
+		assertThat(unknownBody.get("data")).isNull();
+		assertThat(knownBody.get("errorCode")).isNull();
+		assertThat(unknownBody.get("errorCode")).isNull();
+
+		// ApiResponse.timestamp is intentionally request-specific. Compare the complete
+		// outward contract after removing only that non-deterministic field.
+		knownBody.remove("timestamp");
+		unknownBody.remove("timestamp");
+		assertThat(knownBody).isEqualTo(unknownBody);
+	}
+
+	@Test
+	void passwordRecoveryRoutesArePostOnlyAndAuthNamespaceIsNotBroadlyPublic() throws Exception {
+		mockMvc.perform(get("/api/v1/auth/forgot-password"))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(get("/api/v1/auth/reset-password"))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(post("/api/v1/auth/not-a-public-route")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+				.andExpect(status().isForbidden());
 	}
 
 	@Test

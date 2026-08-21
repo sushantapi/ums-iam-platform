@@ -17,6 +17,15 @@ export interface RegisterRequest {
   provider?: string;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+}
+
 export interface TokenResponse {
   accessToken: string;
   refreshToken: string;
@@ -54,6 +63,30 @@ class AuthService {
     );
   }
 
+  async forgotPassword(data: ForgotPasswordRequest): Promise<string> {
+    const response = await apiClient.post<ApiResponse<void>>(
+      "/auth/forgot-password",
+      data,
+    );
+
+    return this.requireSuccess(
+      response.data,
+      "Password reset request could not be completed.",
+    );
+  }
+
+  async resetPassword(data: ResetPasswordRequest): Promise<string> {
+    const response = await apiClient.post<ApiResponse<void>>(
+      "/auth/reset-password",
+      data,
+    );
+
+    return this.requireSuccess(
+      response.data,
+      "Password reset could not be completed.",
+    );
+  }
+
   async logout(): Promise<void> {
     await apiClient.post<void>("/auth/logout");
   }
@@ -68,6 +101,14 @@ class AuthService {
       response.data,
       "Refresh response did not contain token data",
     );
+  }
+
+  private requireSuccess<T>(response: ApiResponse<T>, fallbackMessage: string): string {
+    if (!response.success) {
+      throw new Error(response.message || fallbackMessage);
+    }
+
+    return response.message || fallbackMessage;
   }
 
   private requireData<T>(response: ApiResponse<T>, fallbackMessage: string): T {
