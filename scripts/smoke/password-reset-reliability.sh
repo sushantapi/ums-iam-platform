@@ -59,7 +59,7 @@ http_code() {
 queue_metric() {
   local queue="$1"
   local metric="$2"
-  docker exec "$RABBIT_CONTAINER" rabbitmqctl list_queues name "$metric" --formatter=tsv 2>/dev/null \
+  docker exec "$RABBIT_CONTAINER" rabbitmqctl list_queues name "$metric" 2>/dev/null \
     | tr -d '\r' \
     | awk -v q="$queue" '$1 == q {print $2; exit}'
 }
@@ -146,7 +146,7 @@ USER_EXISTS=$(docker exec "$MYSQL_CONTAINER" sh -lc \
 [ "$USER_EXISTS" = "1" ] || fail "SMOKE_EMAIL must already exist in auth_db"
 echo "SMOKE_USER=PASS"
 
-DLQ_DECLARED=$(docker exec "$RABBIT_CONTAINER" rabbitmqctl list_queues name --formatter=tsv 2>/dev/null \
+DLQ_DECLARED=$(docker exec "$RABBIT_CONTAINER" rabbitmqctl list_queues name 2>/dev/null \
   | tr -d '\r' | awk -v q="$PASSWORD_RESET_DLQ" '$1 == q {print 1; exit}')
 [ "$DLQ_DECLARED" = "1" ] || fail "password reset DLQ is not declared"
 echo "PASSWORD_RESET_DLQ_DECLARED=PASS"
