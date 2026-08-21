@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -52,6 +53,24 @@ class GatewayJwtAuthenticationFilterTests {
 		assertThat(headers.containsKey("X-User-Roles")).isFalse();
 		assertThat(headers.containsKey("X-User-Permissions")).isFalse();
 		assertThat(headers.containsKey("X-Internal-Gateway-Secret")).isFalse();
+	}
+
+	@Test
+	void recoveryRoutesArePublicOnlyForExactPostRequests() {
+		assertThat(filter.isPublicRequest(HttpMethod.POST, "/api/v1/auth/forgot-password")).isTrue();
+		assertThat(filter.isPublicRequest(HttpMethod.POST, "/api/v1/auth/reset-password")).isTrue();
+
+		assertThat(filter.isPublicRequest(HttpMethod.GET, "/api/v1/auth/forgot-password")).isFalse();
+		assertThat(filter.isPublicRequest(HttpMethod.GET, "/api/v1/auth/reset-password")).isFalse();
+		assertThat(filter.isPublicRequest(HttpMethod.POST, "/api/v1/auth/forgot-password/extra")).isFalse();
+		assertThat(filter.isPublicRequest(HttpMethod.POST, "/api/v1/auth/reset-password/extra")).isFalse();
+	}
+
+	@Test
+	void neighboringAuthRoutesRemainProtected() {
+		assertThat(filter.isPublicRequest(HttpMethod.POST, "/api/v1/auth/logout")).isFalse();
+		assertThat(filter.isPublicRequest(HttpMethod.POST, "/api/v1/auth/admin-reset-password")).isFalse();
+		assertThat(filter.isPublicRequest(HttpMethod.GET, "/api/v1/auth/login")).isFalse();
 	}
 
 	@Test

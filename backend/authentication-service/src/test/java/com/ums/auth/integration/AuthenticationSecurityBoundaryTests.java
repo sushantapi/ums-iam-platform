@@ -26,6 +26,7 @@ import com.ums.auth.security.InternalServiceAuthenticationFilter;
 import com.ums.auth.security.TrustedGatewayAuthenticationFilter;
 import com.ums.auth.service.AdminSessionService;
 import com.ums.auth.service.AuthService;
+import com.ums.auth.service.PasswordRecoveryService;
 
 @WebMvcTest(
 		controllers = { AuthController.class, AdminSessionController.class },
@@ -46,6 +47,9 @@ class AuthenticationSecurityBoundaryTests {
 
 	@MockitoBean
 	private AuthService authService;
+
+	@MockitoBean
+	private PasswordRecoveryService passwordRecoveryService;
 
 	@MockitoBean
 	private AdminSessionService adminSessionService;
@@ -74,6 +78,26 @@ class AuthenticationSecurityBoundaryTests {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"refreshToken\":\"refresh-token\"}"))
 				.andExpect(status().isOk());
+		mockMvc.perform(post("/api/v1/auth/forgot-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"user@example.com\"}"))
+				.andExpect(status().isOk());
+		mockMvc.perform(post("/api/v1/auth/reset-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"token\":\"opaque-reset-token\",\"newPassword\":\"NewPassword@123\"}"))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void passwordRecoveryRoutesArePostOnlyAndAuthNamespaceIsNotBroadlyPublic() throws Exception {
+		mockMvc.perform(get("/api/v1/auth/forgot-password"))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(get("/api/v1/auth/reset-password"))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(post("/api/v1/auth/not-a-public-route")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+				.andExpect(status().isForbidden());
 	}
 
 	@Test

@@ -12,9 +12,9 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
 
 import com.ums.gateway.security.TokenRevocationService;
-import org.springframework.web.server.ServerWebExchange;
 
 import reactor.core.publisher.Mono;
 
@@ -39,14 +39,14 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-
 		String path = exchange.getRequest().getURI().getPath();
+		HttpMethod method = exchange.getRequest().getMethod();
 
-		log.debug("Incoming request: {}", path);
+		log.debug("Incoming request: {} {}", method, path);
 
 		ServerWebExchange sanitizedExchange = stripClientIdentityHeaders(exchange);
 
-		if (HttpMethod.OPTIONS.equals(exchange.getRequest().getMethod()) || isPublicPath(path)) {
+		if (HttpMethod.OPTIONS.equals(method) || isPublicRequest(method, path)) {
 			return chain.filter(sanitizedExchange);
 		}
 
@@ -76,10 +76,17 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 		return -1;
 	}
 
-	private boolean isPublicPath(String path) {
-		return path.equals("/api/v1/auth/register") || path.equals("/api/v1/auth/login")
-				|| path.equals("/api/v1/auth/refresh")
-				|| path.equals("/actuator/health") || path.equals("/actuator/info");
+	boolean isPublicRequest(HttpMethod method, String path) {
+		if (HttpMethod.POST.equals(method)) {
+			return path.equals("/api/v1/auth/register")
+					|| path.equals("/api/v1/auth/login")
+					|| path.equals("/api/v1/auth/refresh")
+					|| path.equals("/api/v1/auth/forgot-password")
+					|| path.equals("/api/v1/auth/reset-password");
+		}
+
+		return HttpMethod.GET.equals(method)
+				&& (path.equals("/actuator/health") || path.equals("/actuator/info"));
 	}
 
 	private ServerWebExchange stripClientIdentityHeaders(ServerWebExchange exchange) {
