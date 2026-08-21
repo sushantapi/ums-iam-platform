@@ -17,6 +17,10 @@ spring:
     enabled: true
     baseline-on-migrate: false
 
+organization:
+  invitation:
+    expiry-hours: ${ORGANIZATION_INVITATION_EXPIRY_HOURS:72}
+
 internal:
   gateway:
     secret: ${INTERNAL_GATEWAY_SECRET:local-dev-gateway-secret-change-me}

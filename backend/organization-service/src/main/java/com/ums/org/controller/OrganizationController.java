@@ -6,17 +6,19 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ums.org.dto.AddMemberRequest;
+import com.ums.org.dto.CreateOrganizationInvitationRequest;
 import com.ums.org.dto.CreateOrganizationRequest;
+import com.ums.org.dto.OrganizationInvitationResponse;
 import com.ums.org.dto.OrganizationMemberResponse;
 import com.ums.org.dto.OrganizationResponse;
 import com.ums.org.dto.UpdateOrganizationRequest;
@@ -34,18 +36,6 @@ public class OrganizationController {
 
 	private final OrganizationService organizationService;
 
-	/*
-	 * @PostMapping
-	 * 
-	 * @Operation(summary = "Create organization") public
-	 * ResponseEntity<OrganizationResponse>
-	 * createOrganization(@RequestHeader("X-User-Id") UUID ownerId,
-	 * 
-	 * @Valid @RequestBody CreateOrganizationRequest request) {
-	 * 
-	 * return ResponseEntity.status(HttpStatus.CREATED).body(organizationService.
-	 * createOrganization(request, ownerId)); }
-	 */
 	@PostMapping
 	public ResponseEntity<OrganizationResponse> createOrganization(
 			Authentication authentication,
@@ -86,7 +76,8 @@ public class OrganizationController {
 	public ResponseEntity<List<OrganizationMemberResponse>> getMembers(@PathVariable UUID organizationId,
 			Authentication authentication) {
 
-		return ResponseEntity.ok(organizationService.getMembers(organizationId, authenticatedUserId(authentication), isSuperAdmin(authentication)));
+		return ResponseEntity.ok(organizationService.getMembers(organizationId, authenticatedUserId(authentication),
+				isSuperAdmin(authentication)));
 	}
 
 	@DeleteMapping("/{organizationId}/members/{userId}")
@@ -95,6 +86,24 @@ public class OrganizationController {
 
 		organizationService.removeMember(organizationId, userId, authenticatedUserId(authentication), isSuperAdmin(authentication));
 		return ResponseEntity.noContent().build();
+	}
+
+	@PostMapping("/{organizationId}/invitations")
+	public ResponseEntity<OrganizationInvitationResponse> createInvitation(@PathVariable UUID organizationId,
+			Authentication authentication,
+			@Valid @RequestBody CreateOrganizationInvitationRequest request) {
+
+		return ResponseEntity.status(HttpStatus.CREATED)
+				.body(organizationService.createInvitation(organizationId, request,
+						authenticatedUserId(authentication), isSuperAdmin(authentication)));
+	}
+
+	@GetMapping("/{organizationId}/invitations")
+	public ResponseEntity<List<OrganizationInvitationResponse>> getInvitations(@PathVariable UUID organizationId,
+			Authentication authentication) {
+
+		return ResponseEntity.ok(organizationService.getInvitations(organizationId, authenticatedUserId(authentication),
+				isSuperAdmin(authentication)));
 	}
 
 	private UUID authenticatedUserId(Authentication authentication) {

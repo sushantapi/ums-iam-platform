@@ -84,16 +84,16 @@ public class OrganizationInvitation extends BaseEntity {
 
 	public static OrganizationInvitation createPending(UUID organizationId, String normalizedEmail,
 			OrganizationRole role, UUID inviterId, String tokenHash, LocalDateTime expiresAt,
-			LocalDateTime sentAt) {
+			LocalDateTime issuedAt) {
 		Objects.requireNonNull(organizationId, "organizationId is required");
 		Objects.requireNonNull(inviterId, "inviterId is required");
 		Objects.requireNonNull(expiresAt, "expiresAt is required");
-		Objects.requireNonNull(sentAt, "sentAt is required");
+		Objects.requireNonNull(issuedAt, "issuedAt is required");
 		validateEmail(normalizedEmail);
 		validateRole(role);
 		validateTokenHash(tokenHash);
-		if (!expiresAt.isAfter(sentAt)) {
-			throw new IllegalArgumentException("expiresAt must be after sentAt");
+		if (!expiresAt.isAfter(issuedAt)) {
+			throw new IllegalArgumentException("expiresAt must be after issuedAt");
 		}
 
 		return OrganizationInvitation.builder()
@@ -105,7 +105,6 @@ public class OrganizationInvitation extends BaseEntity {
 				.tokenHash(tokenHash)
 				.status(OrganizationInvitationStatus.PENDING)
 				.expiresAt(expiresAt)
-				.lastSentAt(sentAt)
 				.build();
 	}
 
@@ -118,17 +117,21 @@ public class OrganizationInvitation extends BaseEntity {
 		return isPending() && !expiresAt.isAfter(now);
 	}
 
-	public void rotateToken(String newTokenHash, LocalDateTime newExpiresAt, LocalDateTime sentAt) {
+	public void rotateToken(String newTokenHash, LocalDateTime newExpiresAt, LocalDateTime issuedAt) {
 		assertPending();
 		validateTokenHash(newTokenHash);
 		Objects.requireNonNull(newExpiresAt, "newExpiresAt is required");
-		Objects.requireNonNull(sentAt, "sentAt is required");
-		if (!newExpiresAt.isAfter(sentAt)) {
-			throw new IllegalArgumentException("newExpiresAt must be after sentAt");
+		Objects.requireNonNull(issuedAt, "issuedAt is required");
+		if (!newExpiresAt.isAfter(issuedAt)) {
+			throw new IllegalArgumentException("newExpiresAt must be after issuedAt");
 		}
 		tokenHash = newTokenHash;
 		expiresAt = newExpiresAt;
-		lastSentAt = sentAt;
+	}
+
+	public void markNotificationSent(LocalDateTime sentAt) {
+		assertPending();
+		lastSentAt = Objects.requireNonNull(sentAt, "sentAt is required");
 	}
 
 	public void markAccepted(LocalDateTime when) {
