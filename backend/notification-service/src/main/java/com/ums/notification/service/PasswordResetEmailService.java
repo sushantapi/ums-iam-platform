@@ -33,13 +33,32 @@ public class PasswordResetEmailService {
 			message.setSubject(subject);
 			message.setText(body);
 			mailSender.send(message);
-
-			auditService.logSuccess(TEMPLATE_CODE, email, subject);
-			log.info("Password reset email sent to {}", maskEmail(email));
 		} catch (Exception ex) {
-			auditService.logFailure(TEMPLATE_CODE, email, subject, ex.getMessage());
-			log.error("Password reset email delivery failed for {}", maskEmail(email), ex);
+			String failureType = ex.getClass().getName();
+			safeAuditFailure(email, subject, failureType);
+			log.warn("Password reset email delivery failed for {} failureType={}", maskEmail(email), failureType);
 			throw new IllegalStateException("Password reset email delivery failed", ex);
+		}
+
+		safeAuditSuccess(email, subject);
+		log.info("Password reset email sent to {}", maskEmail(email));
+	}
+
+	private void safeAuditSuccess(String email, String subject) {
+		try {
+			auditService.logSuccess(TEMPLATE_CODE, email, subject);
+		} catch (RuntimeException auditFailure) {
+			log.warn("Password reset delivery audit write failed status=SENT failureType={}",
+					auditFailure.getClass().getName());
+		}
+	}
+
+	private void safeAuditFailure(String email, String subject, String failureType) {
+		try {
+			auditService.logFailure(TEMPLATE_CODE, email, subject, failureType);
+		} catch (RuntimeException auditFailure) {
+			log.warn("Password reset delivery audit write failed status=FAILED failureType={}",
+					auditFailure.getClass().getName());
 		}
 	}
 

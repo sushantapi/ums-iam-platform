@@ -8,6 +8,7 @@ import com.ums.events.event.EmailVerificationEvent;
 import com.ums.events.event.MfaOtpEvent;
 import com.ums.events.event.PasswordResetEvent;
 import com.ums.notification.service.NotificationService;
+import com.ums.notification.service.PasswordResetDeliveryProcessor;
 
 import lombok.RequiredArgsConstructor;
 
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 public class AuthEventConsumer {
 
 	private final NotificationService notificationService;
+	private final PasswordResetDeliveryProcessor passwordResetDeliveryProcessor;
 
 	@RabbitListener(queues = RabbitMQConstants.NOTIFICATION_EMAIL_VERIFICATION_QUEUE)
 	public void consumeEmailVerification(EmailVerificationEvent event) {
@@ -24,7 +26,7 @@ public class AuthEventConsumer {
 
 	@RabbitListener(queues = RabbitMQConstants.NOTIFICATION_PASSWORD_RESET_QUEUE)
 	public void consumePasswordReset(PasswordResetEvent event) {
-		notificationService.processPasswordReset(event);
+		passwordResetDeliveryProcessor.process(event);
 	}
 
 	@RabbitListener(queues = RabbitMQConstants.NOTIFICATION_MFA_OTP_QUEUE)
