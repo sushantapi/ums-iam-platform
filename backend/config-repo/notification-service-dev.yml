@@ -52,6 +52,12 @@ notification:
   retry:
     initial-delay-ms: 10000
     fixed-delay-ms: 300000
+  password-reset:
+    retry:
+      max-attempts: 3
+      initial-backoff-ms: 1000
+      multiplier: 2.0
+      max-backoff-ms: 5000
 
 internal:
   gateway:
