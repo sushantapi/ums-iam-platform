@@ -72,8 +72,8 @@ class OrganizationEventPublisherTests {
 
 		ArgumentCaptor<OrganizationInviteEvent> eventCaptor = ArgumentCaptor.forClass(OrganizationInviteEvent.class);
 		verify(rabbitTemplate).convertAndSend(
-				RabbitMQConstants.ORGANIZATION_EXCHANGE,
-				RabbitMQConstants.ORGANIZATION_INVITATION_ROUTING_KEY,
+				eq(RabbitMQConstants.ORGANIZATION_EXCHANGE),
+				eq(RabbitMQConstants.ORGANIZATION_INVITATION_ROUTING_KEY),
 				eventCaptor.capture());
 		OrganizationInviteEvent event = eventCaptor.getValue();
 		assertThat(event.getEmail()).isEqualTo(EMAIL);
