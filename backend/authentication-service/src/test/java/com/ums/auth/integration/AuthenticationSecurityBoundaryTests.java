@@ -2,6 +2,7 @@ package com.ums.auth.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -20,8 +21,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ums.auth.config.SecurityConfig;
 import com.ums.auth.controller.AdminSessionController;
 import com.ums.auth.controller.AuthController;
@@ -99,7 +100,7 @@ class AuthenticationSecurityBoundaryTests {
 
 	@Test
 	void forgotPasswordUsesIdenticalOutwardResponseForKnownAndUnknownEmails() throws Exception {
-		when(passwordRecoveryService.requestPasswordReset(any(), any())).thenReturn(null);
+		doNothing().when(passwordRecoveryService).requestPasswordReset(any(), any());
 
 		MvcResult knownEmail = mockMvc.perform(post("/api/v1/auth/forgot-password")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -116,8 +117,8 @@ class AuthenticationSecurityBoundaryTests {
 		assertThat(knownEmail.getResponse().getStatus())
 				.isEqualTo(unknownEmail.getResponse().getStatus());
 
-		JsonNode knownBody = objectMapper.readTree(knownEmail.getResponse().getContentAsString());
-		JsonNode unknownBody = objectMapper.readTree(unknownEmail.getResponse().getContentAsString());
+		ObjectNode knownBody = (ObjectNode) objectMapper.readTree(knownEmail.getResponse().getContentAsString());
+		ObjectNode unknownBody = (ObjectNode) objectMapper.readTree(unknownEmail.getResponse().getContentAsString());
 
 		assertThat(knownBody.get("success").asBoolean()).isTrue();
 		assertThat(knownBody.get("message").asText()).isEqualTo(PASSWORD_RESET_MESSAGE);
