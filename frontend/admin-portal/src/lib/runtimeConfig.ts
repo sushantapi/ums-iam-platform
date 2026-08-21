@@ -10,6 +10,7 @@ export const runtimeConfig = {
     permissions: import.meta.env.VITE_MOCK_PERMISSIONS !== "false",
     grants: import.meta.env.VITE_MOCK_GRANTS !== "false",
     organizations: import.meta.env.VITE_MOCK_ORGANIZATIONS !== "false",
+    hrms: import.meta.env.VITE_MOCK_HRMS === "true",
   },
 };
 

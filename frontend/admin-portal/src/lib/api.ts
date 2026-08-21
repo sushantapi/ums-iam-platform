@@ -247,6 +247,81 @@ export type GrantResponse = {
   expiresAt: string | null;
 };
 
+export type EmployeeStatus = "ACTIVE" | "INACTIVE" | "TERMINATED";
+export type MasterDataStatus = "ACTIVE" | "INACTIVE";
+
+export type EmployeeResponse = {
+  id: string;
+  umsUserId: string;
+  organizationId: string;
+  employeeCode: string;
+  departmentId: string | null;
+  designationId: string | null;
+  status: EmployeeStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateEmployeeRequest = {
+  organizationId: string;
+  umsUserId: string;
+  employeeCode: string;
+  departmentId?: string | null;
+  designationId?: string | null;
+};
+
+export type UpdateEmployeeRequest = {
+  organizationId: string;
+  employeeCode: string;
+  departmentId?: string | null;
+  designationId?: string | null;
+  status: EmployeeStatus;
+};
+
+export type DepartmentResponse = {
+  id: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  description: string | null;
+  status: MasterDataStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateDepartmentRequest = {
+  organizationId: string;
+  code: string;
+  name: string;
+  description?: string | null;
+};
+
+export type UpdateDepartmentRequest = CreateDepartmentRequest & {
+  status: MasterDataStatus;
+};
+
+export type DesignationResponse = {
+  id: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  description: string | null;
+  status: MasterDataStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateDesignationRequest = {
+  organizationId: string;
+  code: string;
+  name: string;
+  description?: string | null;
+};
+
+export type UpdateDesignationRequest = CreateDesignationRequest & {
+  status: MasterDataStatus;
+};
+
 export const adminApi = {
   dashboard: () => request<DashboardResponse>("dashboard", "/api/v1/admin/dashboard"),
   users: (query: {
@@ -369,4 +444,67 @@ export const adminApi = {
       "organizations",
       `/api/v1/admin/organizations/${organizationId}/members`,
     ),
+};
+
+export const hrmsApi = {
+  employees: (query: { organizationId: string; page: number; size: number }) =>
+    request<PageResponse<EmployeeResponse>>(
+      "hrms",
+      withQuery("/api/v1/hrms/employees", query),
+    ),
+  employeeDetail: (employeeId: string, organizationId: string) =>
+    request<EmployeeResponse>(
+      "hrms",
+      withQuery(`/api/v1/hrms/employees/${employeeId}`, { organizationId }),
+    ),
+  createEmployee: (body: CreateEmployeeRequest) =>
+    request<EmployeeResponse>("hrms", "/api/v1/hrms/employees", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateEmployee: (employeeId: string, body: UpdateEmployeeRequest) =>
+    request<EmployeeResponse>("hrms", `/api/v1/hrms/employees/${employeeId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  departments: (query: { organizationId: string; page: number; size: number }) =>
+    request<PageResponse<DepartmentResponse>>(
+      "hrms",
+      withQuery("/api/v1/hrms/departments", query),
+    ),
+  departmentDetail: (departmentId: string, organizationId: string) =>
+    request<DepartmentResponse>(
+      "hrms",
+      withQuery(`/api/v1/hrms/departments/${departmentId}`, { organizationId }),
+    ),
+  createDepartment: (body: CreateDepartmentRequest) =>
+    request<DepartmentResponse>("hrms", "/api/v1/hrms/departments", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateDepartment: (departmentId: string, body: UpdateDepartmentRequest) =>
+    request<DepartmentResponse>("hrms", `/api/v1/hrms/departments/${departmentId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  designations: (query: { organizationId: string; page: number; size: number }) =>
+    request<PageResponse<DesignationResponse>>(
+      "hrms",
+      withQuery("/api/v1/hrms/designations", query),
+    ),
+  designationDetail: (designationId: string, organizationId: string) =>
+    request<DesignationResponse>(
+      "hrms",
+      withQuery(`/api/v1/hrms/designations/${designationId}`, { organizationId }),
+    ),
+  createDesignation: (body: CreateDesignationRequest) =>
+    request<DesignationResponse>("hrms", "/api/v1/hrms/designations", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateDesignation: (designationId: string, body: UpdateDesignationRequest) =>
+    request<DesignationResponse>("hrms", `/api/v1/hrms/designations/${designationId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
 };
