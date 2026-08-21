@@ -19,6 +19,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.ums.events.event.AuditEvent;
 import com.ums.events.publisher.AuditPublisher;
@@ -94,7 +95,8 @@ class OrganizationInvitationLifecycleServiceTests {
 	@Test
 	void resendPendingRotatesTokenRefreshesExpiryAndSchedulesSecureDelivery() {
 		OrganizationInvitation invitation = pendingInvitation(LocalDateTime.now().plusHours(24));
-		when(invitationRepository.findById(INVITATION_ID)).thenReturn(Optional.of(invitation));
+		when(invitationRepository.findScopedByIdForUpdate(ORGANIZATION_ID, INVITATION_ID))
+				.thenReturn(Optional.of(invitation));
 		when(userClient.getUsers(0, 200, EMAIL)).thenReturn(emptyUsers());
 		when(invitationProperties.getExpiryHours()).thenReturn(72L);
 		when(invitationTokenService.issue()).thenReturn(new IssuedInvitationToken(NEW_RAW_TOKEN, NEW_HASH));
@@ -109,6 +111,7 @@ class OrganizationInvitationLifecycleServiceTests {
 		assertThat(response.id()).isEqualTo(INVITATION_ID);
 		assertThat(response.status()).isEqualTo(OrganizationInvitationStatus.PENDING);
 		verify(accessService).assertCanManageMembers(ACTOR_ID, organization, false);
+		verify(invitationRepository).findScopedByIdForUpdate(ORGANIZATION_ID, INVITATION_ID);
 		verify(eventPublisher).publishOrganizationInvitationAfterCommit(
 				INVITATION_ID, EMAIL, "Example Org", NEW_RAW_TOKEN);
 
@@ -120,9 +123,43 @@ class OrganizationInvitationLifecycleServiceTests {
 	}
 
 	@Test
+	void resendAuditWaitsForCommitWhenTransactionSynchronizationIsActive() {
+		OrganizationInvitation invitation = pendingInvitation(LocalDateTime.now().plusHours(24));
+		when(invitationRepository.findScopedByIdForUpdate(ORGANIZATION_ID, INVITATION_ID))
+				.thenReturn(Optional.of(invitation));
+		when(userClient.getUsers(0, 200, EMAIL)).thenReturn(emptyUsers());
+		when(invitationProperties.getExpiryHours()).thenReturn(72L);
+		when(invitationTokenService.issue()).thenReturn(new IssuedInvitationToken(NEW_RAW_TOKEN, NEW_HASH));
+		when(invitationRepository.saveAndFlush(invitation)).thenReturn(invitation);
+
+		TransactionSynchronizationManager.initSynchronization();
+		TransactionSynchronizationManager.setActualTransactionActive(true);
+		try {
+			service.resendInvitation(ORGANIZATION_ID, INVITATION_ID, ACTOR_ID, false);
+
+			verify(auditPublisher, never()).publish(org.mockito.ArgumentMatchers.any(AuditEvent.class));
+			TransactionSynchronizationManager.getSynchronizations()
+					.forEach(synchronization -> synchronization.afterCommit());
+
+			ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+			verify(auditPublisher).publish(auditCaptor.capture());
+			AuditEvent audit = auditCaptor.getValue();
+			assertThat(audit.getEventType()).isEqualTo("organization.invitation.resent");
+			assertThat(audit.getAction()).isEqualTo("ORGANIZATION_INVITATION_RESEND");
+			assertThat(audit.getEntityId()).isEqualTo(INVITATION_ID.toString());
+			assertThat(audit.getUserEmail()).isNull();
+			assertThat(audit.getDetails()).doesNotContain(EMAIL, NEW_RAW_TOKEN, NEW_HASH, OLD_HASH);
+		} finally {
+			TransactionSynchronizationManager.setActualTransactionActive(false);
+			TransactionSynchronizationManager.clearSynchronization();
+		}
+	}
+
+	@Test
 	void resendExpiredCreatesFreshInvitationWithoutRevivingOldRow() {
 		OrganizationInvitation expired = pendingInvitation(LocalDateTime.now().minusMinutes(1));
-		when(invitationRepository.findById(INVITATION_ID)).thenReturn(Optional.of(expired));
+		when(invitationRepository.findScopedByIdForUpdate(ORGANIZATION_ID, INVITATION_ID))
+				.thenReturn(Optional.of(expired));
 		when(userClient.getUsers(0, 200, EMAIL)).thenReturn(emptyUsers());
 		when(invitationRepository.findByOrganizationIdAndNormalizedEmailAndStatus(
 				ORGANIZATION_ID, EMAIL, OrganizationInvitationStatus.PENDING)).thenReturn(Optional.empty());
@@ -154,7 +191,8 @@ class OrganizationInvitationLifecycleServiceTests {
 	void resendRejectsRevokedInvitationWithoutIssuingToken() {
 		OrganizationInvitation invitation = pendingInvitation(LocalDateTime.now().plusHours(24));
 		invitation.markRevoked(LocalDateTime.now());
-		when(invitationRepository.findById(INVITATION_ID)).thenReturn(Optional.of(invitation));
+		when(invitationRepository.findScopedByIdForUpdate(ORGANIZATION_ID, INVITATION_ID))
+				.thenReturn(Optional.of(invitation));
 
 		assertThatThrownBy(() -> service.resendInvitation(
 				ORGANIZATION_ID, INVITATION_ID, ACTOR_ID, false))
@@ -170,7 +208,8 @@ class OrganizationInvitationLifecycleServiceTests {
 	@Test
 	void resendRejectsTargetThatBecameOrganizationMember() {
 		OrganizationInvitation invitation = pendingInvitation(LocalDateTime.now().plusHours(24));
-		when(invitationRepository.findById(INVITATION_ID)).thenReturn(Optional.of(invitation));
+		when(invitationRepository.findScopedByIdForUpdate(ORGANIZATION_ID, INVITATION_ID))
+				.thenReturn(Optional.of(invitation));
 		when(userClient.getUsers(0, 200, EMAIL)).thenReturn(new UserSummaryPageResponse(
 				List.of(new UserSummaryResponse(EXISTING_USER_ID, "Invitee", "User", EMAIL)), 0, 200, 1, 1));
 		when(memberRepository.existsByOrganizationIdAndUserId(ORGANIZATION_ID, EXISTING_USER_ID)).thenReturn(true);
@@ -186,7 +225,8 @@ class OrganizationInvitationLifecycleServiceTests {
 	@Test
 	void revokePendingIsIdempotentAndAuditsOnlyActualTransition() {
 		OrganizationInvitation invitation = pendingInvitation(LocalDateTime.now().plusHours(24));
-		when(invitationRepository.findById(INVITATION_ID)).thenReturn(Optional.of(invitation));
+		when(invitationRepository.findScopedByIdForUpdate(ORGANIZATION_ID, INVITATION_ID))
+				.thenReturn(Optional.of(invitation));
 		when(invitationRepository.saveAndFlush(invitation)).thenReturn(invitation);
 
 		OrganizationInvitationResponse first = service.revokeInvitation(
@@ -198,6 +238,7 @@ class OrganizationInvitationLifecycleServiceTests {
 		assertThat(second.status()).isEqualTo(OrganizationInvitationStatus.REVOKED);
 		assertThat(invitation.getActiveEmailKey()).isNull();
 		verify(invitationRepository, times(1)).saveAndFlush(invitation);
+		verify(invitationRepository, times(2)).findScopedByIdForUpdate(ORGANIZATION_ID, INVITATION_ID);
 		verify(auditPublisher, times(1)).publish(org.mockito.ArgumentMatchers.any(AuditEvent.class));
 		verify(eventPublisher, never()).publishOrganizationInvitationAfterCommit(
 				org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
@@ -207,7 +248,8 @@ class OrganizationInvitationLifecycleServiceTests {
 	@Test
 	void revokeTimeExpiredPendingMarksExpiredInsteadOfRevoked() {
 		OrganizationInvitation invitation = pendingInvitation(LocalDateTime.now().minusMinutes(1));
-		when(invitationRepository.findById(INVITATION_ID)).thenReturn(Optional.of(invitation));
+		when(invitationRepository.findScopedByIdForUpdate(ORGANIZATION_ID, INVITATION_ID))
+				.thenReturn(Optional.of(invitation));
 		when(invitationRepository.saveAndFlush(invitation)).thenReturn(invitation);
 
 		OrganizationInvitationResponse response = service.revokeInvitation(
@@ -219,13 +261,9 @@ class OrganizationInvitationLifecycleServiceTests {
 	}
 
 	@Test
-	void invitationFromDifferentOrganizationIsHiddenAsNotFound() {
-		UUID otherOrganizationId = UUID.fromString("00000000-0000-0000-0000-000000000099");
-		OrganizationInvitation invitation = OrganizationInvitation.createPending(
-				otherOrganizationId, EMAIL, OrganizationRole.MEMBER, ACTOR_ID, OLD_HASH,
-				LocalDateTime.now().plusHours(24), LocalDateTime.now());
-		ReflectionTestUtils.setField(invitation, "id", INVITATION_ID);
-		when(invitationRepository.findById(INVITATION_ID)).thenReturn(Optional.of(invitation));
+	void invitationOutsideOrganizationIsHiddenAsNotFound() {
+		when(invitationRepository.findScopedByIdForUpdate(ORGANIZATION_ID, INVITATION_ID))
+				.thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> service.revokeInvitation(
 				ORGANIZATION_ID, INVITATION_ID, ACTOR_ID, false))

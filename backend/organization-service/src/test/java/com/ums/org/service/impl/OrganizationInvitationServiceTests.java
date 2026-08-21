@@ -25,7 +25,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.ums.events.event.AuditEvent;
 import com.ums.events.publisher.AuditPublisher;
 import com.ums.org.client.UserClient;
 import com.ums.org.config.OrganizationInvitationProperties;
@@ -94,17 +96,8 @@ class OrganizationInvitationServiceTests {
 	}
 
 	@Test
-	void createInvitationNormalizesEmailPersistsOnlyHashAndSchedulesPostCommitNotification() {
-		when(invitationRepository.findByOrganizationIdAndNormalizedEmailAndStatus(
-				ORGANIZATION_ID, EMAIL, OrganizationInvitationStatus.PENDING)).thenReturn(Optional.empty());
-		when(userClient.getUsers(0, 200, EMAIL)).thenReturn(emptyUsers());
-		when(invitationProperties.getExpiryHours()).thenReturn(72L);
-		when(invitationTokenService.issue()).thenReturn(new IssuedInvitationToken(RAW_TOKEN, TOKEN_HASH));
-		when(invitationRepository.saveAndFlush(any(OrganizationInvitation.class))).thenAnswer(invocation -> {
-			OrganizationInvitation invitation = invocation.getArgument(0);
-			ReflectionTestUtils.setField(invitation, "id", INVITATION_ID);
-			return invitation;
-		});
+	void createInvitationNormalizesEmailPersistsOnlyHashSchedulesPostCommitNotificationAndAuditsSafely() {
+		stubSuccessfulCreate();
 
 		LocalDateTime before = LocalDateTime.now();
 		OrganizationInvitationResponse response = service.createInvitation(
@@ -133,6 +126,45 @@ class OrganizationInvitationServiceTests {
 		verify(accessService).assertCanManageMembers(ACTOR_ID, organization, false);
 		verify(eventPublisher).publishOrganizationInvitationAfterCommit(
 				INVITATION_ID, EMAIL, "Example Org", RAW_TOKEN);
+
+		ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+		verify(auditPublisher).publish(auditCaptor.capture());
+		AuditEvent audit = auditCaptor.getValue();
+		assertThat(audit.getEventType()).isEqualTo("organization.invitation.created");
+		assertThat(audit.getAction()).isEqualTo("ORGANIZATION_INVITATION_CREATE");
+		assertThat(audit.getEntityId()).isEqualTo(INVITATION_ID.toString());
+		assertThat(audit.getUserEmail()).isNull();
+		assertThat(audit.getDetails()).contains(ORGANIZATION_ID.toString())
+				.doesNotContain(EMAIL, RAW_TOKEN, TOKEN_HASH);
+	}
+
+	@Test
+	void createInvitationAuditWaitsForCommitWhenTransactionSynchronizationIsActive() {
+		stubSuccessfulCreate();
+
+		TransactionSynchronizationManager.initSynchronization();
+		TransactionSynchronizationManager.setActualTransactionActive(true);
+		try {
+			service.createInvitation(
+					ORGANIZATION_ID,
+					new CreateOrganizationInvitationRequest(EMAIL, OrganizationRole.MEMBER),
+					ACTOR_ID,
+					false);
+
+			verify(auditPublisher, never()).publish(any(AuditEvent.class));
+			TransactionSynchronizationManager.getSynchronizations()
+					.forEach(synchronization -> synchronization.afterCommit());
+
+			ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+			verify(auditPublisher).publish(auditCaptor.capture());
+			AuditEvent audit = auditCaptor.getValue();
+			assertThat(audit.getEventType()).isEqualTo("organization.invitation.created");
+			assertThat(audit.getAction()).isEqualTo("ORGANIZATION_INVITATION_CREATE");
+			assertThat(audit.getDetails()).doesNotContain(EMAIL, RAW_TOKEN, TOKEN_HASH);
+		} finally {
+			TransactionSynchronizationManager.setActualTransactionActive(false);
+			TransactionSynchronizationManager.clearSynchronization();
+		}
 	}
 
 	@Test
@@ -242,6 +274,19 @@ class OrganizationInvitationServiceTests {
 		assertThat(responses).extracting(OrganizationInvitationResponse::status)
 				.containsExactly(OrganizationInvitationStatus.EXPIRED, OrganizationInvitationStatus.PENDING);
 		verify(accessService).assertCanManageMembers(ACTOR_ID, organization, false);
+	}
+
+	private void stubSuccessfulCreate() {
+		when(invitationRepository.findByOrganizationIdAndNormalizedEmailAndStatus(
+				ORGANIZATION_ID, EMAIL, OrganizationInvitationStatus.PENDING)).thenReturn(Optional.empty());
+		when(userClient.getUsers(0, 200, EMAIL)).thenReturn(emptyUsers());
+		when(invitationProperties.getExpiryHours()).thenReturn(72L);
+		when(invitationTokenService.issue()).thenReturn(new IssuedInvitationToken(RAW_TOKEN, TOKEN_HASH));
+		when(invitationRepository.saveAndFlush(any(OrganizationInvitation.class))).thenAnswer(invocation -> {
+			OrganizationInvitation invitation = invocation.getArgument(0);
+			ReflectionTestUtils.setField(invitation, "id", INVITATION_ID);
+			return invitation;
+		});
 	}
 
 	private UserSummaryPageResponse emptyUsers() {

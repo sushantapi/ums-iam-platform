@@ -10,6 +10,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.ums.events.event.AuditEvent;
 import com.ums.events.event.organization.OrganizationCreatedEvent;
@@ -111,6 +113,42 @@ public class OrganizationServiceImpl implements OrganizationService {
 		}
 	}
 
+	private void publishInvitationAuditAfterCommit(String eventType, String action, UUID actorUserId,
+			UUID invitationId, String details) {
+		AuditEvent auditEvent = AuditEvent.builder()
+				.eventType(eventType)
+				.serviceName("organization-service")
+				.userId(actorUserId.toString())
+				.action(action)
+				.entityType("ORGANIZATION_INVITATION")
+				.entityId(invitationId.toString())
+				.details(details)
+				.timestamp(LocalDateTime.now())
+				.build();
+
+		if (TransactionSynchronizationManager.isSynchronizationActive()
+				&& TransactionSynchronizationManager.isActualTransactionActive()) {
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public void afterCommit() {
+					publishInvitationAuditSafely(auditEvent, action, invitationId);
+				}
+			});
+			return;
+		}
+
+		publishInvitationAuditSafely(auditEvent, action, invitationId);
+	}
+
+	private void publishInvitationAuditSafely(AuditEvent auditEvent, String action, UUID invitationId) {
+		try {
+			auditPublisher.publish(auditEvent);
+		} catch (RuntimeException ex) {
+			log.warn("Organization invitation audit publication failed action={} invitationId={} failureType={}",
+					action, invitationId, ex.getClass().getName());
+		}
+	}
+
 	private String generateUniqueSlug(String name) {
 		String baseSlug = name.trim().toLowerCase().replaceAll("[^a-z0-9\\s]", "").replaceAll("\\s+", "-");
 
@@ -151,7 +189,8 @@ public class OrganizationServiceImpl implements OrganizationService {
 				.entityId(updated.getId().toString()).details("Organization updated successfully")
 				.timestamp(LocalDateTime.now()).build());
 
-		return new OrganizationResponse(updated.getId(), updated.getName(), updated.getSlug(), updated.getDescription());
+		return new OrganizationResponse(updated.getId(), updated.getName(), updated.getSlug(),
+				updated.getDescription());
 	}
 
 	@Override
@@ -271,6 +310,9 @@ public class OrganizationServiceImpl implements OrganizationService {
 			OrganizationInvitation saved = invitationRepository.saveAndFlush(invitation);
 			eventPublisher.publishOrganizationInvitationAfterCommit(saved.getId(), saved.getNormalizedEmail(),
 					organization.getName(), issuedToken.rawToken());
+			publishInvitationAuditAfterCommit(
+					"organization.invitation.created", "ORGANIZATION_INVITATION_CREATE",
+					actorUserId, saved.getId(), "Organization invitation created for organization " + organizationId);
 			return toInvitationResponse(saved);
 		} catch (DataIntegrityViolationException ex) {
 			throw new BadRequestException("A pending invitation already exists for this email");

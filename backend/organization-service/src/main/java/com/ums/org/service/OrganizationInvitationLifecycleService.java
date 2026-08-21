@@ -6,6 +6,8 @@ import java.util.UUID;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.ums.events.event.AuditEvent;
 import com.ums.events.publisher.AuditPublisher;
@@ -78,7 +80,7 @@ public class OrganizationInvitationLifecycleService {
 
 		eventPublisher.publishOrganizationInvitationAfterCommit(saved.getId(), saved.getNormalizedEmail(),
 				organization.getName(), issuedToken.rawToken());
-		publishAudit("organization.invitation.resent", "ORGANIZATION_INVITATION_RESEND",
+		publishAuditAfterCommit("organization.invitation.resent", "ORGANIZATION_INVITATION_RESEND",
 				actorUserId, saved.getId(), "Organization invitation resent");
 		return toResponse(saved);
 	}
@@ -105,7 +107,7 @@ public class OrganizationInvitationLifecycleService {
 
 		invitation.markRevoked(now);
 		OrganizationInvitation saved = invitationRepository.saveAndFlush(invitation);
-		publishAudit("organization.invitation.revoked", "ORGANIZATION_INVITATION_REVOKE",
+		publishAuditAfterCommit("organization.invitation.revoked", "ORGANIZATION_INVITATION_REVOKE",
 				actorUserId, saved.getId(), "Organization invitation revoked");
 		return toResponse(saved);
 	}
@@ -127,7 +129,7 @@ public class OrganizationInvitationLifecycleService {
 			OrganizationInvitation saved = invitationRepository.saveAndFlush(replacement);
 			eventPublisher.publishOrganizationInvitationAfterCommit(saved.getId(), saved.getNormalizedEmail(),
 					organization.getName(), issuedToken.rawToken());
-			publishAudit("organization.invitation.resent", "ORGANIZATION_INVITATION_RESEND",
+			publishAuditAfterCommit("organization.invitation.resent", "ORGANIZATION_INVITATION_RESEND",
 					actorUserId, saved.getId(), "Organization invitation reissued from expired invitation "
 							+ expiredInvitation.getId());
 			return toResponse(saved);
@@ -142,12 +144,8 @@ public class OrganizationInvitationLifecycleService {
 	}
 
 	private OrganizationInvitation loadScopedInvitation(UUID organizationId, UUID invitationId) {
-		OrganizationInvitation invitation = invitationRepository.findById(invitationId)
+		return invitationRepository.findScopedByIdForUpdate(organizationId, invitationId)
 				.orElseThrow(() -> new ResourceNotFoundException("Organization invitation not found"));
-		if (!organizationId.equals(invitation.getOrganizationId())) {
-			throw new ResourceNotFoundException("Organization invitation not found");
-		}
-		return invitation;
 	}
 
 	private boolean targetAlreadyMember(UUID organizationId, String normalizedEmail) {
@@ -161,18 +159,36 @@ public class OrganizationInvitationLifecycleService {
 				.anyMatch(user -> memberRepository.existsByOrganizationIdAndUserId(organizationId, user.id()));
 	}
 
-	private void publishAudit(String eventType, String action, UUID actorUserId, UUID invitationId, String details) {
+	private void publishAuditAfterCommit(String eventType, String action, UUID actorUserId, UUID invitationId,
+			String details) {
+		AuditEvent auditEvent = AuditEvent.builder()
+				.eventType(eventType)
+				.serviceName("organization-service")
+				.userId(actorUserId.toString())
+				.action(action)
+				.entityType("ORGANIZATION_INVITATION")
+				.entityId(invitationId.toString())
+				.details(details)
+				.timestamp(LocalDateTime.now())
+				.build();
+
+		if (TransactionSynchronizationManager.isSynchronizationActive()
+				&& TransactionSynchronizationManager.isActualTransactionActive()) {
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public void afterCommit() {
+					publishAuditSafely(auditEvent, action, invitationId);
+				}
+			});
+			return;
+		}
+
+		publishAuditSafely(auditEvent, action, invitationId);
+	}
+
+	private void publishAuditSafely(AuditEvent auditEvent, String action, UUID invitationId) {
 		try {
-			auditPublisher.publish(AuditEvent.builder()
-					.eventType(eventType)
-					.serviceName("organization-service")
-					.userId(actorUserId.toString())
-					.action(action)
-					.entityType("ORGANIZATION_INVITATION")
-					.entityId(invitationId.toString())
-					.details(details)
-					.timestamp(LocalDateTime.now())
-					.build());
+			auditPublisher.publish(auditEvent);
 		} catch (RuntimeException ex) {
 			log.warn("Organization invitation audit publication failed action={} invitationId={} failureType={}",
 					action, invitationId, ex.getClass().getName());

@@ -24,6 +24,12 @@ public interface OrganizationInvitationRepository extends JpaRepository<Organiza
 	@Query("select invitation from OrganizationInvitation invitation where invitation.tokenHash = :tokenHash")
 	Optional<OrganizationInvitation> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);
 
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select invitation from OrganizationInvitation invitation where invitation.id = :invitationId and invitation.organizationId = :organizationId")
+	Optional<OrganizationInvitation> findScopedByIdForUpdate(
+			@Param("organizationId") UUID organizationId,
+			@Param("invitationId") UUID invitationId);
+
 	Optional<OrganizationInvitation> findByOrganizationIdAndNormalizedEmailAndStatus(
 			UUID organizationId, String normalizedEmail, OrganizationInvitationStatus status);
 
