@@ -20,7 +20,7 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
 	@Query("select t from PasswordResetToken t join fetch t.user where t.tokenHash = :tokenHash")
 	Optional<PasswordResetToken> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);
 
-	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Modifying(flushAutomatically = true)
 	@Query("""
 			update PasswordResetToken t
 			set t.revokedAt = :revokedAt
