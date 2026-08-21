@@ -6,7 +6,9 @@ import {
 
 import { AdminShell } from "../components/layout/AdminShell";
 import { ForbiddenPage } from "../features/auth/ForbiddenPage";
+import { ForgotPasswordPage } from "../features/auth/ForgotPasswordPage";
 import { LoginPage } from "../features/auth/LoginPage";
+import { ResetPasswordPage } from "../features/auth/ResetPasswordPage";
 import { auditRoutes } from "../features/audit/routes";
 import { dashboardRoutes } from "../features/dashboard/routes";
 import { grantRoutes } from "../features/grants/routes";
@@ -22,6 +24,8 @@ export function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route
         element={

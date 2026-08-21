@@ -1,6 +1,7 @@
 import axios from "axios";
 import { FormEvent, useState } from "react";
 import {
+  Link,
   Navigate,
   useLocation,
   useNavigate,
@@ -125,6 +126,12 @@ export function LoginPage() {
               required
             />
           </label>
+
+          <div className="action-row">
+            <Link className="button-secondary" to="/forgot-password">
+              Forgot password?
+            </Link>
+          </div>
 
           <label>
             Organization ID <span className="field-hint">(optional)</span>
