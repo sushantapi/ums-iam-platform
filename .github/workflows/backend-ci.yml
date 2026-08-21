@@ -13,15 +13,6 @@ on:
       - ".github/workflows/release.yml"
 
   pull_request:
-    paths:
-      - "backend/**"
-      - "docker-compose.yml"
-      - "docker-compose.hrms.yml"
-      - "docker-compose.monitoring.yml"
-      - "docs/releases/**"
-      - "docs/architecture/**"
-      - ".github/workflows/backend-ci.yml"
-      - ".github/workflows/release.yml"
 
   workflow_dispatch:
 
