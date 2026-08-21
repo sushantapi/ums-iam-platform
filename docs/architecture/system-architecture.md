@@ -4,7 +4,7 @@
 
 This document describes the architecture actually shipped in the combined UMS IAM Basic v1 + HRMS Basic v1 baseline. It is a release checkpoint, not a future-state design.
 
-Basic v1 is frozen after the `v1.0.0` release except for genuine bug fixes. Post-v1 capabilities must be tracked separately.
+The canonical combined checkpoint is `v1.1.0`. The earlier `v1.0.0` tag is retained as immutable historical release history after the combined-release version labeling was corrected. Basic v1 remains frozen except for genuine bug fixes; post-v1 capabilities must be tracked separately.
 
 ## System context
 
@@ -177,7 +177,7 @@ Examples of future candidates may include complex payroll payment execution or o
 
 ## Release verification boundary
 
-The `v1.0.0` release checkpoint requires:
+The canonical `v1.1.0` combined release checkpoint requires:
 
 - Backend CI green
 - Frontend CI green
@@ -190,5 +190,7 @@ The `v1.0.0` release checkpoint requires:
 - payroll create/process/entry/payslip/finalize verified
 - unauthenticated HRMS Gateway calls rejected
 - IAM admin/dashboard behavior verified without regression
+
+The v1.1.0 correction itself changes only release/workflow/documentation metadata; it does not alter the shipped application architecture or behavior.
 
 This document should be updated only when the shipped architecture changes; aspirational post-v1 capabilities belong in roadmap/backlog documentation instead.
