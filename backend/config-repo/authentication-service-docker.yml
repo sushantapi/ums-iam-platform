@@ -68,6 +68,11 @@ jwt:
   access-token-expiry-ms: ${JWT_EXPIRATION_MS:900000}
   refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
 
+security:
+  password-reset:
+    ttl-minutes: ${PASSWORD_RESET_TTL_MINUTES:15}
+    reset-page-url: ${PASSWORD_RESET_PAGE_URL:http://localhost:5174/reset-password}
+
 internal:
   gateway:
     secret: ${INTERNAL_GATEWAY_SECRET}

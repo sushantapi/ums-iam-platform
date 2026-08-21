@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -82,6 +84,7 @@ class PasswordRecoveryServiceTests {
 				eq(RabbitMQConstants.PASSWORD_RESET_ROUTING_KEY),
 				eventCaptor.capture());
 		String resetLink = eventCaptor.getValue().getResetLink();
+		assertThat(resetLink).startsWith("https://app.example.test/reset-password?token=");
 		String rawToken = resetLink.substring(resetLink.indexOf("token=") + 6);
 		assertThat(stored.getTokenHash()).isEqualTo(DigestUtils.sha256Hex(rawToken));
 		assertThat(stored.getTokenHash()).doesNotContain(rawToken);
@@ -96,6 +99,28 @@ class PasswordRecoveryServiceTests {
 
 		verify(passwordResetTokenRepository, never()).save(any());
 		verify(rabbitTemplate, never()).convertAndSend(any(String.class), any(String.class), any(Object.class));
+	}
+
+	@Test
+	void notificationDispatchFailureRevokesIssuedToken() {
+		User user = activeLocalUser();
+		when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+		when(passwordResetTokenRepository.save(any(PasswordResetToken.class)))
+				.thenAnswer(invocation -> invocation.getArgument(0));
+		doThrow(new RuntimeException("broker unavailable"))
+				.when(rabbitTemplate)
+				.convertAndSend(
+						eq(RabbitMQConstants.AUTH_EXCHANGE),
+						eq(RabbitMQConstants.PASSWORD_RESET_ROUTING_KEY),
+						any(Object.class));
+
+		service.requestPasswordReset(forgotRequest("user@example.com"), "127.0.0.1");
+
+		ArgumentCaptor<PasswordResetToken> tokenCaptor = ArgumentCaptor.forClass(PasswordResetToken.class);
+		verify(passwordResetTokenRepository, times(2)).save(tokenCaptor.capture());
+		List<PasswordResetToken> savedTokens = tokenCaptor.getAllValues();
+		assertThat(savedTokens).hasSize(2);
+		assertThat(savedTokens.get(1).getRevokedAt()).isNotNull();
 	}
 
 	@Test

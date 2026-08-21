@@ -71,7 +71,7 @@ jwt:
 security:
   password-reset:
     ttl-minutes: ${PASSWORD_RESET_TTL_MINUTES:15}
-    reset-page-url: ${PASSWORD_RESET_PAGE_URL:http://localhost:5173/reset-password}
+    reset-page-url: ${PASSWORD_RESET_PAGE_URL:http://localhost:5174/reset-password}
 
 internal:
   gateway:

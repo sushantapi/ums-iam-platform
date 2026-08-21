@@ -54,7 +54,7 @@ public class PasswordRecoveryService {
 	@Value("${security.password-reset.ttl-minutes:15}")
 	private long resetTokenTtlMinutes;
 
-	@Value("${security.password-reset.reset-page-url:http://localhost:5173/reset-password}")
+	@Value("${security.password-reset.reset-page-url:http://localhost:5174/reset-password}")
 	private String resetPageUrl;
 
 	@Transactional

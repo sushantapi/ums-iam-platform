@@ -23,6 +23,11 @@ jwt:
   key-id: ${JWT_KEY_ID:local-dev-2026-06-24}
   audience: ${JWT_AUDIENCE:ums-api-gateway}
 
+security:
+  password-reset:
+    ttl-minutes: ${PASSWORD_RESET_TTL_MINUTES:15}
+    reset-page-url: ${PASSWORD_RESET_PAGE_URL:http://localhost:5174/reset-password}
+
 internal:
   gateway:
     secret: ${INTERNAL_GATEWAY_SECRET:local-dev-gateway-secret-change-me}
