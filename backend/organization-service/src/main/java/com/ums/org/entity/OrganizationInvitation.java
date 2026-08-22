@@ -60,7 +60,8 @@ public class OrganizationInvitation extends BaseEntity {
 	@JdbcTypeCode(SqlTypes.CHAR)
 	private UUID inviterId;
 
-	@Column(name = "token_hash", nullable = false, unique = true, length = 64)
+	@Column(name = "token_hash", nullable = false, unique = true, length = 64, columnDefinition = "CHAR(64)")
+	@JdbcTypeCode(SqlTypes.CHAR)
 	private String tokenHash;
 
 	@Enumerated(EnumType.STRING)

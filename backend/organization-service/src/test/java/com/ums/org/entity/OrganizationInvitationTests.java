@@ -10,10 +10,14 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.junit.jupiter.api.Test;
 
 import com.ums.org.enums.OrganizationInvitationStatus;
 import com.ums.org.enums.OrganizationRole;
+
+import jakarta.persistence.Column;
 
 class OrganizationInvitationTests {
 
@@ -37,6 +41,20 @@ class OrganizationInvitationTests {
 				.collect(Collectors.toSet());
 		assertThat(fields).contains("tokenHash");
 		assertThat(fields).doesNotContain("rawToken", "inviteLink", "token");
+	}
+
+	@Test
+	void tokenHashMappingMatchesAppliedFlywaySchema() throws NoSuchFieldException {
+		Field tokenHash = OrganizationInvitation.class.getDeclaredField("tokenHash");
+
+		Column column = tokenHash.getAnnotation(Column.class);
+		JdbcTypeCode jdbcType = tokenHash.getAnnotation(JdbcTypeCode.class);
+
+		assertThat(column).isNotNull();
+		assertThat(column.columnDefinition()).isEqualTo("CHAR(64)");
+		assertThat(column.length()).isEqualTo(64);
+		assertThat(jdbcType).isNotNull();
+		assertThat(jdbcType.value()).isEqualTo(SqlTypes.CHAR);
 	}
 
 	@Test
