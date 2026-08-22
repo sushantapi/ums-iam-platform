@@ -31,6 +31,21 @@ const acceptance = {
   acceptedAt: "2026-08-21T18:00:00",
 };
 
+function accessTokenWithPermissions(...permissions: string[]): string {
+  const payload = btoa(
+    JSON.stringify({
+      type: "ACCESS",
+      roles: [],
+      permissions,
+    }),
+  )
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+
+  return `header.${payload}.signature`;
+}
+
 describe("InvitationAcceptancePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -135,5 +150,40 @@ describe("InvitationAcceptancePage", () => {
     await screen.findByRole("alert");
     expect(document.body).not.toHaveTextContent("failed-secret-token");
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+  });
+
+  it("does not send an organization member into platform-admin member management after acceptance", async () => {
+    useAuthStore.setState({ accessToken: "header.payload.signature", isAuthenticated: true });
+    window.history.pushState({}, "", "/accept-invitation#token=member-secret-token");
+
+    render(
+      <BrowserRouter>
+        <InvitationAcceptancePage />
+      </BrowserRouter>,
+    );
+
+    expect(await screen.findByText(/organization-scoped member membership is active/i)).toBeInTheDocument();
+    expect(screen.getByText(/Admin Portal permissions are separate/i)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "View organization members" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open Admin Portal" })).not.toBeInTheDocument();
+  });
+
+  it("offers the Admin Portal only when the signed-in user already has platform dashboard permission", async () => {
+    useAuthStore.setState({
+      accessToken: accessTokenWithPermissions("DASHBOARD_READ"),
+      isAuthenticated: true,
+    });
+    window.history.pushState({}, "", "/accept-invitation#token=platform-admin-secret-token");
+
+    render(
+      <BrowserRouter>
+        <InvitationAcceptancePage />
+      </BrowserRouter>,
+    );
+
+    await screen.findByText(/Invitation accepted/i);
+    const adminLink = screen.getByRole("link", { name: "Open Admin Portal" });
+    expect(adminLink).toHaveAttribute("href", "/dashboard");
+    expect(screen.queryByRole("link", { name: "View organization members" })).not.toBeInTheDocument();
   });
 });

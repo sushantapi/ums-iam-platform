@@ -6,6 +6,7 @@ import type { ApiErrorResponse } from "../../api/apiClient";
 import organizationInvitationService, {
   type OrganizationInvitationAcceptance,
 } from "../../api/services/organizationInvitationService";
+import { hasAdminCapability } from "../../lib/auth/capabilities";
 import { useAuthStore } from "../../store/authStore";
 
 export const INVITATION_TOKEN_SESSION_KEY = "ums-organization-invitation-token";
@@ -106,6 +107,10 @@ export function InvitationAcceptancePage() {
     setRetryNonce((value) => value + 1);
   }
 
+  const canOpenAdminPortal = result
+    ? hasAdminCapability("dashboard.read")
+    : false;
+
   return (
     <main className="login-page">
       <section className="login-card">
@@ -131,9 +136,21 @@ export function InvitationAcceptancePage() {
         ) : null}
 
         {result ? (
-          <div className="success-message" role="status">
-            Invitation accepted. You joined the organization as {result.role.toLowerCase()}.
-          </div>
+          <>
+            <div className="success-message" role="status">
+              Invitation accepted. Your organization-scoped {result.role.toLowerCase()} membership is active.
+            </div>
+            <div className="login-copy">
+              <p>
+                Organization membership and Admin Portal permissions are separate. This invitation does not grant platform-admin access.
+              </p>
+              {!canOpenAdminPortal ? (
+                <p className="muted">
+                  You can close this page. If you need Admin Portal access, it must be granted separately by an authorized platform administrator.
+                </p>
+              ) : null}
+            </div>
+          </>
         ) : null}
 
         <div className="action-row">
@@ -142,9 +159,9 @@ export function InvitationAcceptancePage() {
               Try again
             </button>
           ) : null}
-          {result ? (
-            <Link className="button-primary" to={`/organizations/${result.organizationId}/members`}>
-              View organization members
+          {result && canOpenAdminPortal ? (
+            <Link className="button-primary" to="/dashboard">
+              Open Admin Portal
             </Link>
           ) : null}
           {!result && !accepting && !retriable ? (
