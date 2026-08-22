@@ -31,6 +31,8 @@ public final class RabbitMQConstants {
 
 	public static final String ORGANIZATION_CREATED_ROUTING_KEY = "organization.created";
 
+	public static final String ORGANIZATION_INVITATION_ROUTING_KEY = "organization.invitation.created";
+
 	public static final String EMAIL_VERIFICATION_ROUTING_KEY = "auth.email.verification.requested";
 
 	public static final String PASSWORD_RESET_ROUTING_KEY = "auth.password.reset.requested";
@@ -56,6 +58,8 @@ public final class RabbitMQConstants {
 	public static final String NOTIFICATION_USER_REGISTERED_QUEUE = "notification.user.registered.queue";
 
 	public static final String NOTIFICATION_ORGANIZATION_CREATED_QUEUE = "notification.organization.created.queue";
+
+	public static final String NOTIFICATION_ORGANIZATION_INVITATION_QUEUE = "notification.organization.invitation.queue";
 
 	public static final String NOTIFICATION_EMAIL_VERIFICATION_QUEUE = "notification.email.verification.queue";
 
