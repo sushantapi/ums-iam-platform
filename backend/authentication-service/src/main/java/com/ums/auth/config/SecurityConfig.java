@@ -53,6 +53,11 @@ public class SecurityConfig {
 								"/api/v1/auth/forgot-password",
 								"/api/v1/auth/reset-password")
 							.permitAll()
+						.requestMatchers(HttpMethod.POST,
+								"/api/v1/auth/mfa/totp/setup",
+								"/api/v1/auth/mfa/totp/confirm")
+							.authenticated()
+						.requestMatchers(HttpMethod.GET, "/api/v1/auth/mfa/status").authenticated()
 						.requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
 						.requestMatchers("/api/v1/admin/sessions/**", "/api/v1/admin/users/*/sessions/**")

@@ -1,0 +1,176 @@
+package com.ums.auth.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.ums.auth.dto.MfaRecoveryCodesResponse;
+import com.ums.auth.dto.MfaTotpConfirmRequest;
+import com.ums.auth.dto.MfaTotpSetupResponse;
+import com.ums.auth.entity.MfaCredential;
+import com.ums.auth.entity.MfaCredentialStatus;
+import com.ums.auth.entity.MfaRecoveryCode;
+import com.ums.auth.entity.User;
+import com.ums.auth.entity.User.UserStatus;
+import com.ums.auth.exception.AuthException;
+import com.ums.auth.repository.MfaCredentialRepository;
+import com.ums.auth.repository.MfaRecoveryCodeRepository;
+import com.ums.auth.repository.UserRepository;
+import com.ums.auth.security.mfa.MfaProperties;
+import com.ums.auth.security.mfa.MfaRecoveryCodeService;
+import com.ums.auth.security.mfa.MfaSecretEncryptionService;
+import com.ums.auth.security.mfa.TotpService;
+import com.ums.events.publisher.AuditPublisher;
+
+@ExtendWith(MockitoExtension.class)
+class MfaServiceTests {
+
+	@Mock private UserRepository userRepository;
+	@Mock private MfaCredentialRepository credentialRepository;
+	@Mock private MfaRecoveryCodeRepository recoveryCodeRepository;
+	@Mock private TotpService totpService;
+	@Mock private MfaSecretEncryptionService secretEncryptionService;
+	@Mock private MfaRecoveryCodeService recoveryCodeService;
+	@Mock private AuditPublisher auditPublisher;
+
+	private MfaProperties properties;
+	private MfaService service;
+
+	@BeforeEach
+	void setUp() {
+		properties = new MfaProperties();
+		service = new MfaService(
+				userRepository,
+				credentialRepository,
+				recoveryCodeRepository,
+				totpService,
+				secretEncryptionService,
+				recoveryCodeService,
+				properties,
+				auditPublisher);
+	}
+
+	@Test
+	void setupDoesNotEnableMfaAndPersistsOnlyEncryptedSecret() {
+		User user = activeLocalUser();
+		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+		when(credentialRepository.findByUserIdForUpdate(user.getId())).thenReturn(Optional.empty());
+		when(totpService.generateSecret()).thenReturn("RAW-TOTP-SECRET");
+		when(secretEncryptionService.encrypt("RAW-TOTP-SECRET")).thenReturn("v1.encrypted.secret");
+		when(totpService.provisioningUri(user.getEmail(), "RAW-TOTP-SECRET")).thenReturn("otpauth://safe-uri");
+		when(credentialRepository.save(any(MfaCredential.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		MfaTotpSetupResponse response = service.setupTotp(user.getId(), "127.0.0.1");
+
+		ArgumentCaptor<MfaCredential> credentialCaptor = ArgumentCaptor.forClass(MfaCredential.class);
+		verify(credentialRepository).save(credentialCaptor.capture());
+		MfaCredential stored = credentialCaptor.getValue();
+		assertThat(stored.getEncryptedSecret()).isEqualTo("v1.encrypted.secret");
+		assertThat(stored.getEncryptedSecret()).doesNotContain("RAW-TOTP-SECRET");
+		assertThat(stored.getStatus()).isEqualTo(MfaCredentialStatus.PENDING);
+		assertThat(stored.getSetupExpiresAt()).isAfter(Instant.now());
+		assertThat(user.isMfaEnabled()).isFalse();
+		assertThat(response.getSecret()).isEqualTo("RAW-TOTP-SECRET");
+		assertThat(response.getProvisioningUri()).isEqualTo("otpauth://safe-uri");
+		verify(userRepository, never()).save(user);
+	}
+
+	@Test
+	void confirmEnablesMfaAndStoresOnlyRecoveryCodeHashes() {
+		User user = activeLocalUser();
+		UUID credentialId = UUID.randomUUID();
+		MfaCredential credential = MfaCredential.builder()
+				.id(credentialId)
+				.userId(user.getId())
+				.encryptedSecret("v1.encrypted.secret")
+				.status(MfaCredentialStatus.PENDING)
+				.setupExpiresAt(Instant.now().plusSeconds(300))
+				.build();
+		MfaTotpConfirmRequest request = new MfaTotpConfirmRequest();
+		request.setCode("123456");
+
+		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+		when(credentialRepository.findByUserIdForUpdate(user.getId())).thenReturn(Optional.of(credential));
+		when(secretEncryptionService.decrypt("v1.encrypted.secret")).thenReturn("RAW-TOTP-SECRET");
+		when(totpService.verify(any(), any(), any())).thenReturn(true);
+		when(recoveryCodeService.generateCodes()).thenReturn(List.of("AAAA-BBBB-CCCC-DDDD", "EEEE-FFFF-GGGG-HHHH"));
+		when(recoveryCodeService.hash("AAAA-BBBB-CCCC-DDDD")).thenReturn("a".repeat(64));
+		when(recoveryCodeService.hash("EEEE-FFFF-GGGG-HHHH")).thenReturn("b".repeat(64));
+
+		MfaRecoveryCodesResponse response = service.confirmTotp(user.getId(), request, "127.0.0.1");
+
+		assertThat(user.isMfaEnabled()).isTrue();
+		assertThat(credential.getStatus()).isEqualTo(MfaCredentialStatus.ACTIVE);
+		assertThat(credential.getActivatedAt()).isNotNull();
+		assertThat(credential.getSetupExpiresAt()).isNull();
+		assertThat(response.getRecoveryCodes()).containsExactly("AAAA-BBBB-CCCC-DDDD", "EEEE-FFFF-GGGG-HHHH");
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<MfaRecoveryCode>> codesCaptor = ArgumentCaptor.forClass(List.class);
+		verify(recoveryCodeRepository).saveAll(codesCaptor.capture());
+		assertThat(codesCaptor.getValue()).allSatisfy(code -> {
+			assertThat(code.getCredentialId()).isEqualTo(credentialId);
+			assertThat(code.getCodeHash()).hasSize(64);
+			assertThat(code.getCodeHash()).doesNotContain("AAAA-BBBB");
+			assertThat(code.getCodeHash()).doesNotContain("EEEE-FFFF");
+		});
+		verify(userRepository).save(user);
+		verify(credentialRepository).save(credential);
+	}
+
+	@Test
+	void invalidTotpDoesNotEnableMfaOrCreateRecoveryCodes() {
+		User user = activeLocalUser();
+		MfaCredential credential = MfaCredential.builder()
+				.id(UUID.randomUUID())
+				.userId(user.getId())
+				.encryptedSecret("v1.encrypted.secret")
+				.status(MfaCredentialStatus.PENDING)
+				.setupExpiresAt(Instant.now().plusSeconds(300))
+				.build();
+		MfaTotpConfirmRequest request = new MfaTotpConfirmRequest();
+		request.setCode("000000");
+
+		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+		when(credentialRepository.findByUserIdForUpdate(user.getId())).thenReturn(Optional.of(credential));
+		when(secretEncryptionService.decrypt("v1.encrypted.secret")).thenReturn("RAW-TOTP-SECRET");
+		when(totpService.verify(any(), any(), any())).thenReturn(false);
+
+		assertThatThrownBy(() -> service.confirmTotp(user.getId(), request, "127.0.0.1"))
+				.isInstanceOf(AuthException.class)
+				.extracting("errorCode").isEqualTo("INVALID_MFA_CODE");
+
+		assertThat(user.isMfaEnabled()).isFalse();
+		assertThat(credential.getStatus()).isEqualTo(MfaCredentialStatus.PENDING);
+		verify(recoveryCodeRepository, never()).saveAll(any());
+		verify(userRepository, never()).save(any());
+	}
+
+	private User activeLocalUser() {
+		return User.builder()
+				.id(UUID.randomUUID())
+				.email("user@example.com")
+				.passwordHash("password-hash")
+				.firstName("Ada")
+				.lastName("Lovelace")
+				.status(UserStatus.ACTIVE)
+				.provider("LOCAL")
+				.build();
+	}
+}
