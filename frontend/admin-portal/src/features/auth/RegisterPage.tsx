@@ -2,9 +2,42 @@ import axios from "axios";
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 
-import type { ApiErrorResponse } from "../../api/apiClient";
+import apiClient, { type ApiErrorResponse } from "../../api/apiClient";
 import authService from "../../api/services/authService";
 import { useAuthStore } from "../../store/authStore";
+
+const INVITATION_ACCEPTANCE_PATH = "/accept-invitation";
+const INVITATION_PROFILE_MAX_ATTEMPTS = 20;
+const INVITATION_PROFILE_RETRY_DELAY_MS = 250;
+const INVITATION_PROFILE_SETUP_MESSAGE =
+  "Account created, but profile setup is still completing. Please use the sign-in link below in a moment to continue your invitation.";
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function waitForInvitationProfileReadiness(accessToken: string): Promise<boolean> {
+  for (let attempt = 1; attempt <= INVITATION_PROFILE_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      await apiClient.get("/users/me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      return true;
+    } catch (readinessError) {
+      const status = axios.isAxiosError<ApiErrorResponse>(readinessError)
+        ? readinessError.response?.status
+        : undefined;
+
+      if (status === 401 || status === 403 || attempt === INVITATION_PROFILE_MAX_ATTEMPTS) {
+        return false;
+      }
+
+      await delay(INVITATION_PROFILE_RETRY_DELAY_MS);
+    }
+  }
+
+  return false;
+}
 
 function safeReturnPath(state: unknown): string {
   const from =
@@ -70,6 +103,14 @@ export function RegisterPage() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
       });
+      if (from === INVITATION_ACCEPTANCE_PATH) {
+        const profileReady = await waitForInvitationProfileReadiness(session.accessToken);
+        if (!profileReady) {
+          setError(INVITATION_PROFILE_SETUP_MESSAGE);
+          return;
+        }
+      }
+
       setSession(session);
       navigate(from, { replace: true });
     } catch (registrationError) {
