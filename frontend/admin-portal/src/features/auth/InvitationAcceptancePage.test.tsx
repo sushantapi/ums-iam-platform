@@ -48,9 +48,9 @@ describe("InvitationAcceptancePage", () => {
     window.sessionStorage.clear();
   });
 
-  it("removes the bearer token from the URL immediately and accepts it only once in StrictMode", async () => {
+  it("removes the fragment bearer token from the URL immediately and accepts it only once in StrictMode", async () => {
     useAuthStore.setState({ accessToken: "header.payload.signature", isAuthenticated: true });
-    window.history.pushState({}, "", "/accept-invitation?token=opaque-secret-token");
+    window.history.pushState({}, "", "/accept-invitation#token=opaque-secret-token");
 
     render(
       <StrictMode>
@@ -62,6 +62,7 @@ describe("InvitationAcceptancePage", () => {
 
     expect(window.location.pathname).toBe("/accept-invitation");
     expect(window.location.search).toBe("");
+    expect(window.location.hash).toBe("");
     expect(document.body).not.toHaveTextContent("opaque-secret-token");
 
     await waitFor(() => expect(mocks.accept).toHaveBeenCalledTimes(1));
@@ -71,7 +72,7 @@ describe("InvitationAcceptancePage", () => {
   });
 
   it("keeps the token only in same-tab session storage while handing an unauthenticated user to sign in", async () => {
-    window.history.pushState({}, "", "/accept-invitation?token=handoff-secret-token");
+    window.history.pushState({}, "", "/accept-invitation#token=handoff-secret-token");
 
     render(
       <BrowserRouter>
@@ -80,9 +81,29 @@ describe("InvitationAcceptancePage", () => {
     );
 
     expect(window.location.search).toBe("");
+    expect(window.location.hash).toBe("");
     expect(document.body).not.toHaveTextContent("handoff-secret-token");
     await waitFor(() => expect(window.location.pathname).toBe("/login"));
     expect(window.sessionStorage.getItem(INVITATION_TOKEN_SESSION_KEY)).toBe("handoff-secret-token");
+    expect(mocks.accept).not.toHaveBeenCalled();
+  });
+
+  it("scrubs legacy query bearer tokens without accepting them", () => {
+    window.history.pushState({}, "", "/accept-invitation?token=query-secret-token");
+    useAuthStore.setState({ accessToken: "header.payload.signature", isAuthenticated: true });
+
+    render(
+      <BrowserRouter>
+        <InvitationAcceptancePage />
+      </BrowserRouter>,
+    );
+
+    expect(window.location.pathname).toBe("/accept-invitation");
+    expect(window.location.search).toBe("");
+    expect(window.location.hash).toBe("");
+    expect(document.body).not.toHaveTextContent("query-secret-token");
+    expect(screen.getByRole("alert")).toHaveTextContent("This invitation could not be accepted");
+    expect(window.sessionStorage.getItem(INVITATION_TOKEN_SESSION_KEY)).toBeNull();
     expect(mocks.accept).not.toHaveBeenCalled();
   });
 
@@ -103,7 +124,7 @@ describe("InvitationAcceptancePage", () => {
   it("never renders a failed bearer token in the error state", async () => {
     mocks.accept.mockRejectedValue(new Error("transport failed"));
     useAuthStore.setState({ accessToken: "header.payload.signature", isAuthenticated: true });
-    window.history.pushState({}, "", "/accept-invitation?token=failed-secret-token");
+    window.history.pushState({}, "", "/accept-invitation#token=failed-secret-token");
 
     render(
       <BrowserRouter>

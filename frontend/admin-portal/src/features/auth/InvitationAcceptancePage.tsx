@@ -14,16 +14,23 @@ const GENERIC_ACCEPTANCE_ERROR =
   "This invitation could not be accepted. It may be invalid, expired, revoked, already used, or intended for another account.";
 
 function captureInvitationToken(): string {
+  const fragment = window.location.hash.startsWith("#")
+    ? window.location.hash.slice(1)
+    : window.location.hash;
+  const fragmentToken = new URLSearchParams(fragment).get("token")?.trim() ?? "";
   const queryToken = new URLSearchParams(window.location.search).get("token")?.trim() ?? "";
 
-  if (queryToken) {
-    window.sessionStorage.setItem(INVITATION_TOKEN_SESSION_KEY, queryToken);
+  if (fragmentToken || queryToken) {
     window.history.replaceState(
       window.history.state,
       document.title,
-      `${window.location.pathname}${window.location.hash}`,
+      window.location.pathname,
     );
-    return queryToken;
+  }
+
+  if (fragmentToken) {
+    window.sessionStorage.setItem(INVITATION_TOKEN_SESSION_KEY, fragmentToken);
+    return fragmentToken;
   }
 
   return window.sessionStorage.getItem(INVITATION_TOKEN_SESSION_KEY)?.trim() ?? "";

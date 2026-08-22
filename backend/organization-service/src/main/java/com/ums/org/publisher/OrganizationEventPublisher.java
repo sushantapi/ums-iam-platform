@@ -63,7 +63,7 @@ public class OrganizationEventPublisher {
 		LocalDateTime dispatchedAt = LocalDateTime.now();
 		try {
 			String inviteLink = UriComponentsBuilder.fromUriString(invitationProperties.getAcceptPageUrl())
-					.queryParam("token", rawToken)
+					.fragment("token=" + rawToken)
 					.build()
 					.encode()
 					.toUriString();

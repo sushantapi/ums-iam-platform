@@ -78,7 +78,10 @@ class OrganizationEventPublisherTests {
 		OrganizationInviteEvent event = eventCaptor.getValue();
 		assertThat(event.getEmail()).isEqualTo(EMAIL);
 		assertThat(event.getOrganizationName()).isEqualTo("Example Org");
-		assertThat(event.getInviteLink()).contains("accept-invitation").contains("token=" + RAW_TOKEN);
+		assertThat(event.getInviteLink())
+				.contains("accept-invitation")
+				.contains("#token=" + RAW_TOKEN)
+				.doesNotContain("?token=");
 		assertThat(event.toString()).doesNotContain(EMAIL, RAW_TOKEN, event.getInviteLink());
 		verify(deliveryStateService).markNotificationSent(eq(INVITATION_ID), any(LocalDateTime.class));
 	}
