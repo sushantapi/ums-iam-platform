@@ -26,9 +26,21 @@ function getLoginError(error: unknown): string {
   return "Sign in failed. Please try again.";
 }
 
+function safeReturnPath(state: unknown): string {
+  const from =
+    state && typeof state === "object" && "from" in state
+      ? (state as { from?: unknown }).from
+      : undefined;
+
+  return typeof from === "string" && from.startsWith("/") && !from.startsWith("//")
+    ? from
+    : "/dashboard";
+}
+
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const from = safeReturnPath(location.state);
 
   const accessToken = useAuthStore((state) => state.accessToken);
   const setSession = useAuthStore((state) => state.setSession);
@@ -40,12 +52,8 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   if (accessToken) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={from} replace />;
   }
-
-  const from =
-    (location.state as { from?: string } | null)?.from ??
-    "/dashboard";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -91,7 +99,7 @@ export function LoginPage() {
 
         <div className="login-copy">
           <h2>Sign in</h2>
-          <p>Use your authorized UMS administrator account.</p>
+          <p>Use your authorized UMS account.</p>
         </div>
 
         {error ? (
@@ -130,6 +138,9 @@ export function LoginPage() {
           <div className="action-row">
             <Link className="button-secondary" to="/forgot-password">
               Forgot password?
+            </Link>
+            <Link className="button-secondary" to="/register" state={{ from }}>
+              Create account
             </Link>
           </div>
 

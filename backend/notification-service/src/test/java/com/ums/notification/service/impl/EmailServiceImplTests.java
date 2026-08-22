@@ -1,8 +1,12 @@
 package com.ums.notification.service.impl;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -24,15 +28,14 @@ import com.ums.notification.service.TemplateService;
 @ExtendWith(MockitoExtension.class)
 class EmailServiceImplTests {
 
+	private static final String RAW_LINK = "https://example.test/accept?token=raw-secret-token";
+
 	@Mock
 	private JavaMailSender mailSender;
-
 	@Mock
 	private TemplateService templateService;
-
 	@Mock
 	private NotificationAuditService auditService;
-
 	@Mock
 	private NotificationEventService eventService;
 
@@ -46,7 +49,7 @@ class EmailServiceImplTests {
 				auditService,
 				eventService,
 				new ObjectMapper());
-		when(eventService.save(any(NotificationEvent.class))).thenAnswer(invocation -> {
+		lenient().when(eventService.save(any(NotificationEvent.class))).thenAnswer(invocation -> {
 			NotificationEvent event = invocation.getArgument(0);
 			event.setId(42L);
 			return event;
@@ -64,21 +67,43 @@ class EmailServiceImplTests {
 	}
 
 	@Test
-	void processesOrganizationInvitationUsingExistingDeliveryPipeline() {
+	void organizationInvitationBypassesGenericNotificationPersistence() {
 		when(templateService.getSubject("ORGANIZATION_INVITATION")).thenReturn("Invitation");
 		when(templateService.buildTemplate(eq("ORGANIZATION_INVITATION"), any())).thenReturn("Join Acme");
 
 		emailService.processOrganizationInvitation(
-				new OrganizationInviteEvent("ada@example.com", "Acme", "https://example.test/invite"));
+				new OrganizationInviteEvent("ada@example.com", "Acme", RAW_LINK));
 
-		verify(eventService).markProcessed(42L);
+		verify(mailSender).send(any(SimpleMailMessage.class));
 		verify(auditService).logSuccess("ORGANIZATION_INVITATION", "ada@example.com", "Invitation");
+		verify(eventService, never()).save(any(NotificationEvent.class));
+		verify(eventService, never()).markProcessed(anyLong());
+	}
+
+	@Test
+	void organizationInvitationFailureStoresOnlyFailureTypeAndReturnsGenericException() {
+		when(templateService.getSubject("ORGANIZATION_INVITATION")).thenReturn("Invitation");
+		when(templateService.buildTemplate(eq("ORGANIZATION_INVITATION"), any())).thenReturn("Join Acme");
+		doThrow(new IllegalStateException("SMTP unavailable"))
+				.when(mailSender).send(any(SimpleMailMessage.class));
+
+		assertThatThrownBy(() -> emailService.processOrganizationInvitation(
+				new OrganizationInviteEvent("ada@example.com", "Acme", RAW_LINK)))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessage("Organization invitation email delivery failed")
+				.hasMessageNotContaining("raw-secret-token");
+
+		verify(auditService).logFailure(
+				"ORGANIZATION_INVITATION",
+				"ada@example.com",
+				"Invitation",
+				IllegalStateException.class.getName());
+		verify(eventService, never()).save(any(NotificationEvent.class));
 	}
 
 	@Test
 	void persistsFailureWithoutRethrowingToRabbit() {
 		stubWelcomeTemplate();
-
 		doThrow(new IllegalStateException("SMTP unavailable"))
 				.when(mailSender)
 				.send(any(SimpleMailMessage.class));

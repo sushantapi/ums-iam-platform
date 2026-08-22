@@ -6,31 +6,43 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.ums.events.event.AuditEvent;
 import com.ums.events.event.organization.OrganizationCreatedEvent;
 import com.ums.events.publisher.AuditPublisher;
 import com.ums.org.client.UserClient;
+import com.ums.org.config.OrganizationInvitationProperties;
 import com.ums.org.dto.AddMemberRequest;
+import com.ums.org.dto.CreateOrganizationInvitationRequest;
 import com.ums.org.dto.CreateOrganizationRequest;
+import com.ums.org.dto.OrganizationInvitationResponse;
 import com.ums.org.dto.OrganizationMemberResponse;
 import com.ums.org.dto.OrganizationResponse;
 import com.ums.org.dto.UpdateOrganizationRequest;
 import com.ums.org.dto.UserResponse;
+import com.ums.org.dto.UserSummaryPageResponse;
 import com.ums.org.dto.admin.OrganizationAdminPageResponse;
 import com.ums.org.dto.admin.OrganizationAdminResponse;
 import com.ums.org.entity.Organization;
+import com.ums.org.entity.OrganizationInvitation;
 import com.ums.org.entity.OrganizationMember;
+import com.ums.org.enums.OrganizationInvitationStatus;
 import com.ums.org.enums.OrganizationRole;
 import com.ums.org.enums.OrganizationStatus;
 import com.ums.org.exception.BadRequestException;
 import com.ums.org.exception.ResourceNotFoundException;
 import com.ums.org.publisher.OrganizationEventPublisher;
+import com.ums.org.repositoty.OrganizationInvitationRepository;
 import com.ums.org.repositoty.OrganizationMemberRepository;
 import com.ums.org.repositoty.OrganizationRepository;
+import com.ums.org.security.IssuedInvitationToken;
+import com.ums.org.security.OrganizationInvitationTokenService;
 import com.ums.org.service.OrganizationAccessService;
 import com.ums.org.service.OrganizationService;
 
@@ -46,8 +58,11 @@ public class OrganizationServiceImpl implements OrganizationService {
 
 	private final OrganizationRepository organizationRepository;
 	private final OrganizationMemberRepository memberRepository;
+	private final OrganizationInvitationRepository invitationRepository;
 	private final OrganizationAccessService accessService;
 	private final UserClient userClient;
+	private final OrganizationInvitationTokenService invitationTokenService;
+	private final OrganizationInvitationProperties invitationProperties;
 	private final OrganizationEventPublisher eventPublisher;
 	private final AuditPublisher auditPublisher;
 
@@ -98,6 +113,42 @@ public class OrganizationServiceImpl implements OrganizationService {
 		}
 	}
 
+	private void publishInvitationAuditAfterCommit(String eventType, String action, UUID actorUserId,
+			UUID invitationId, String details) {
+		AuditEvent auditEvent = AuditEvent.builder()
+				.eventType(eventType)
+				.serviceName("organization-service")
+				.userId(actorUserId.toString())
+				.action(action)
+				.entityType("ORGANIZATION_INVITATION")
+				.entityId(invitationId.toString())
+				.details(details)
+				.timestamp(LocalDateTime.now())
+				.build();
+
+		if (TransactionSynchronizationManager.isSynchronizationActive()
+				&& TransactionSynchronizationManager.isActualTransactionActive()) {
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public void afterCommit() {
+					publishInvitationAuditSafely(auditEvent, action, invitationId);
+				}
+			});
+			return;
+		}
+
+		publishInvitationAuditSafely(auditEvent, action, invitationId);
+	}
+
+	private void publishInvitationAuditSafely(AuditEvent auditEvent, String action, UUID invitationId) {
+		try {
+			auditPublisher.publish(auditEvent);
+		} catch (RuntimeException ex) {
+			log.warn("Organization invitation audit publication failed action={} invitationId={} failureType={}",
+					action, invitationId, ex.getClass().getName());
+		}
+	}
+
 	private String generateUniqueSlug(String name) {
 		String baseSlug = name.trim().toLowerCase().replaceAll("[^a-z0-9\\s]", "").replaceAll("\\s+", "-");
 
@@ -138,7 +189,8 @@ public class OrganizationServiceImpl implements OrganizationService {
 				.entityId(updated.getId().toString()).details("Organization updated successfully")
 				.timestamp(LocalDateTime.now()).build());
 
-		return new OrganizationResponse(updated.getId(), updated.getName(), updated.getSlug(), updated.getDescription());
+		return new OrganizationResponse(updated.getId(), updated.getName(), updated.getSlug(),
+				updated.getDescription());
 	}
 
 	@Override
@@ -222,6 +274,105 @@ public class OrganizationServiceImpl implements OrganizationService {
 				.entityType("ORGANIZATION_MEMBER").entityId(member.getId().toString())
 				.details("Removed user " + userId + " from organization " + organizationId)
 				.timestamp(LocalDateTime.now()).build());
+	}
+
+	@Override
+	public OrganizationInvitationResponse createInvitation(UUID organizationId,
+			CreateOrganizationInvitationRequest request, UUID actorUserId, boolean superAdmin) {
+		Organization organization = organizationRepository.findById(organizationId)
+				.orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+		accessService.assertCanManageMembers(actorUserId, organization, superAdmin);
+
+		if (request == null || request.role() == null) {
+			throw new BadRequestException("Invitation email and role are required");
+		}
+		if (request.role() == OrganizationRole.OWNER) {
+			throw new BadRequestException("Owner assignment requires an ownership transfer flow");
+		}
+
+		String normalizedEmail = normalizeInvitationEmail(request.email());
+		LocalDateTime now = LocalDateTime.now();
+
+		invitationRepository.findByOrganizationIdAndNormalizedEmailAndStatus(
+				organizationId, normalizedEmail, OrganizationInvitationStatus.PENDING)
+				.ifPresent(existing -> expireOrRejectPendingInvitation(existing, now));
+
+		if (isExistingMemberByEmail(organizationId, normalizedEmail)) {
+			throw new BadRequestException("User already belongs to organization");
+		}
+
+		IssuedInvitationToken issuedToken = invitationTokenService.issue();
+		OrganizationInvitation invitation = OrganizationInvitation.createPending(
+				organizationId, normalizedEmail, request.role(), actorUserId, issuedToken.tokenHash(),
+				now.plusHours(invitationProperties.getExpiryHours()), now);
+
+		try {
+			OrganizationInvitation saved = invitationRepository.saveAndFlush(invitation);
+			eventPublisher.publishOrganizationInvitationAfterCommit(saved.getId(), saved.getNormalizedEmail(),
+					organization.getName(), issuedToken.rawToken());
+			publishInvitationAuditAfterCommit(
+					"organization.invitation.created", "ORGANIZATION_INVITATION_CREATE",
+					actorUserId, saved.getId(), "Organization invitation created for organization " + organizationId);
+			return toInvitationResponse(saved);
+		} catch (DataIntegrityViolationException ex) {
+			throw new BadRequestException("A pending invitation already exists for this email");
+		}
+	}
+
+	@Override
+	public List<OrganizationInvitationResponse> getInvitations(UUID organizationId, UUID actorUserId,
+			boolean superAdmin) {
+		Organization organization = organizationRepository.findById(organizationId)
+				.orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+		accessService.assertCanManageMembers(actorUserId, organization, superAdmin);
+
+		LocalDateTime now = LocalDateTime.now();
+		List<OrganizationInvitation> invitations = invitationRepository.findByOrganizationIdOrderByCreatedAtDesc(organizationId);
+		for (OrganizationInvitation invitation : invitations) {
+			if (invitation.isExpiredAt(now)) {
+				invitation.markExpired(now);
+			}
+		}
+
+		return invitations.stream().map(this::toInvitationResponse).toList();
+	}
+
+	private void expireOrRejectPendingInvitation(OrganizationInvitation invitation, LocalDateTime now) {
+		if (!invitation.isExpiredAt(now)) {
+			throw new BadRequestException("A pending invitation already exists for this email");
+		}
+		invitation.markExpired(now);
+		invitationRepository.saveAndFlush(invitation);
+	}
+
+	private boolean isExistingMemberByEmail(UUID organizationId, String normalizedEmail) {
+		UserSummaryPageResponse users = userClient.getUsers(0, 200, normalizedEmail);
+		if (users == null || users.content() == null || users.content().isEmpty()) {
+			return false;
+		}
+
+		return users.content().stream()
+				.filter(user -> user != null && user.id() != null && user.email() != null)
+				.filter(user -> normalizedEmail.equals(user.email().trim().toLowerCase(Locale.ROOT)))
+				.anyMatch(user -> memberRepository.existsByOrganizationIdAndUserId(organizationId, user.id()));
+	}
+
+	private String normalizeInvitationEmail(String email) {
+		if (email == null || email.isBlank()) {
+			throw new BadRequestException("Invitation email is required");
+		}
+		String normalized = email.trim().toLowerCase(Locale.ROOT);
+		if (normalized.length() > 255) {
+			throw new BadRequestException("Invitation email must not exceed 255 characters");
+		}
+		return normalized;
+	}
+
+	private OrganizationInvitationResponse toInvitationResponse(OrganizationInvitation invitation) {
+		return new OrganizationInvitationResponse(
+				invitation.getId(), invitation.getOrganizationId(), invitation.getNormalizedEmail(), invitation.getRole(),
+				invitation.getStatus(), invitation.getInviterId(), invitation.getExpiresAt(), invitation.getLastSentAt(),
+				invitation.getCreatedAt());
 	}
 
 	@Override

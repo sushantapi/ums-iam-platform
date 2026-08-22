@@ -4,7 +4,9 @@ import java.util.List;
 import java.util.UUID;
 
 import com.ums.org.dto.AddMemberRequest;
+import com.ums.org.dto.CreateOrganizationInvitationRequest;
 import com.ums.org.dto.CreateOrganizationRequest;
+import com.ums.org.dto.OrganizationInvitationResponse;
 import com.ums.org.dto.OrganizationMemberResponse;
 import com.ums.org.dto.OrganizationResponse;
 import com.ums.org.dto.UpdateOrganizationRequest;
@@ -25,6 +27,11 @@ public interface OrganizationService {
 	List<OrganizationMemberResponse> getMembers(UUID organizationId, UUID actorUserId, boolean superAdmin);
 
 	void removeMember(UUID organizationId, UUID userId, UUID actorUserId, boolean superAdmin);
+
+	OrganizationInvitationResponse createInvitation(UUID organizationId, CreateOrganizationInvitationRequest request,
+			UUID actorUserId, boolean superAdmin);
+
+	List<OrganizationInvitationResponse> getInvitations(UUID organizationId, UUID actorUserId, boolean superAdmin);
 
 	OrganizationAdminPageResponse listOrganizations(int page, int size, String search);
 
