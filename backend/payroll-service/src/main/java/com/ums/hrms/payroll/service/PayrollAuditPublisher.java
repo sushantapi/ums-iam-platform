@@ -11,6 +11,7 @@ import com.ums.events.event.AuditEvent;
 import com.ums.events.publisher.AuditPublisher;
 import com.ums.hrms.payroll.entity.PayrollRun;
 import com.ums.hrms.payroll.entity.SalaryStructure;
+import com.ums.hrms.payroll.entity.StatutoryPolicy;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 public class PayrollAuditPublisher {
 
     static final String SALARY_STRUCTURE_CREATED = "hrms.payroll.salary-structure.created";
+    static final String STATUTORY_POLICY_CREATED = "hrms.payroll.statutory-policy.created";
     static final String PAYROLL_RUN_PROCESSED = "hrms.payroll.run.processed";
     static final String PAYROLL_RUN_FINALIZED = "hrms.payroll.run.finalized";
 
@@ -41,6 +43,24 @@ public class PayrollAuditPublisher {
                                 structure.getEffectiveFrom(),
                                 structure.getEffectiveTo(),
                                 structure.isActive()));
+        publishAfterCommit(event);
+    }
+
+    public void publishStatutoryPolicyCreated(StatutoryPolicy policy, UUID actorUserId) {
+        AuditEvent event = baseEvent(
+                STATUTORY_POLICY_CREATED,
+                "CREATE",
+                "STATUTORY_POLICY",
+                policy.getId(),
+                actorUserId,
+                "Statutory policy created; organizationId=%s; countryCode=%s; policyVersion=%s; effectiveFrom=%s; effectiveTo=%s; active=%s"
+                        .formatted(
+                                policy.getOrganizationId(),
+                                policy.getCountryCode(),
+                                policy.getPolicyVersion(),
+                                policy.getEffectiveFrom(),
+                                policy.getEffectiveTo(),
+                                policy.isActive()));
         publishAfterCommit(event);
     }
 

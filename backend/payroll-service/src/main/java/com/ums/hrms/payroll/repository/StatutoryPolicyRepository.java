@@ -17,6 +17,11 @@ public interface StatutoryPolicyRepository extends JpaRepository<StatutoryPolicy
             UUID id,
             UUID organizationId);
 
+    boolean existsByOrganizationIdAndCountryCodeAndPolicyVersion(
+            UUID organizationId,
+            String countryCode,
+            String policyVersion);
+
     List<StatutoryPolicy> findAllByOrganizationIdAndCountryCodeOrderByEffectiveFromDesc(
             UUID organizationId,
             String countryCode);
