@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   processRun: vi.fn(),
   finalizeRun: vi.fn(),
   payslip: vi.fn(),
+  downloadPayslipPdf: vi.fn(),
 }));
 
 vi.mock("../../lib/auth/capabilities", () => ({
@@ -43,6 +44,7 @@ vi.mock("./payrollApi", () => ({
     processRun: mocks.processRun,
     finalizeRun: mocks.finalizeRun,
     payslip: mocks.payslip,
+    downloadPayslipPdf: mocks.downloadPayslipPdf,
   },
 }));
 
@@ -81,6 +83,13 @@ const processedRun = {
   processedAt: "2026-08-20T10:00:00",
 };
 
+const finalizedRun = {
+  ...processedRun,
+  status: "FINALIZED",
+  finalizedBy: "user-1",
+  finalizedAt: "2026-08-20T11:00:00",
+};
+
 const entry = {
   id: "entry-1",
   payrollRunId: "run-1",
@@ -112,9 +121,21 @@ describe("PayrollPage", () => {
     mocks.salaryStructures.mockResolvedValue([]);
     mocks.entries.mockResolvedValue([]);
     mocks.payslip.mockResolvedValue(entry);
+    mocks.downloadPayslipPdf.mockResolvedValue({
+      blob: new Blob(["pdf"], { type: "application/pdf" }),
+      filename: "payslip-EMP-001-2026-08.pdf",
+    });
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => "blob:payslip"),
+      revokeObjectURL: vi.fn(),
+    });
   });
 
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it("offers process only for a DRAFT payroll run", async () => {
     mocks.runs.mockResolvedValue([draftRun]);
@@ -136,12 +157,7 @@ describe("PayrollPage", () => {
   it("offers finalize for PROCESSED and renders the backend payslip snapshot", async () => {
     mocks.runs.mockResolvedValue([processedRun]);
     mocks.entries.mockResolvedValue([entry]);
-    mocks.finalizeRun.mockResolvedValue({
-      ...processedRun,
-      status: "FINALIZED",
-      finalizedBy: "user-1",
-      finalizedAt: "2026-08-20T11:00:00",
-    });
+    mocks.finalizeRun.mockResolvedValue(finalizedRun);
 
     render(<PayrollPage />);
 
@@ -160,11 +176,38 @@ describe("PayrollPage", () => {
 
     expect(await screen.findByText("Payslip snapshot")).toBeInTheDocument();
     expect(screen.getAllByText(/55,000/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Download PDF" })).not.toBeInTheDocument();
     expect(mocks.payslip).toHaveBeenCalledWith("entry-1", "org-1");
 
     fireEvent.click(screen.getByRole("button", { name: "Finalize run" }));
     await waitFor(() =>
       expect(mocks.finalizeRun).toHaveBeenCalledWith("run-1", "org-1"),
     );
+  });
+
+  it("downloads PDF only for a FINALIZED payroll run", async () => {
+    mocks.runs.mockResolvedValue([finalizedRun]);
+    mocks.entries.mockResolvedValue([entry]);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    render(<PayrollPage />);
+
+    const monthCell = await screen.findByText("2026-08");
+    fireEvent.click(monthCell.closest("tr")!);
+
+    const grossCell = await screen.findByText(/60,000/);
+    fireEvent.click(grossCell.closest("tr")!);
+
+    const download = await screen.findByRole("button", { name: "Download PDF" });
+    fireEvent.click(download);
+
+    await waitFor(() =>
+      expect(mocks.downloadPayslipPdf).toHaveBeenCalledWith("entry-1", "org-1"),
+    );
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    expect(clickSpy).toHaveBeenCalled();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:payslip");
+
+    clickSpy.mockRestore();
   });
 });
