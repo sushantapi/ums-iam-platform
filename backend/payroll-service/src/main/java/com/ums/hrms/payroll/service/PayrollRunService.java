@@ -21,9 +21,11 @@ import com.ums.hrms.payroll.entity.PayrollEntry;
 import com.ums.hrms.payroll.entity.PayrollRun;
 import com.ums.hrms.payroll.entity.PayrollRunStatus;
 import com.ums.hrms.payroll.entity.SalaryStructure;
+import com.ums.hrms.payroll.entity.StatutoryPolicy;
 import com.ums.hrms.payroll.repository.PayrollEntryRepository;
 import com.ums.hrms.payroll.repository.PayrollRunRepository;
 import com.ums.hrms.payroll.repository.SalaryStructureRepository;
+import com.ums.hrms.payroll.repository.StatutoryPolicyRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -35,8 +37,10 @@ public class PayrollRunService {
     private final PayrollRunRepository payrollRunRepository;
     private final PayrollEntryRepository payrollEntryRepository;
     private final SalaryStructureRepository salaryStructureRepository;
+    private final StatutoryPolicyRepository statutoryPolicyRepository;
     private final OrganizationAccessService organizationAccessService;
     private final PayrollAuditPublisher payrollAuditPublisher;
+    private final StatutoryPayrollCalculator statutoryPayrollCalculator;
 
     public PayrollRunResponse create(
             CreatePayrollRunRequest request,
@@ -107,9 +111,18 @@ public class PayrollRunService {
                     "No active salary structures found for payroll month");
         }
 
+        StatutoryPolicy statutoryPolicy = resolveStatutoryPolicy(
+                organizationId,
+                effectiveOn,
+                structures);
+
         LocalDateTime generatedAt = LocalDateTime.now();
         List<PayrollEntry> entries = structures.stream()
-                .map(structure -> createEntry(run, structure, generatedAt))
+                .map(structure -> createEntry(
+                        run,
+                        structure,
+                        statutoryPolicy,
+                        generatedAt))
                 .toList();
         payrollEntryRepository.saveAll(entries);
 
@@ -180,11 +193,19 @@ public class PayrollRunService {
     private PayrollEntry createEntry(
             PayrollRun run,
             SalaryStructure structure,
+            StatutoryPolicy statutoryPolicy,
             LocalDateTime generatedAt) {
         BigDecimal basicPay = money(structure.getBasicPay());
         BigDecimal allowanceTotal = money(structure.getAllowanceTotal());
-        BigDecimal deductionTotal = money(structure.getDeductionTotal());
+        BigDecimal configuredDeductionTotal = money(structure.getDeductionTotal());
         BigDecimal grossPay = money(basicPay.add(allowanceTotal));
+
+        StatutoryPayrollCalculation statutoryCalculation =
+                statutoryPayrollCalculator.calculate(structure, statutoryPolicy);
+
+        BigDecimal deductionTotal = money(
+                configuredDeductionTotal.add(
+                        statutoryCalculation.statutoryEmployeeDeductionTotal()));
         BigDecimal netPay = money(grossPay.subtract(deductionTotal));
 
         if (netPay.signum() < 0) {
@@ -201,11 +222,60 @@ public class PayrollRunService {
         entry.setBasicPay(basicPay);
         entry.setAllowanceTotal(allowanceTotal);
         entry.setGrossPay(grossPay);
-        entry.setConfiguredDeductionTotal(deductionTotal);
+        entry.setConfiguredDeductionTotal(configuredDeductionTotal);
         entry.setDeductionTotal(deductionTotal);
         entry.setNetPay(netPay);
+
+        entry.setStatutoryPolicyId(statutoryCalculation.statutoryPolicyId());
+        entry.setStatutoryPolicyVersion(statutoryCalculation.statutoryPolicyVersion());
+        entry.setPfContributionWage(statutoryCalculation.pfContributionWage());
+        entry.setEmployeePfContribution(statutoryCalculation.employeePfContribution());
+        entry.setEmployerPfContribution(statutoryCalculation.employerPfContribution());
+        entry.setEsiContributionWage(statutoryCalculation.esiContributionWage());
+        entry.setEmployeeEsiContribution(statutoryCalculation.employeeEsiContribution());
+        entry.setEmployerEsiContribution(statutoryCalculation.employerEsiContribution());
+        entry.setTdsAmount(statutoryCalculation.tdsAmount());
+        entry.setStatutoryEmployeeDeductionTotal(
+                statutoryCalculation.statutoryEmployeeDeductionTotal());
+        entry.setEmployerStatutoryContributionTotal(
+                statutoryCalculation.employerStatutoryContributionTotal());
+        entry.setTaxRegime(statutoryCalculation.taxRegime());
+
         entry.setGeneratedAt(generatedAt);
         return entry;
+    }
+
+    private StatutoryPolicy resolveStatutoryPolicy(
+            UUID organizationId,
+            LocalDate effectiveOn,
+            List<SalaryStructure> structures) {
+        boolean policyRequired = structures.stream()
+                .anyMatch(structure ->
+                        structure.isPfApplicable() || structure.isEsiApplicable());
+
+        if (!policyRequired) {
+            return null;
+        }
+
+        List<StatutoryPolicy> policies = statutoryPolicyRepository
+                .findAllActiveEffectiveOn(
+                        organizationId,
+                        "IN",
+                        effectiveOn);
+
+        if (policies.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "No active statutory policy found for payroll month");
+        }
+
+        if (policies.size() != 1) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Multiple active statutory policies found for payroll month");
+        }
+
+        return policies.getFirst();
     }
 
     private BigDecimal money(BigDecimal value) {
