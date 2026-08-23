@@ -17,8 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.ums.auth.client.AuthorizationClient;
+import com.ums.auth.client.OrganizationSecurityPolicyClient;
 import com.ums.auth.dto.LoginRequest;
 import com.ums.auth.dto.MfaChallengeVerifyRequest;
+import com.ums.auth.dto.OrganizationSecurityPolicyResponse;
 import com.ums.auth.dto.RefreshTokenRequest;
 import com.ums.auth.dto.RegisterRequest;
 import com.ums.auth.dto.TokenResponse;
@@ -35,6 +37,7 @@ import com.ums.events.event.AuditEvent;
 import com.ums.events.event.user.UserRegisteredEvent;
 import com.ums.events.publisher.AuditPublisher;
 
+import feign.FeignException;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +60,7 @@ public class AuthService {
 	private final PasswordEncoder passwordEncoder;
 	private final AuditPublisher auditPublisher;
 	private final AuthorizationClient authorizationClient;
+	private final OrganizationSecurityPolicyClient organizationSecurityPolicyClient;
 	private final JwtService jwtService;
 	private final SessionRepository sessionRepository;
 	private final TokenBlacklistService blacklistService;
@@ -162,6 +166,10 @@ public class AuthService {
 		user.setFailedLoginAttempts(0);
 		user.setLockedUntil(null);
 
+		OrganizationSecurityPolicyResponse organizationPolicy = request.getOrganizationId() == null
+				? null
+				: resolveOrganizationPolicy(request.getOrganizationId());
+
 		if (user.isMfaEnabled()) {
 			userRepository.save(user);
 			String challengeToken = jwtService.generateMfaChallengeToken(
@@ -179,6 +187,33 @@ public class AuthService {
 		}
 
 		user.setLastLoginAt(Instant.now());
+
+		if (organizationPolicy != null && organizationPolicy.requireMfa()) {
+			TokenResponse response = createLoginSession(
+					user,
+					ipAddress,
+					request.getDeviceInfo(),
+					request.getClient(),
+					null);
+			response.setMfaEnrollmentRequired(true);
+			response.setRequiredOrganizationId(request.getOrganizationId());
+
+			publishAuditEvent(AuditEvent.builder()
+					.eventType("auth.organization.mfa.enrollment.required")
+					.serviceName("authentication-service")
+					.userId(user.getId().toString())
+					.userEmail(user.getEmail())
+					.action("ORGANIZATION_MFA_ENROLLMENT_REQUIRED")
+					.entityType("ORGANIZATION")
+					.entityId(request.getOrganizationId().toString())
+					.details("Organization access requires MFA enrollment")
+					.ipAddress(ipAddress)
+					.timestamp(LocalDateTime.now())
+					.build());
+
+			return response;
+		}
+
 		return createLoginSession(
 				user,
 				ipAddress,
@@ -220,6 +255,11 @@ public class AuthService {
 			throw new AuthException("Invalid MFA challenge", "INVALID_MFA_CHALLENGE");
 		}
 
+		UUID organizationId = parseOptionalOrganizationId(claims.get("organizationId", String.class));
+		if (organizationId != null) {
+			resolveOrganizationPolicy(organizationId);
+		}
+
 		try {
 			mfaService.verifyLoginFactor(userId, request.getTotpCode(), request.getRecoveryCode(), ipAddress);
 		} catch (AuthException ex) {
@@ -244,7 +284,6 @@ public class AuthService {
 		user.setLockedUntil(null);
 		user.setLastLoginAt(Instant.now());
 
-		UUID organizationId = parseOptionalOrganizationId(claims.get("organizationId", String.class));
 		TokenResponse response = createLoginSession(
 				user,
 				ipAddress,
@@ -517,6 +556,37 @@ public class AuthService {
 			return UUID.fromString(organizationId);
 		} catch (IllegalArgumentException ex) {
 			throw new AuthException("Invalid MFA challenge", "INVALID_MFA_CHALLENGE");
+		}
+	}
+
+	private OrganizationSecurityPolicyResponse resolveOrganizationPolicy(UUID organizationId) {
+		try {
+			OrganizationSecurityPolicyResponse policy =
+					organizationSecurityPolicyClient.getSecurityPolicy(organizationId);
+			if (policy == null || !organizationId.equals(policy.organizationId())) {
+				throw new UmsException(
+						"Organization security policy response is invalid",
+						HttpStatus.SERVICE_UNAVAILABLE,
+						"ORGANIZATION_POLICY_UNAVAILABLE");
+			}
+			if (!policy.active()) {
+				throw new AuthException("Organization is not active", "ORGANIZATION_INACTIVE");
+			}
+			return policy;
+		} catch (FeignException.NotFound ex) {
+			throw new AuthException("Organization not found", "ORGANIZATION_NOT_FOUND");
+		} catch (AuthException | UmsException ex) {
+			throw ex;
+		} catch (Exception ex) {
+			log.warn(
+					"Organization security policy unavailable organizationId={} failureType={}",
+					organizationId,
+					ex.getClass().getName());
+			throw new UmsException(
+					"Organization security policy is unavailable",
+					ex,
+					HttpStatus.SERVICE_UNAVAILABLE,
+					"ORGANIZATION_POLICY_UNAVAILABLE");
 		}
 	}
 

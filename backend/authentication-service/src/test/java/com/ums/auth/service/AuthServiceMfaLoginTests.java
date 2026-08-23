@@ -27,8 +27,10 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.ums.auth.client.AuthorizationClient;
+import com.ums.auth.client.OrganizationSecurityPolicyClient;
 import com.ums.auth.dto.LoginRequest;
 import com.ums.auth.dto.MfaChallengeVerifyRequest;
+import com.ums.auth.dto.OrganizationSecurityPolicyResponse;
 import com.ums.auth.dto.UserAuthorizationResponse;
 import com.ums.auth.entity.Session;
 import com.ums.auth.entity.User;
@@ -47,6 +49,7 @@ class AuthServiceMfaLoginTests {
 	@Mock private PasswordEncoder passwordEncoder;
 	@Mock private AuditPublisher auditPublisher;
 	@Mock private AuthorizationClient authorizationClient;
+	@Mock private OrganizationSecurityPolicyClient organizationSecurityPolicyClient;
 	@Mock private JwtService jwtService;
 	@Mock private SessionRepository sessionRepository;
 	@Mock private TokenBlacklistService blacklistService;
@@ -62,6 +65,8 @@ class AuthServiceMfaLoginTests {
 		LoginRequest request = loginRequest();
 		when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
 		when(passwordEncoder.matches(request.getPassword(), user.getPasswordHash())).thenReturn(true);
+		when(organizationSecurityPolicyClient.getSecurityPolicy(request.getOrganizationId()))
+				.thenReturn(new OrganizationSecurityPolicyResponse(request.getOrganizationId(), true, true));
 		when(jwtService.generateMfaChallengeToken(
 				user.getId().toString(), request.getOrganizationId(), request.getClient(), request.getDeviceInfo()))
 				.thenReturn("signed-mfa-challenge");
@@ -89,6 +94,8 @@ class AuthServiceMfaLoginTests {
 		when(jwtService.validateAndExtract("signed-mfa-challenge")).thenReturn(claims);
 		when(blacklistService.isMfaChallengeConsumed("challenge-jti")).thenReturn(false);
 		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+		when(organizationSecurityPolicyClient.getSecurityPolicy(organizationId))
+				.thenReturn(new OrganizationSecurityPolicyResponse(organizationId, true, true));
 		when(blacklistService.consumeMfaChallenge(eq("challenge-jti"), anyLong())).thenReturn(true);
 		when(jwtService.getRefreshTokenExpiryMs()).thenReturn(604800000L);
 		when(jwtService.generateRefreshToken(any(), any())).thenReturn("refresh-token");
