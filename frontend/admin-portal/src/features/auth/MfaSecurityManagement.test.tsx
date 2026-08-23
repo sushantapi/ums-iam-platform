@@ -2,6 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -49,7 +50,11 @@ describe("MFA security management", () => {
       recoveryCodes: ["NEW1-AAAA-BBBB-CCCC", "NEW2-DDDD-EEEE-FFFF"],
     });
 
-    render(<MfaSecurityPage />);
+    render(
+      <MemoryRouter>
+        <MfaSecurityPage />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText("Enabled")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Rotate recovery codes" }));
@@ -89,7 +94,11 @@ describe("MFA security management", () => {
       email: "user@example.test",
     });
 
-    render(<MfaSecurityPage />);
+    render(
+      <MemoryRouter>
+        <MfaSecurityPage />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText("Enabled")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Disable MFA" }));

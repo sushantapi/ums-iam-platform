@@ -11,6 +11,11 @@ import authService from "../../api/services/authService";
 import type { ApiErrorResponse } from "../../api/apiClient";
 import { useAuthStore } from "../../store/authStore";
 import { beginMfaChallenge } from "./mfaChallengeState";
+import {
+  beginMfaEnrollment,
+  clearPendingMfaEnrollment,
+  getPendingMfaEnrollment,
+} from "./mfaEnrollmentState";
 
 function getLoginError(error: unknown): string {
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
@@ -38,22 +43,33 @@ function safeReturnPath(state: unknown): string {
     : "/dashboard";
 }
 
+function suggestedOrganizationId(state: unknown): string {
+  const organizationId =
+    state && typeof state === "object" && "organizationId" in state
+      ? (state as { organizationId?: unknown }).organizationId
+      : undefined;
+
+  return typeof organizationId === "string" ? organizationId : "";
+}
+
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const from = safeReturnPath(location.state);
+  const initialOrganizationId = suggestedOrganizationId(location.state);
 
   const accessToken = useAuthStore((state) => state.accessToken);
   const setSession = useAuthStore((state) => state.setSession);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [organizationId, setOrganizationId] = useState("");
+  const [organizationId, setOrganizationId] = useState(initialOrganizationId);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (accessToken) {
-    return <Navigate to={from} replace />;
+  if (accessToken && !submitting) {
+    const pendingEnrollment = getPendingMfaEnrollment();
+    return <Navigate to={pendingEnrollment ? "/security" : from} replace />;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -79,6 +95,7 @@ export function LoginPage() {
       });
 
       if (response.mfaRequired) {
+        clearPendingMfaEnrollment();
         beginMfaChallenge(response);
         navigate("/mfa-challenge", { replace: true, state: { from } });
         return;
@@ -88,6 +105,20 @@ export function LoginPage() {
         throw new Error("Login response did not contain session tokens.");
       }
 
+      if (response.mfaEnrollmentRequired) {
+        if (!response.requiredOrganizationId) {
+          throw new Error(
+            "Login response did not identify the organization requiring MFA.",
+          );
+        }
+
+        beginMfaEnrollment(response.requiredOrganizationId, from);
+        setSession(response);
+        navigate("/security", { replace: true });
+        return;
+      }
+
+      clearPendingMfaEnrollment();
       setSession(response);
       navigate(from, { replace: true });
     } catch (loginError) {

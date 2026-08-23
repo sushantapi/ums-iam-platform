@@ -5,6 +5,7 @@ import {
 import { RequireCapability } from "../../lib/auth/RequireCapability";
 import { OrganizationDetailPage } from "./OrganizationDetailPage";
 import { OrganizationMembersPage } from "./OrganizationMembersPage";
+import { OrganizationSecurityPage } from "./OrganizationSecurityPage";
 import { OrganizationsPage } from "./OrganizationsPage";
 
 export const organizationRoutes = (
@@ -38,6 +39,14 @@ export const organizationRoutes = (
       element={
         <RequireCapability capability="organizations.read">
           <OrganizationMembersPage />
+        </RequireCapability>
+      }
+    />
+    <Route
+      path="/organizations/:organizationId/security"
+      element={
+        <RequireCapability capability="organizations.read">
+          <OrganizationSecurityPage />
         </RequireCapability>
       }
     />

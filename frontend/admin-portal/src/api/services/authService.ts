@@ -36,6 +36,8 @@ export interface TokenResponse {
   mfaRequired?: boolean;
   mfaChallengeToken?: string;
   mfaChallengeExpiresIn?: number;
+  mfaEnrollmentRequired?: boolean;
+  requiredOrganizationId?: string;
 }
 
 export interface MfaChallengeVerifyRequest {
