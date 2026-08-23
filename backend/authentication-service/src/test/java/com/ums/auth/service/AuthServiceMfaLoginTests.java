@@ -20,6 +20,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -112,7 +113,9 @@ class AuthServiceMfaLoginTests {
 		assertThat(response.getAccessToken()).isEqualTo("access-token");
 		assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
 		verify(mfaService).verifyLoginFactor(user.getId(), "123456", null, "127.0.0.1");
-		verify(sessionRepository).save(any(Session.class));
+		ArgumentCaptor<Session> sessionCaptor = ArgumentCaptor.forClass(Session.class);
+		verify(sessionRepository).save(sessionCaptor.capture());
+		assertThat(sessionCaptor.getValue().isMfaVerified()).isTrue();
 	}
 
 	@Test

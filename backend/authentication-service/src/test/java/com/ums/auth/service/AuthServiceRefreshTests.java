@@ -3,6 +3,8 @@ package com.ums.auth.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -22,6 +24,8 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.ums.auth.client.AuthorizationClient;
+import com.ums.auth.client.OrganizationSecurityPolicyClient;
+import com.ums.auth.dto.OrganizationSecurityPolicyResponse;
 import com.ums.auth.dto.RefreshTokenRequest;
 import com.ums.auth.dto.UserAuthorizationResponse;
 import com.ums.auth.entity.Session;
@@ -44,6 +48,7 @@ class AuthServiceRefreshTests {
 	@Mock private PasswordEncoder passwordEncoder;
 	@Mock private AuditPublisher auditPublisher;
 	@Mock private AuthorizationClient authorizationClient;
+	@Mock private OrganizationSecurityPolicyClient organizationSecurityPolicyClient;
 	@Mock private JwtService jwtService;
 	@Mock private SessionRepository sessionRepository;
 	@Mock private TokenBlacklistService blacklistService;
@@ -131,6 +136,64 @@ class AuthServiceRefreshTests {
 		assertThatThrownBy(() -> authService.refreshToken(request("old-token")))
 				.isInstanceOf(AuthException.class)
 				.extracting("errorCode").isEqualTo("REFRESH_TOKEN_REPLAYED");
+	}
+
+	@Test
+	void organizationRefreshRequiresMfaVerifiedSessionWhenPolicyRequiresMfa() {
+		UUID userId = UUID.randomUUID();
+		UUID sessionId = UUID.randomUUID();
+		UUID organizationId = UUID.randomUUID();
+		String oldToken = "old-refresh-token";
+		User user = activeUser(userId);
+		Session session = activeSession(sessionId, user, oldToken);
+		session.setOrganizationId(organizationId);
+		session.setMfaVerified(false);
+
+		when(jwtService.validateAndExtract(oldToken)).thenReturn(claims("REFRESH", userId, sessionId));
+		when(sessionRepository.findByIdForRefresh(sessionId)).thenReturn(Optional.of(session));
+		when(organizationSecurityPolicyClient.getSecurityPolicy(organizationId))
+				.thenReturn(new OrganizationSecurityPolicyResponse(organizationId, true, true));
+
+		assertThatThrownBy(() -> authService.refreshToken(request(oldToken)))
+				.isInstanceOf(AuthException.class)
+				.extracting("errorCode").isEqualTo("ORGANIZATION_MFA_REQUIRED");
+
+		assertThat(session.isRevoked()).isTrue();
+		assertThat(session.getRevokedAt()).isNotNull();
+		verify(blacklistService).revokeSession(org.mockito.ArgumentMatchers.eq(sessionId), anyLong());
+		verify(sessionRepository).save(session);
+		verify(jwtService, never()).generateRefreshToken(any(), any());
+	}
+
+	@Test
+	void organizationRefreshSucceedsForMfaVerifiedSessionWhenPolicyRequiresMfa() {
+		UUID userId = UUID.randomUUID();
+		UUID sessionId = UUID.randomUUID();
+		UUID organizationId = UUID.randomUUID();
+		String oldToken = "old-refresh-token";
+		String newToken = "new-refresh-token";
+		User user = activeUser(userId);
+		Session session = activeSession(sessionId, user, oldToken);
+		session.setOrganizationId(organizationId);
+		session.setMfaVerified(true);
+
+		when(jwtService.validateAndExtract(oldToken)).thenReturn(claims("REFRESH", userId, sessionId));
+		when(sessionRepository.findByIdForRefresh(sessionId)).thenReturn(Optional.of(session));
+		when(organizationSecurityPolicyClient.getSecurityPolicy(organizationId))
+				.thenReturn(new OrganizationSecurityPolicyResponse(organizationId, true, true));
+		when(jwtService.generateRefreshToken(userId.toString(), sessionId)).thenReturn(newToken);
+		when(jwtService.getRefreshTokenExpiryMs()).thenReturn(604800000L);
+		when(authorizationClient.getAuthorization(userId, "PLATFORM", "*"))
+				.thenReturn(UserAuthorizationResponse.builder().roles(List.of()).permissions(List.of()).build());
+		when(authorizationClient.getAuthorization(userId, "ORG", organizationId.toString()))
+				.thenReturn(UserAuthorizationResponse.builder().roles(List.of()).permissions(List.of()).build());
+		when(jwtService.generateAccessToken(any(), any(), any(), any(), any())).thenReturn("new-access-token");
+
+		var response = authService.refreshToken(request(oldToken));
+
+		assertThat(response.getRefreshToken()).isEqualTo(newToken);
+		assertThat(session.isRevoked()).isFalse();
+		verify(blacklistService, never()).revokeSession(any(), anyLong());
 	}
 
 	@Test
