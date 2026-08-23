@@ -14,6 +14,7 @@ import com.ums.auth.dto.ForgotPasswordRequest;
 import com.ums.auth.dto.LoginRequest;
 import com.ums.auth.dto.MfaChallengeVerifyRequest;
 import com.ums.auth.dto.MfaRecoveryCodesResponse;
+import com.ums.auth.dto.MfaSensitiveActionRequest;
 import com.ums.auth.dto.MfaStatusResponse;
 import com.ums.auth.dto.MfaTotpConfirmRequest;
 import com.ums.auth.dto.MfaTotpSetupResponse;
@@ -96,6 +97,25 @@ public class AuthController {
 		MfaRecoveryCodesResponse response =
 				mfaService.confirmTotp(userId(authentication), request, getClientIp(httpRequest));
 		return ResponseEntity.ok(ApiResponse.ok("MFA enabled. Save the recovery codes now.", response));
+	}
+
+	@PostMapping("/mfa/recovery-codes/rotate")
+	public ResponseEntity<ApiResponse<MfaRecoveryCodesResponse>> rotateRecoveryCodes(
+			@Valid @RequestBody MfaSensitiveActionRequest request,
+			Authentication authentication,
+			HttpServletRequest httpRequest) {
+		MfaRecoveryCodesResponse response =
+				mfaService.rotateRecoveryCodes(userId(authentication), request, getClientIp(httpRequest));
+		return ResponseEntity.ok(ApiResponse.ok("Recovery codes rotated. Save the new codes now.", response));
+	}
+
+	@PostMapping("/mfa/disable")
+	public ResponseEntity<ApiResponse<Void>> disableMfa(
+			@Valid @RequestBody MfaSensitiveActionRequest request,
+			Authentication authentication,
+			HttpServletRequest httpRequest) {
+		mfaService.disableMfa(userId(authentication), request, getClientIp(httpRequest));
+		return ResponseEntity.ok(ApiResponse.ok("MFA disabled. Sign in again to continue.", null));
 	}
 
 	@GetMapping("/mfa/status")

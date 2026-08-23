@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ums.auth.config.SecurityConfig;
 import com.ums.auth.controller.AdminSessionController;
 import com.ums.auth.controller.AuthController;
+import com.ums.auth.dto.MfaRecoveryCodesResponse;
 import com.ums.auth.dto.TokenResponse;
 import com.ums.auth.security.InternalServiceAuthenticationFilter;
 import com.ums.auth.security.TrustedGatewayAuthenticationFilter;
@@ -108,6 +109,36 @@ class AuthenticationSecurityBoundaryTests {
 	}
 
 	@Test
+	void mfaManagementRoutesRequireTrustedGatewayIdentity() throws Exception {
+		String requestBody = "{\"password\":\"Password@123\",\"totpCode\":\"123456\"}";
+		UUID userId = UUID.randomUUID();
+		when(mfaService.rotateRecoveryCodes(any(), any(), any()))
+				.thenReturn(MfaRecoveryCodesResponse.builder().recoveryCodes(List.of("AAAA-BBBB-CCCC-DDDD")).build());
+
+		mockMvc.perform(post("/api/v1/auth/mfa/recovery-codes/rotate")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestBody))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(post("/api/v1/auth/mfa/disable")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestBody))
+				.andExpect(status().isForbidden());
+
+		mockMvc.perform(post("/api/v1/auth/mfa/recovery-codes/rotate")
+				.header(AUTHENTICATED_USER_HEADER, userId.toString())
+				.header(GATEWAY_SECRET_HEADER, TEST_GATEWAY_SECRET)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestBody))
+				.andExpect(status().isOk());
+		mockMvc.perform(post("/api/v1/auth/mfa/disable")
+				.header(AUTHENTICATED_USER_HEADER, userId.toString())
+				.header(GATEWAY_SECRET_HEADER, TEST_GATEWAY_SECRET)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestBody))
+				.andExpect(status().isOk());
+	}
+
+	@Test
 	void forgotPasswordUsesIdenticalOutwardResponseForKnownAndUnknownEmails() throws Exception {
 		doNothing().when(passwordRecoveryService).requestPasswordReset(any(), any());
 
@@ -138,8 +169,6 @@ class AuthenticationSecurityBoundaryTests {
 		assertThat(knownBody.get("errorCode")).isNull();
 		assertThat(unknownBody.get("errorCode")).isNull();
 
-		// ApiResponse.timestamp is intentionally request-specific. Compare the complete
-		// outward contract after removing only that non-deterministic field.
 		knownBody.remove("timestamp");
 		unknownBody.remove("timestamp");
 		assertThat(knownBody).isEqualTo(unknownBody);
