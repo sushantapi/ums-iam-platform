@@ -93,6 +93,31 @@ function Assert-Success($Response, [string]$Step) {
     }
 }
 
+function Wait-ForUserProfileReadiness {
+    param(
+        [Parameter(Mandatory = $true)][string]$Token,
+        [int]$MaxAttempts = 40,
+        [int]$DelayMilliseconds = 250
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        $profile = Invoke-UmsApi -Method GET -Path "/api/v1/users/me" -Token $Token
+        if ($profile.Status -ge 200 -and $profile.Status -lt 300) {
+            return
+        }
+
+        if ($profile.Status -eq 401 -or $profile.Status -eq 403) {
+            Fail "User profile readiness returned terminal HTTP $($profile.Status): $($profile.Error)"
+        }
+
+        if ($attempt -lt $MaxAttempts) {
+            Start-Sleep -Milliseconds $DelayMilliseconds
+        }
+    }
+
+    Fail "User profile was not ready after $MaxAttempts attempts"
+}
+
 function ConvertFrom-Base32([string]$Value) {
     $alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
     $clean = $Value.Trim().ToUpperInvariant().Replace("=", "").Replace(" ", "")
@@ -203,6 +228,9 @@ Assert-Success $registration "Register smoke user"
 $platformToken = [string]$registration.Body.data.accessToken
 Assert-True (-not [string]::IsNullOrWhiteSpace($platformToken)) "Registration did not return a platform access token"
 Write-Host "REGISTER=PASS"
+
+Wait-ForUserProfileReadiness -Token $platformToken
+Write-Host "USER_PROFILE_READY=PASS"
 
 $organization = Invoke-UmsApi -Method POST -Path "/api/v1/organizations" -Token $platformToken -Body @{
     name        = $organizationName
