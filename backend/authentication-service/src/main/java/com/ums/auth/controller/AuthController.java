@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ums.auth.dto.ApiResponse;
 import com.ums.auth.dto.ForgotPasswordRequest;
 import com.ums.auth.dto.LoginRequest;
+import com.ums.auth.dto.MfaChallengeVerifyRequest;
 import com.ums.auth.dto.MfaRecoveryCodesResponse;
 import com.ums.auth.dto.MfaStatusResponse;
 import com.ums.auth.dto.MfaTotpConfirmRequest;
@@ -50,8 +51,9 @@ public class AuthController {
 	@PostMapping("/login")
 	public ResponseEntity<ApiResponse<TokenResponse>> login(@Valid @RequestBody LoginRequest request,
 			HttpServletRequest httpRequest) {
-		TokenResponse tokens = authService.login(request, getClientIp(httpRequest));
-		return ResponseEntity.ok(ApiResponse.ok("Login successful", tokens));
+		TokenResponse response = authService.login(request, getClientIp(httpRequest));
+		String message = response.isMfaRequired() ? "MFA verification required" : "Login successful";
+		return ResponseEntity.ok(ApiResponse.ok(message, response));
 	}
 
 	@PostMapping("/forgot-password")
@@ -68,6 +70,14 @@ public class AuthController {
 			HttpServletRequest httpRequest) {
 		passwordRecoveryService.resetPassword(request, getClientIp(httpRequest));
 		return ResponseEntity.ok(ApiResponse.ok("Password reset successful. Please sign in again.", null));
+	}
+
+	@PostMapping("/mfa/challenge/verify")
+	public ResponseEntity<ApiResponse<TokenResponse>> verifyMfaChallenge(
+			@Valid @RequestBody MfaChallengeVerifyRequest request,
+			HttpServletRequest httpRequest) {
+		TokenResponse response = authService.verifyMfaChallenge(request, getClientIp(httpRequest));
+		return ResponseEntity.ok(ApiResponse.ok("MFA verification successful", response));
 	}
 
 	@PostMapping("/mfa/totp/setup")

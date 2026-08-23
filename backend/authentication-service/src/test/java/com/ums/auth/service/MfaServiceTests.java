@@ -16,7 +16,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -160,6 +159,40 @@ class MfaServiceTests {
 		assertThat(credential.getStatus()).isEqualTo(MfaCredentialStatus.PENDING);
 		verify(recoveryCodeRepository, never()).saveAll(any());
 		verify(userRepository, never()).save(any());
+	}
+
+	@Test
+	void recoveryCodeIsConsumedOnceAndReplayFails() {
+		User user = activeLocalUser();
+		user.setMfaEnabled(true);
+		UUID credentialId = UUID.randomUUID();
+		MfaCredential credential = MfaCredential.builder()
+				.id(credentialId)
+				.userId(user.getId())
+				.encryptedSecret("v1.encrypted.secret")
+				.status(MfaCredentialStatus.ACTIVE)
+				.build();
+		MfaRecoveryCode recoveryCode = MfaRecoveryCode.builder()
+				.id(UUID.randomUUID())
+				.credentialId(credentialId)
+				.codeHash("a".repeat(64))
+				.build();
+
+		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+		when(credentialRepository.findByUserIdForUpdate(user.getId())).thenReturn(Optional.of(credential));
+		when(recoveryCodeRepository.findAllByCredentialIdAndConsumedAtIsNull(credentialId))
+				.thenReturn(List.of(recoveryCode), List.of());
+		when(recoveryCodeService.matches("AAAA-BBBB-CCCC-DDDD", recoveryCode.getCodeHash())).thenReturn(true);
+
+		service.verifyLoginFactor(user.getId(), null, "AAAA-BBBB-CCCC-DDDD", "127.0.0.1");
+
+		assertThat(recoveryCode.getConsumedAt()).isNotNull();
+		verify(recoveryCodeRepository).save(recoveryCode);
+
+		assertThatThrownBy(() -> service.verifyLoginFactor(
+				user.getId(), null, "AAAA-BBBB-CCCC-DDDD", "127.0.0.1"))
+				.isInstanceOf(AuthException.class)
+				.extracting("errorCode").isEqualTo("INVALID_MFA_RECOVERY_CODE");
 	}
 
 	private User activeLocalUser() {

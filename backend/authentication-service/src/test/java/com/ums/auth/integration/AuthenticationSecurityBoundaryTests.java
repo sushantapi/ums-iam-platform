@@ -76,6 +76,7 @@ class AuthenticationSecurityBoundaryTests {
 		when(authService.login(any(), any())).thenReturn(tokenResponse());
 		when(authService.register(any(), any())).thenReturn(tokenResponse());
 		when(authService.refreshToken(any())).thenReturn(tokenResponse());
+		when(authService.verifyMfaChallenge(any(), any())).thenReturn(tokenResponse());
 
 		mockMvc.perform(post("/api/v1/auth/login")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -99,6 +100,10 @@ class AuthenticationSecurityBoundaryTests {
 		mockMvc.perform(post("/api/v1/auth/reset-password")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"token\":\"opaque-reset-token\",\"newPassword\":\"NewPassword@123\"}"))
+				.andExpect(status().isOk());
+		mockMvc.perform(post("/api/v1/auth/mfa/challenge/verify")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"challengeToken\":\"signed-challenge\",\"totpCode\":\"123456\"}"))
 				.andExpect(status().isOk());
 	}
 
@@ -145,6 +150,8 @@ class AuthenticationSecurityBoundaryTests {
 		mockMvc.perform(get("/api/v1/auth/forgot-password"))
 				.andExpect(status().isForbidden());
 		mockMvc.perform(get("/api/v1/auth/reset-password"))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(get("/api/v1/auth/mfa/challenge/verify"))
 				.andExpect(status().isForbidden());
 		mockMvc.perform(post("/api/v1/auth/not-a-public-route")
 				.contentType(MediaType.APPLICATION_JSON)

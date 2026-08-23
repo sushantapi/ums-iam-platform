@@ -56,14 +56,17 @@ class GatewayJwtAuthenticationFilterTests {
 	}
 
 	@Test
-	void recoveryRoutesArePublicOnlyForExactPostRequests() {
+	void recoveryAndMfaChallengeRoutesArePublicOnlyForExactPostRequests() {
 		assertThat(filter.isPublicRequest(HttpMethod.POST, "/api/v1/auth/forgot-password")).isTrue();
 		assertThat(filter.isPublicRequest(HttpMethod.POST, "/api/v1/auth/reset-password")).isTrue();
+		assertThat(filter.isPublicRequest(HttpMethod.POST, "/api/v1/auth/mfa/challenge/verify")).isTrue();
 
 		assertThat(filter.isPublicRequest(HttpMethod.GET, "/api/v1/auth/forgot-password")).isFalse();
 		assertThat(filter.isPublicRequest(HttpMethod.GET, "/api/v1/auth/reset-password")).isFalse();
+		assertThat(filter.isPublicRequest(HttpMethod.GET, "/api/v1/auth/mfa/challenge/verify")).isFalse();
 		assertThat(filter.isPublicRequest(HttpMethod.POST, "/api/v1/auth/forgot-password/extra")).isFalse();
 		assertThat(filter.isPublicRequest(HttpMethod.POST, "/api/v1/auth/reset-password/extra")).isFalse();
+		assertThat(filter.isPublicRequest(HttpMethod.POST, "/api/v1/auth/mfa/challenge/verify/extra")).isFalse();
 	}
 
 	@Test

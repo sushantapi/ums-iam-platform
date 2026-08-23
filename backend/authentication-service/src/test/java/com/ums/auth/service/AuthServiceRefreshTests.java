@@ -3,9 +3,9 @@ package com.ums.auth.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.mock;
 
 import java.time.Instant;
 import java.util.List;
@@ -48,6 +48,7 @@ class AuthServiceRefreshTests {
 	@Mock private SessionRepository sessionRepository;
 	@Mock private TokenBlacklistService blacklistService;
 	@Mock private RabbitTemplate rabbitTemplate;
+	@Mock private MfaService mfaService;
 
 	@InjectMocks
 	private AuthService authService;

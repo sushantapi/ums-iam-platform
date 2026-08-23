@@ -11,6 +11,8 @@ public interface MfaRecoveryCodeRepository extends JpaRepository<MfaRecoveryCode
 
 	List<MfaRecoveryCode> findAllByCredentialId(UUID credentialId);
 
+	List<MfaRecoveryCode> findAllByCredentialIdAndConsumedAtIsNull(UUID credentialId);
+
 	long countByCredentialIdAndConsumedAtIsNull(UUID credentialId);
 
 	void deleteAllByCredentialId(UUID credentialId);

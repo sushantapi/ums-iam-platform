@@ -16,6 +16,7 @@ import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -46,6 +47,9 @@ public class JwtService {
 
 	@Value("${jwt.refresh-token-expiry-ms:604800000}")
 	private long refreshTokenExpiryMs;
+
+	@Value("${security.mfa.challenge-expiry-ms:300000}")
+	private long mfaChallengeExpiryMs;
 
 	@Value("${jwt.issuer:ums-iam-platform}")
 	private String issuer;
@@ -80,7 +84,7 @@ public class JwtService {
 	/*
 	 * public String generateAccessToken(String userId, String email, Set<String>
 	 * roles) {
-	 * 
+	 *
 	 * return
 	 * Jwts.builder().id(UUID.randomUUID().toString()).subject(userId).issuer(issuer
 	 * ).issuedAt(new Date()) .expiration(new Date(System.currentTimeMillis() +
@@ -111,6 +115,28 @@ public class JwtService {
 				.expiration(new Date(System.currentTimeMillis() + refreshTokenExpiryMs))
 				.claim("sessionId", sessionId.toString()).claim("type", "REFRESH")
 				.signWith(privateKey, Jwts.SIG.RS256).compact();
+	}
+
+	public String generateMfaChallengeToken(
+			String userId,
+			UUID organizationId,
+			String client,
+			String deviceInfo) {
+
+		var builder = Jwts.builder().header().keyId(keyId).and()
+				.id(UUID.randomUUID().toString()).subject(userId).issuer(issuer).audience().add(audience).and().issuedAt(new Date())
+				.expiration(new Date(System.currentTimeMillis() + mfaChallengeExpiryMs))
+				.claim("type", "MFA_CHALLENGE");
+		if (organizationId != null) {
+			builder.claim("organizationId", organizationId.toString());
+		}
+		if (StringUtils.hasText(client)) {
+			builder.claim("client", client);
+		}
+		if (StringUtils.hasText(deviceInfo)) {
+			builder.claim("deviceInfo", deviceInfo);
+		}
+		return builder.signWith(privateKey, Jwts.SIG.RS256).compact();
 	}
 
 	public Claims validateAndExtract(String token) {

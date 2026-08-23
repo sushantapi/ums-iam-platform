@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.ums.auth.dto.MfaRecoveryCodesResponse;
 import com.ums.auth.dto.MfaStatusResponse;
@@ -161,6 +162,64 @@ public class MfaService {
 		return MfaRecoveryCodesResponse.builder().recoveryCodes(rawRecoveryCodes).build();
 	}
 
+	@Transactional
+	public void verifyLoginFactor(UUID userId, String totpCode, String recoveryCode, String ipAddress) {
+		User user = requireEligibleLocalUser(userId);
+		if (!user.isMfaEnabled()) {
+			throw new AuthException("MFA is not enabled", "MFA_NOT_ENABLED");
+		}
+
+		boolean hasTotp = StringUtils.hasText(totpCode);
+		boolean hasRecoveryCode = StringUtils.hasText(recoveryCode);
+		if (hasTotp == hasRecoveryCode) {
+			throw new AuthException("Provide exactly one MFA factor", "MFA_FACTOR_REQUIRED");
+		}
+
+		MfaCredential credential = credentialRepository.findByUserIdForUpdate(userId)
+				.orElseThrow(() -> new AuthException("MFA configuration is unavailable", "MFA_CONFIGURATION_INVALID"));
+		if (credential.getStatus() != MfaCredentialStatus.ACTIVE) {
+			throw new AuthException("MFA configuration is unavailable", "MFA_CONFIGURATION_INVALID");
+		}
+
+		Instant now = Instant.now();
+		if (hasTotp) {
+			String secret = secretEncryptionService.decrypt(credential.getEncryptedSecret());
+			if (!totpService.verify(secret, totpCode, now)) {
+				publishLoginChallengeFailure(user, ipAddress);
+				throw new AuthException("Invalid MFA code", "INVALID_MFA_CODE");
+			}
+			return;
+		}
+
+		MfaRecoveryCode matchedCode = null;
+		for (MfaRecoveryCode candidate : recoveryCodeRepository
+				.findAllByCredentialIdAndConsumedAtIsNull(credential.getId())) {
+			if (recoveryCodeService.matches(recoveryCode, candidate.getCodeHash())) {
+				matchedCode = candidate;
+			}
+		}
+
+		if (matchedCode == null) {
+			publishLoginChallengeFailure(user, ipAddress);
+			throw new AuthException("Invalid MFA recovery code", "INVALID_MFA_RECOVERY_CODE");
+		}
+
+		matchedCode.setConsumedAt(now);
+		recoveryCodeRepository.save(matchedCode);
+		publishAuditEvent(AuditEvent.builder()
+				.eventType("auth.mfa.recovery_code.used")
+				.serviceName("authentication-service")
+				.userId(user.getId().toString())
+				.userEmail(user.getEmail())
+				.action("MFA_RECOVERY_CODE_USE")
+				.entityType("USER")
+				.entityId(user.getId().toString())
+				.details("MFA recovery code consumed")
+				.ipAddress(ipAddress)
+				.timestamp(LocalDateTime.now())
+				.build());
+	}
+
 	@Transactional(readOnly = true)
 	public MfaStatusResponse status(UUID userId) {
 		User user = requireEligibleLocalUser(userId);
@@ -195,6 +254,21 @@ public class MfaService {
 			throw new AuthException("MFA is available only for local accounts", "MFA_UNSUPPORTED_PROVIDER");
 		}
 		return user;
+	}
+
+	private void publishLoginChallengeFailure(User user, String ipAddress) {
+		publishAuditEvent(AuditEvent.builder()
+				.eventType("auth.mfa.login.challenge.failed")
+				.serviceName("authentication-service")
+				.userId(user.getId().toString())
+				.userEmail(user.getEmail())
+				.action("MFA_LOGIN_VERIFY")
+				.entityType("USER")
+				.entityId(user.getId().toString())
+				.details("MFA login challenge verification failed")
+				.ipAddress(ipAddress)
+				.timestamp(LocalDateTime.now())
+				.build());
 	}
 
 	private void publishAuditEvent(AuditEvent event) {
