@@ -29,6 +29,7 @@ import com.ums.hrms.payroll.client.EmployeeInternalResponse;
 import com.ums.hrms.payroll.entity.PayrollEntry;
 import com.ums.hrms.payroll.entity.PayrollRun;
 import com.ums.hrms.payroll.entity.PayrollRunStatus;
+import com.ums.hrms.payroll.entity.TaxRegime;
 import com.ums.hrms.payroll.repository.PayrollEntryRepository;
 import com.ums.hrms.payroll.repository.PayrollRunRepository;
 
@@ -82,8 +83,35 @@ class PayslipPdfServiceTests {
             assertTrue(text.contains("50000.00"));
             assertTrue(text.contains("7500.00"));
             assertTrue(text.contains("57500.00"));
+
+            assertTrue(text.contains("DEDUCTION BREAKDOWN"));
+            assertTrue(text.contains("Configured / Other Deductions"));
+            assertTrue(text.contains("500.00"));
+            assertTrue(text.contains("Employee PF"));
+            assertTrue(text.contains("1200.00"));
+            assertTrue(text.contains("Employee ESI"));
+            assertTrue(text.contains("135.00"));
+            assertTrue(text.contains("TDS"));
+            assertTrue(text.contains("665.00"));
+            assertTrue(text.contains("Statutory Employee Deductions"));
+            assertTrue(text.contains("2000.00"));
+            assertTrue(text.contains("Total Deductions"));
             assertTrue(text.contains("2500.00"));
+            assertTrue(text.contains("Net Pay"));
             assertTrue(text.contains("55000.00"));
+
+            assertTrue(text.contains("EMPLOYER CONTRIBUTIONS"));
+            assertTrue(text.contains("Employer PF"));
+            assertTrue(text.contains("Employer ESI"));
+            assertTrue(text.contains("585.00"));
+            assertTrue(text.contains("Employer Statutory Total"));
+            assertTrue(text.contains("1785.00"));
+
+            assertTrue(text.contains("STATUTORY SNAPSHOT"));
+            assertTrue(text.contains("Policy Version"));
+            assertTrue(text.contains("IN-2026.1"));
+            assertTrue(text.contains("Tax Regime"));
+            assertTrue(text.contains("NEW"));
         }
 
         verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
@@ -130,6 +158,21 @@ class PayslipPdfServiceTests {
         entry.setBasicPay(new BigDecimal("50000.00"));
         entry.setAllowanceTotal(new BigDecimal("7500.00"));
         entry.setGrossPay(new BigDecimal("57500.00"));
+
+        entry.setConfiguredDeductionTotal(new BigDecimal("500.00"));
+        entry.setPfContributionWage(new BigDecimal("10000.00"));
+        entry.setEmployeePfContribution(new BigDecimal("1200.00"));
+        entry.setEmployerPfContribution(new BigDecimal("1200.00"));
+        entry.setEsiContributionWage(new BigDecimal("18000.00"));
+        entry.setEmployeeEsiContribution(new BigDecimal("135.00"));
+        entry.setEmployerEsiContribution(new BigDecimal("585.00"));
+        entry.setTdsAmount(new BigDecimal("665.00"));
+        entry.setStatutoryEmployeeDeductionTotal(new BigDecimal("2000.00"));
+        entry.setEmployerStatutoryContributionTotal(new BigDecimal("1785.00"));
+        entry.setStatutoryPolicyId(UUID.randomUUID());
+        entry.setStatutoryPolicyVersion("IN-2026.1");
+        entry.setTaxRegime(TaxRegime.NEW);
+
         entry.setDeductionTotal(new BigDecimal("2500.00"));
         entry.setNetPay(new BigDecimal("55000.00"));
         entry.setGeneratedAt(LocalDateTime.of(2026, 8, 31, 12, 0));

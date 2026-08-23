@@ -446,6 +446,77 @@ class PayrollRunServiceTests {
     }
 
     @Test
+    void exposesPersistedStatutorySnapshotInPayslipJson() {
+        UUID entryId = UUID.randomUUID();
+        UUID employeeId = UUID.randomUUID();
+        UUID salaryStructureId = UUID.randomUUID();
+        UUID policyId = UUID.randomUUID();
+
+        PayrollEntry entry = new PayrollEntry();
+        entry.setId(entryId);
+        entry.setPayrollRunId(runId);
+        entry.setOrganizationId(organizationId);
+        entry.setEmployeeId(employeeId);
+        entry.setSalaryStructureId(salaryStructureId);
+        entry.setBasicPay(new BigDecimal("50000.00"));
+        entry.setAllowanceTotal(new BigDecimal("5000.00"));
+        entry.setGrossPay(new BigDecimal("55000.00"));
+        entry.setConfiguredDeductionTotal(new BigDecimal("2500.00"));
+        entry.setPfContributionWage(new BigDecimal("15000.00"));
+        entry.setEmployeePfContribution(new BigDecimal("1800.00"));
+        entry.setEmployerPfContribution(new BigDecimal("1800.00"));
+        entry.setEsiContributionWage(new BigDecimal("18000.00"));
+        entry.setEmployeeEsiContribution(new BigDecimal("135.00"));
+        entry.setEmployerEsiContribution(new BigDecimal("585.00"));
+        entry.setTdsAmount(new BigDecimal("500.00"));
+        entry.setStatutoryEmployeeDeductionTotal(new BigDecimal("2435.00"));
+        entry.setEmployerStatutoryContributionTotal(new BigDecimal("2385.00"));
+        entry.setStatutoryPolicyId(policyId);
+        entry.setStatutoryPolicyVersion("IN-2026.1");
+        entry.setTaxRegime(TaxRegime.NEW);
+        entry.setDeductionTotal(new BigDecimal("4935.00"));
+        entry.setNetPay(new BigDecimal("50065.00"));
+        entry.setGeneratedAt(java.time.LocalDateTime.of(2026, 8, 31, 12, 0));
+
+        when(payrollEntryRepository.findByIdAndOrganizationId(
+                entryId,
+                organizationId))
+                .thenReturn(java.util.Optional.of(entry));
+
+        var response = payrollRunService.getPayslip(
+                entryId,
+                organizationId,
+                actorUserId,
+                false);
+
+        assertEquals(entryId, response.id());
+        assertEquals(runId, response.payrollRunId());
+        assertEquals(employeeId, response.employeeId());
+        assertEquals(salaryStructureId, response.salaryStructureId());
+
+        assertEquals(new BigDecimal("2500.00"), response.configuredDeductionTotal());
+        assertEquals(new BigDecimal("15000.00"), response.pfContributionWage());
+        assertEquals(new BigDecimal("1800.00"), response.employeePfContribution());
+        assertEquals(new BigDecimal("1800.00"), response.employerPfContribution());
+        assertEquals(new BigDecimal("18000.00"), response.esiContributionWage());
+        assertEquals(new BigDecimal("135.00"), response.employeeEsiContribution());
+        assertEquals(new BigDecimal("585.00"), response.employerEsiContribution());
+        assertEquals(new BigDecimal("500.00"), response.tdsAmount());
+        assertEquals(new BigDecimal("2435.00"), response.statutoryEmployeeDeductionTotal());
+        assertEquals(new BigDecimal("2385.00"), response.employerStatutoryContributionTotal());
+
+        assertEquals(policyId, response.statutoryPolicyId());
+        assertEquals("IN-2026.1", response.statutoryPolicyVersion());
+        assertEquals(TaxRegime.NEW, response.taxRegime());
+
+        assertEquals(new BigDecimal("4935.00"), response.deductionTotal());
+        assertEquals(new BigDecimal("50065.00"), response.netPay());
+
+        verify(organizationAccessService)
+                .assertCanAccess(organizationId, actorUserId, false);
+    }
+
+    @Test
     void rejectsProcessingWhenRunIsNotDraft() {
         PayrollRun run = run(PayrollRunStatus.PROCESSED);
 

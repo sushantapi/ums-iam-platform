@@ -100,8 +100,60 @@ public class PayslipPdfService {
                 y = moneyField(stream, bold, regular, y, "Basic Pay", entry.getBasicPay());
                 y = moneyField(stream, bold, regular, y, "Allowances", entry.getAllowanceTotal());
                 y = moneyField(stream, bold, regular, y, "Gross Pay", entry.getGrossPay());
-                y = moneyField(stream, bold, regular, y, "Deductions", entry.getDeductionTotal());
+                y -= 10;
+
+                y = text(stream, bold, 14, LEFT, y, "DEDUCTION BREAKDOWN");
+                y -= 6;
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Configured / Other Deductions",
+                        entry.getConfiguredDeductionTotal());
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Employee PF",
+                        entry.getEmployeePfContribution());
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Employee ESI",
+                        entry.getEmployeeEsiContribution());
+                y = moneyField(stream, bold, regular, y, "TDS", entry.getTdsAmount());
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Statutory Employee Deductions",
+                        entry.getStatutoryEmployeeDeductionTotal());
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Total Deductions",
+                        entry.getDeductionTotal());
                 y = moneyField(stream, bold, regular, y, "Net Pay", entry.getNetPay());
+                y -= 10;
+
+                y = text(stream, bold, 14, LEFT, y, "EMPLOYER CONTRIBUTIONS");
+                y -= 6;
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Employer PF",
+                        entry.getEmployerPfContribution());
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Employer ESI",
+                        entry.getEmployerEsiContribution());
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Employer Statutory Total",
+                        entry.getEmployerStatutoryContributionTotal());
+                y -= 10;
+
+                y = text(stream, bold, 14, LEFT, y, "STATUTORY SNAPSHOT");
+                y -= 6;
+                y = field(
+                        stream, bold, regular, y,
+                        "Policy Version",
+                        entry.getStatutoryPolicyVersion());
+                y = field(
+                        stream, bold, regular, y,
+                        "Tax Regime",
+                        entry.getTaxRegime() == null ? "" : entry.getTaxRegime().name());
                 y -= 14;
 
                 y = text(stream, bold, 14, LEFT, y, "AUDIT DETAILS");
@@ -155,7 +207,8 @@ public class PayslipPdfService {
     }
 
     private String formatAmount(BigDecimal amount) {
-        return amount.setScale(2, RoundingMode.HALF_UP).toPlainString();
+        BigDecimal safeAmount = amount == null ? BigDecimal.ZERO : amount;
+        return safeAmount.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 
     private String safeEmployeeCode(String employeeCode, UUID employeeId) {

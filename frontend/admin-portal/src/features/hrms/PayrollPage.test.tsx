@@ -99,8 +99,21 @@ const entry = {
   basicPay: 50000,
   allowanceTotal: 10000,
   grossPay: 60000,
-  deductionTotal: 5000,
-  netPay: 55000,
+  configuredDeductionTotal: 701.11,
+  pfContributionWage: 15000,
+  employeePfContribution: 1800.12,
+  employerPfContribution: 1800.34,
+  esiContributionWage: 18000,
+  employeeEsiContribution: 135.56,
+  employerEsiContribution: 585.78,
+  tdsAmount: 499.99,
+  statutoryEmployeeDeductionTotal: 2222.22,
+  employerStatutoryContributionTotal: 3333.33,
+  statutoryPolicyId: "policy-1",
+  statutoryPolicyVersion: "IN-2026.1",
+  taxRegime: "NEW",
+  deductionTotal: 4444.44,
+  netPay: 55555.55,
   generatedAt: "2026-08-20T10:00:00",
 };
 
@@ -175,7 +188,46 @@ describe("PayrollPage", () => {
     fireEvent.click(grossCell.closest("tr")!);
 
     expect(await screen.findByText("Payslip snapshot")).toBeInTheDocument();
-    expect(screen.getAllByText(/55,000/).length).toBeGreaterThan(0);
+
+    const configuredDeductions = screen
+      .getByText("Configured / other deductions:")
+      .closest("li");
+    expect(configuredDeductions).toHaveTextContent(/701\.11/);
+
+    const employeePf = screen.getByText("Employee PF:").closest("li");
+    expect(employeePf).toHaveTextContent(/1,800\.12/);
+
+    const employerPf = screen.getByText("Employer PF:").closest("li");
+    expect(employerPf).toHaveTextContent(/1,800\.34/);
+
+    const employeeEsi = screen.getByText("Employee ESI:").closest("li");
+    expect(employeeEsi).toHaveTextContent(/135\.56/);
+
+    const employerEsi = screen.getByText("Employer ESI:").closest("li");
+    expect(employerEsi).toHaveTextContent(/585\.78/);
+
+    const tds = screen.getByText("TDS:").closest("li");
+    expect(tds).toHaveTextContent(/499\.99/);
+
+    const statutoryDeductions = screen
+      .getByText("Statutory employee deductions:")
+      .closest("li");
+    expect(statutoryDeductions).toHaveTextContent(/2,222\.22/);
+
+    const totalDeductions = screen.getByText("Total deductions:").closest("li");
+    expect(totalDeductions).toHaveTextContent(/4,444\.44/);
+
+    const netPay = screen.getByText("Net:").closest("li");
+    expect(netPay).toHaveTextContent(/55,555\.55/);
+
+    const employerTotal = screen
+      .getByText("Employer statutory total:")
+      .closest("li");
+    expect(employerTotal).toHaveTextContent(/3,333\.33/);
+
+    expect(screen.getByText("IN-2026.1")).toBeInTheDocument();
+    expect(screen.getByText("NEW")).toBeInTheDocument();
+
     expect(screen.queryByRole("button", { name: "Download PDF" })).not.toBeInTheDocument();
     expect(mocks.payslip).toHaveBeenCalledWith("entry-1", "org-1");
 
@@ -183,6 +235,69 @@ describe("PayrollPage", () => {
     await waitFor(() =>
       expect(mocks.finalizeRun).toHaveBeenCalledWith("run-1", "org-1"),
     );
+  });
+
+  it("renders a legacy non-statutory payslip snapshot without recomputing", async () => {
+    const legacyEntry = {
+      ...entry,
+      configuredDeductionTotal: 5000,
+      pfContributionWage: 0,
+      employeePfContribution: 0,
+      employerPfContribution: 0,
+      esiContributionWage: 0,
+      employeeEsiContribution: 0,
+      employerEsiContribution: 0,
+      tdsAmount: 0,
+      statutoryEmployeeDeductionTotal: 0,
+      employerStatutoryContributionTotal: 0,
+      statutoryPolicyId: null,
+      statutoryPolicyVersion: null,
+      taxRegime: null,
+      deductionTotal: 5000,
+      netPay: 55000,
+    };
+
+    mocks.runs.mockResolvedValue([processedRun]);
+    mocks.entries.mockResolvedValue([legacyEntry]);
+    mocks.payslip.mockResolvedValue(legacyEntry);
+
+    render(<PayrollPage />);
+
+    const monthCell = await screen.findByText("2026-08");
+    fireEvent.click(monthCell.closest("tr")!);
+
+    const grossCell = await screen.findByText(/60,000/);
+    fireEvent.click(grossCell.closest("tr")!);
+
+    expect(await screen.findByText("Payslip snapshot")).toBeInTheDocument();
+
+    const configured = screen
+      .getByText("Configured / other deductions:")
+      .closest("li");
+    expect(configured).toHaveTextContent(/5,000/);
+
+    const employeePf = screen.getByText("Employee PF:").closest("li");
+    expect(employeePf).toHaveTextContent(/0\.00/);
+
+    const employeeEsi = screen.getByText("Employee ESI:").closest("li");
+    expect(employeeEsi).toHaveTextContent(/0\.00/);
+
+    const tds = screen.getByText("TDS:").closest("li");
+    expect(tds).toHaveTextContent(/0\.00/);
+
+    const policy = screen.getByText("Statutory policy:").closest("li");
+    expect(policy).toHaveTextContent("Not applicable");
+
+    const regime = screen.getByText("Tax regime:").closest("li");
+    expect(regime).toHaveTextContent("Not specified");
+
+    const totalDeductions = screen.getByText("Total deductions:").closest("li");
+    expect(totalDeductions).toHaveTextContent(/5,000/);
+
+    const net = screen.getByText("Net:").closest("li");
+    expect(net).toHaveTextContent(/55,000/);
+
+    expect(mocks.payslip).toHaveBeenCalledWith("entry-1", "org-1");
   });
 
   it("downloads PDF only for a FINALIZED payroll run", async () => {
