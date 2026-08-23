@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -160,7 +161,7 @@ class AuthServiceRefreshTests {
 
 		assertThat(session.isRevoked()).isTrue();
 		assertThat(session.getRevokedAt()).isNotNull();
-		verify(blacklistService).revokeSession(org.mockito.ArgumentMatchers.eq(sessionId), anyLong());
+		verify(blacklistService).revokeSession(eq(sessionId), anyLong());
 		verify(sessionRepository).save(session);
 		verify(jwtService, never()).generateRefreshToken(any(), any());
 	}
@@ -187,12 +188,15 @@ class AuthServiceRefreshTests {
 				.thenReturn(UserAuthorizationResponse.builder().roles(List.of()).permissions(List.of()).build());
 		when(authorizationClient.getAuthorization(userId, "ORG", organizationId.toString()))
 				.thenReturn(UserAuthorizationResponse.builder().roles(List.of()).permissions(List.of()).build());
-		when(jwtService.generateAccessToken(any(), any(), any(), any(), any())).thenReturn("new-access-token");
+		when(jwtService.generateAccessToken(any(), any(), any(), any(), any(), eq(organizationId), eq(true)))
+				.thenReturn("new-access-token");
 
 		var response = authService.refreshToken(request(oldToken));
 
+		assertThat(response.getAccessToken()).isEqualTo("new-access-token");
 		assertThat(response.getRefreshToken()).isEqualTo(newToken);
 		assertThat(session.isRevoked()).isFalse();
+		verify(jwtService).generateAccessToken(any(), any(), any(), any(), any(), eq(organizationId), eq(true));
 		verify(blacklistService, never()).revokeSession(any(), anyLong());
 	}
 

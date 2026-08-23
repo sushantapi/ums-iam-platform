@@ -89,7 +89,7 @@ class AuthServiceOrganizationPolicyTests {
 		stubPasswordSuccess(user, request);
 		when(organizationSecurityPolicyClient.getSecurityPolicy(organizationId))
 				.thenReturn(new OrganizationSecurityPolicyResponse(organizationId, false, true));
-		stubPlatformSession(user);
+		stubSessionInfrastructure(user);
 		when(authorizationClient.getAuthorization(user.getId(), "ORG", organizationId.toString()))
 				.thenReturn(emptyAuthorization());
 		when(jwtService.generateAccessToken(any(), any(), any(), any(), any(), eq(organizationId), eq(false)))
@@ -187,12 +187,16 @@ class AuthServiceOrganizationPolicyTests {
 		when(passwordEncoder.matches(request.getPassword(), user.getPasswordHash())).thenReturn(true);
 	}
 
-	private void stubPlatformSession(User user) {
+	private void stubSessionInfrastructure(User user) {
 		when(jwtService.getRefreshTokenExpiryMs()).thenReturn(604800000L);
 		when(jwtService.generateRefreshToken(any(), any())).thenReturn("refresh-token");
 		when(authorizationClient.getAuthorization(user.getId(), "PLATFORM", "*")).thenReturn(emptyAuthorization());
-		when(jwtService.generateAccessToken(any(), any(), any(), any(), any())).thenReturn("access-token");
 		when(jwtService.getAccessTokenExpiryMs()).thenReturn(900000L);
+	}
+
+	private void stubPlatformSession(User user) {
+		stubSessionInfrastructure(user);
+		when(jwtService.generateAccessToken(any(), any(), any(), any(), any())).thenReturn("access-token");
 	}
 
 	private UserAuthorizationResponse emptyAuthorization() {
