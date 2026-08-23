@@ -32,16 +32,14 @@ function Invoke-Api {
         [object]$Body = $null
     )
 
-    $request = New-Object System.Net.Http.HttpRequestMessage(
-        [System.Net.Http.HttpMethod]::new($Method),
-        "$BaseUrl$Path"
-    )
-    $request.Headers.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", $AccessToken)
-    $request.Headers.Accept.Add((New-Object System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json")))
+    $httpMethod = [System.Net.Http.HttpMethod]::new($Method)
+    $request = [System.Net.Http.HttpRequestMessage]::new($httpMethod, "$BaseUrl$Path")
+    $request.Headers.Authorization = [System.Net.Http.Headers.AuthenticationHeaderValue]::new("Bearer", $AccessToken)
+    $request.Headers.Accept.Add([System.Net.Http.Headers.MediaTypeWithQualityHeaderValue]::new("application/json"))
 
     if ($null -ne $Body) {
         $json = $Body | ConvertTo-Json -Depth 10 -Compress
-        $request.Content = New-Object System.Net.Http.StringContent(
+        $request.Content = [System.Net.Http.StringContent]::new(
             $json,
             [Text.Encoding]::UTF8,
             "application/json"
@@ -50,22 +48,28 @@ function Invoke-Api {
 
     try {
         $response = $script:HttpClient.SendAsync($request).GetAwaiter().GetResult()
-        $bytes = $response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
-        $text = [Text.Encoding]::UTF8.GetString($bytes)
-        return [pscustomobject]@{
-            Status = [int]$response.StatusCode
-            Bytes = $bytes
-            Text = $text
-            ContentType = if ($null -ne $response.Content.Headers.ContentType) {
-                [string]$response.Content.Headers.ContentType.MediaType
-            } else { "" }
-            ContentDisposition = if ($null -ne $response.Content.Headers.ContentDisposition) {
-                [string]$response.Content.Headers.ContentDisposition
-            } else { "" }
+        try {
+            $bytes = $response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
+            $text = [Text.Encoding]::UTF8.GetString($bytes)
+            return [pscustomobject]@{
+                Status = [int]$response.StatusCode
+                Bytes = $bytes
+                Text = $text
+                ContentType = if ($null -ne $response.Content.Headers.ContentType) {
+                    [string]$response.Content.Headers.ContentType.MediaType
+                } else { "" }
+                ContentDisposition = if ($null -ne $response.Content.Headers.ContentDisposition) {
+                    [string]$response.Content.Headers.ContentDisposition
+                } else { "" }
+            }
+        }
+        finally {
+            $response.Dispose()
         }
     }
     finally {
         $request.Dispose()
+        $httpMethod.Dispose()
     }
 }
 
@@ -83,7 +87,7 @@ Assert-LoopbackBaseUrl -Url $BaseUrl
 $org = $OrganizationId.ToString()
 $run = $ProcessedRunId.ToString()
 $entry = $EntryId.ToString()
-$script:HttpClient = New-Object System.Net.Http.HttpClient
+$script:HttpClient = [System.Net.Http.HttpClient]::new()
 $script:HttpClient.Timeout = [TimeSpan]::FromSeconds(30)
 
 try {
