@@ -38,7 +38,8 @@ public class MfaRecoveryCode {
 	@Column(name = "credential_id", nullable = false, length = 36)
 	private UUID credentialId;
 
-	@Column(name = "code_hash", nullable = false, length = 64)
+	@JdbcTypeCode(SqlTypes.CHAR)
+	@Column(name = "code_hash", nullable = false, length = 64, columnDefinition = "CHAR(64)")
 	private String codeHash;
 
 	@Column(name = "consumed_at")

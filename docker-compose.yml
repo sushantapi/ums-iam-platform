@@ -252,6 +252,7 @@ services:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS}
       CONFIG_SERVER_URL: http://config-service:8888
+      SPRING_CONFIG_IMPORT: configserver:http://config-service:8888
       SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${AUTHORIZATION_DB_NAME}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
