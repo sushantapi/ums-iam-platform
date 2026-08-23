@@ -1,5 +1,6 @@
 package com.ums.auth.repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,6 +17,10 @@ import jakarta.persistence.LockModeType;
 public interface SessionRepository extends JpaRepository<Session, UUID>, JpaSpecificationExecutor<Session> {
 
 	List<Session> findByUserId(UUID userId);
+
+	List<Session> findByOrganizationIdAndRevokedFalseAndMfaVerifiedFalseAndExpiresAtAfter(
+			UUID organizationId,
+			Instant expiresAt);
 
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select s from Session s join fetch s.user where s.id = :sessionId")

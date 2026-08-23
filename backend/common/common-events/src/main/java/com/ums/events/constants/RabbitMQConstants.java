@@ -23,6 +23,8 @@ public final class RabbitMQConstants {
 
 	public static final String AUTH_ROLE_REVOKED_QUEUE = "authentication.role.revoked.queue";
 
+	public static final String AUTH_ORGANIZATION_MFA_REQUIRED_QUEUE = "authentication.organization.mfa.required.queue";
+
 	/*
 	 * =========================== Routing Keys ===========================
 	 */
@@ -42,6 +44,8 @@ public final class RabbitMQConstants {
 	public static final String MFA_OTP_ROUTING_KEY = "auth.mfa.otp.requested";
 
 	public static final String ROLE_REVOKED_ROUTING_KEY = "role.revoked";
+
+	public static final String ORGANIZATION_MFA_REQUIRED_ROUTING_KEY = "organization.security.mfa.required";
 
 	/*
 	 * =========================== Profile Service Queues

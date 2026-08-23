@@ -22,9 +22,11 @@ import org.springframework.security.access.AccessDeniedException;
 import com.ums.events.publisher.AuditPublisher;
 import com.ums.org.dto.UpdateOrganizationSecurityPolicyRequest;
 import com.ums.org.entity.Organization;
+import com.ums.org.entity.OrganizationSecurityEventOutbox;
 import com.ums.org.entity.OrganizationSecurityPolicy;
 import com.ums.org.enums.OrganizationStatus;
 import com.ums.org.repositoty.OrganizationRepository;
+import com.ums.org.repositoty.OrganizationSecurityEventOutboxRepository;
 import com.ums.org.repositoty.OrganizationSecurityPolicyRepository;
 import com.ums.org.service.OrganizationAccessService;
 
@@ -42,6 +44,9 @@ class OrganizationSecurityPolicyServiceImplTests {
 
 	@Mock
 	private AuditPublisher auditPublisher;
+
+	@Mock
+	private OrganizationSecurityEventOutboxRepository securityEventOutboxRepository;
 
 	@InjectMocks
 	private OrganizationSecurityPolicyServiceImpl service;
@@ -86,6 +91,35 @@ class OrganizationSecurityPolicyServiceImplTests {
 		assertThat(response.requireMfa()).isTrue();
 		verify(accessService).assertCanManageMembers(actorId, organization, false);
 		verify(auditPublisher).publish(any());
+		ArgumentCaptor<OrganizationSecurityEventOutbox> eventCaptor =
+				ArgumentCaptor.forClass(OrganizationSecurityEventOutbox.class);
+		verify(securityEventOutboxRepository).save(eventCaptor.capture());
+		assertThat(eventCaptor.getValue().getOrganizationId()).isEqualTo(organizationId);
+		assertThat(eventCaptor.getValue().getUpdatedBy()).isEqualTo(actorId);
+		assertThat(eventCaptor.getValue().getEventType()).isEqualTo("organization.security.mfa.required");
+		assertThat(eventCaptor.getValue().getStatus()).isEqualTo(OrganizationSecurityEventOutbox.Status.PENDING);
+	}
+
+	@Test
+	void noOpEnabledUpdateDoesNotRepublishMfaRequiredEvent() {
+		UUID organizationId = UUID.randomUUID();
+		UUID actorId = UUID.randomUUID();
+		Organization organization = activeOrganization(organizationId, actorId);
+		OrganizationSecurityPolicy policy = OrganizationSecurityPolicy.builder()
+				.organizationId(organizationId)
+				.requireMfa(true)
+				.build();
+		when(organizationRepository.findById(organizationId)).thenReturn(Optional.of(organization));
+		when(policyRepository.findById(organizationId)).thenReturn(Optional.of(policy));
+		when(policyRepository.save(any(OrganizationSecurityPolicy.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		service.updatePolicy(
+				organizationId,
+				new UpdateOrganizationSecurityPolicyRequest(true),
+				actorId,
+				false);
+
+		verify(securityEventOutboxRepository, never()).save(any());
 	}
 
 	@Test

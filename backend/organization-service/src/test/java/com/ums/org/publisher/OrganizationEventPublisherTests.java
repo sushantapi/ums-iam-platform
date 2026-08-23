@@ -25,6 +25,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import com.ums.events.constants.RabbitMQConstants;
 import com.ums.events.event.organization.OrganizationInviteEvent;
+import com.ums.events.event.organization.OrganizationMfaRequiredEvent;
 import com.ums.org.config.OrganizationInvitationProperties;
 import com.ums.org.service.OrganizationInvitationDeliveryStateService;
 
@@ -98,6 +99,40 @@ class OrganizationEventPublisherTests {
 		TransactionSynchronizationManager.getSynchronizations().get(0).afterCommit();
 
 		verify(deliveryStateService, never()).markNotificationSent(any(), any());
+	}
+
+	@Test
+	void securityPolicyEventPublishesSynchronouslyAndBrokerFailurePropagates() {
+		OrganizationMfaRequiredEvent event = OrganizationMfaRequiredEvent.builder()
+				.eventId(UUID.randomUUID())
+				.organizationId(UUID.randomUUID())
+				.updatedBy(UUID.randomUUID())
+				.occurredAt(LocalDateTime.now())
+				.build();
+
+		publisher.publishOrganizationMfaRequired(event);
+
+		verify(rabbitTemplate).convertAndSend(
+				eq(RabbitMQConstants.ORGANIZATION_EXCHANGE),
+				eq(RabbitMQConstants.ORGANIZATION_MFA_REQUIRED_ROUTING_KEY),
+				eq(event));
+
+		doThrow(new IllegalStateException("broker unavailable"))
+				.when(rabbitTemplate)
+				.convertAndSend(
+						eq(RabbitMQConstants.ORGANIZATION_EXCHANGE),
+						eq(RabbitMQConstants.ORGANIZATION_MFA_REQUIRED_ROUTING_KEY),
+						any(OrganizationMfaRequiredEvent.class));
+
+		assertThatThrownBy(() -> publisher.publishOrganizationMfaRequired(
+				OrganizationMfaRequiredEvent.builder()
+						.eventId(UUID.randomUUID())
+						.organizationId(UUID.randomUUID())
+						.updatedBy(UUID.randomUUID())
+						.occurredAt(LocalDateTime.now())
+						.build()))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("broker unavailable");
 	}
 
 	@Test

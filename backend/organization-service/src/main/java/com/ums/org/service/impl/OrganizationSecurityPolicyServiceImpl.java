@@ -11,10 +11,12 @@ import com.ums.org.dto.OrganizationSecurityPolicyInternalResponse;
 import com.ums.org.dto.OrganizationSecurityPolicyResponse;
 import com.ums.org.dto.UpdateOrganizationSecurityPolicyRequest;
 import com.ums.org.entity.Organization;
+import com.ums.org.entity.OrganizationSecurityEventOutbox;
 import com.ums.org.entity.OrganizationSecurityPolicy;
 import com.ums.org.enums.OrganizationStatus;
 import com.ums.org.exception.ResourceNotFoundException;
 import com.ums.org.repositoty.OrganizationRepository;
+import com.ums.org.repositoty.OrganizationSecurityEventOutboxRepository;
 import com.ums.org.repositoty.OrganizationSecurityPolicyRepository;
 import com.ums.org.service.OrganizationAccessService;
 import com.ums.org.service.OrganizationSecurityPolicyService;
@@ -33,6 +35,7 @@ public class OrganizationSecurityPolicyServiceImpl implements OrganizationSecuri
 	private final OrganizationSecurityPolicyRepository policyRepository;
 	private final OrganizationAccessService accessService;
 	private final AuditPublisher auditPublisher;
+	private final OrganizationSecurityEventOutboxRepository securityEventOutboxRepository;
 
 	@Override
 	public OrganizationSecurityPolicyResponse getPolicy(UUID organizationId, UUID actorUserId, boolean superAdmin) {
@@ -59,6 +62,17 @@ public class OrganizationSecurityPolicyServiceImpl implements OrganizationSecuri
 		policy.setRequireMfa(request.requireMfa());
 		policy.setUpdatedBy(actorUserId);
 		OrganizationSecurityPolicy saved = policyRepository.save(policy);
+
+		if (!previousRequireMfa && saved.isRequireMfa()) {
+			securityEventOutboxRepository.save(OrganizationSecurityEventOutbox.builder()
+					.eventId(UUID.randomUUID())
+					.organizationId(organizationId)
+					.eventType("organization.security.mfa.required")
+					.updatedBy(actorUserId)
+					.occurredAt(LocalDateTime.now())
+					.status(OrganizationSecurityEventOutbox.Status.PENDING)
+					.build());
+		}
 
 		publishAuditSafely(AuditEvent.builder()
 				.eventType("organization.security.policy.updated")
