@@ -16,6 +16,8 @@ public class TokenBlacklistService {
 	private static final String SESSION_REVOKED_PREFIX = "session-revoked:";
 	private static final String MFA_CHALLENGE_CONSUMED_PREFIX = "mfa-challenge-consumed:";
 	private static final String MFA_CHALLENGE_ATTEMPTS_PREFIX = "mfa-challenge-attempts:";
+	private static final String MFA_USER_ATTEMPTS_PREFIX = "mfa-user-attempts:";
+	private static final String MFA_USER_BLOCKED_PREFIX = "mfa-user-blocked:";
 
 	private final StringRedisTemplate redisTemplate;
 
@@ -69,5 +71,45 @@ public class TokenBlacklistService {
 
 		Long attempts = redisTemplate.opsForValue().increment(key);
 		return attempts == null || attempts >= maxAttempts;
+	}
+
+	public boolean isMfaUserBlocked(UUID userId) {
+		return userId != null
+				&& Boolean.TRUE.equals(redisTemplate.hasKey(MFA_USER_BLOCKED_PREFIX + userId));
+	}
+
+	public boolean recordMfaUserFailure(UUID userId, long ttlSeconds, int maxAttempts) {
+		if (userId == null || ttlSeconds <= 0 || maxAttempts <= 0) {
+			return true;
+		}
+
+		String attemptsKey = MFA_USER_ATTEMPTS_PREFIX + userId;
+		String blockedKey = MFA_USER_BLOCKED_PREFIX + userId;
+		Duration ttl = Duration.ofSeconds(ttlSeconds);
+		Boolean created = redisTemplate.opsForValue().setIfAbsent(attemptsKey, "1", ttl);
+
+		long attempts;
+		if (Boolean.TRUE.equals(created)) {
+			attempts = 1L;
+		} else {
+			Long incremented = redisTemplate.opsForValue().increment(attemptsKey);
+			attempts = incremented == null ? maxAttempts : incremented;
+		}
+
+		if (attempts < maxAttempts) {
+			return false;
+		}
+
+		redisTemplate.opsForValue().set(blockedKey, "true", ttl);
+		return true;
+	}
+
+	public void clearMfaUserFailures(UUID userId) {
+		if (userId == null) {
+			return;
+		}
+
+		redisTemplate.delete(MFA_USER_ATTEMPTS_PREFIX + userId);
+		redisTemplate.delete(MFA_USER_BLOCKED_PREFIX + userId);
 	}
 }

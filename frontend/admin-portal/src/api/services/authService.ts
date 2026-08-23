@@ -61,6 +61,12 @@ export interface MfaRecoveryCodesResponse {
   recoveryCodes: string[];
 }
 
+export interface MfaSensitiveActionRequest {
+  password: string;
+  totpCode?: string;
+  recoveryCode?: string;
+}
+
 export interface ApiResponse<T> {
   data?: T;
   message: string;
@@ -150,6 +156,32 @@ class AuthService {
     );
 
     return this.requireData(response.data, "MFA setup could not be confirmed");
+  }
+
+  async rotateMfaRecoveryCodes(
+    data: MfaSensitiveActionRequest,
+  ): Promise<MfaRecoveryCodesResponse> {
+    const response = await apiClient.post<ApiResponse<MfaRecoveryCodesResponse>>(
+      "/auth/mfa/recovery-codes/rotate",
+      data,
+    );
+
+    return this.requireData(
+      response.data,
+      "MFA recovery codes could not be rotated",
+    );
+  }
+
+  async disableMfa(data: MfaSensitiveActionRequest): Promise<string> {
+    const response = await apiClient.post<ApiResponse<void>>(
+      "/auth/mfa/disable",
+      data,
+    );
+
+    return this.requireSuccess(
+      response.data,
+      "MFA could not be disabled.",
+    );
   }
 
   async logout(): Promise<void> {

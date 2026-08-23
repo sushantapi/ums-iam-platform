@@ -7,6 +7,7 @@ import authService, {
   type MfaStatusResponse,
   type MfaTotpSetupResponse,
 } from "../../api/services/authService";
+import { MfaManagementPanel } from "./MfaManagementPanel";
 
 function getMfaError(error: unknown): string {
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
@@ -154,9 +155,22 @@ export function MfaSecurityPage() {
               <strong>{status.enabled ? "Enabled" : "Not enabled"}</strong>
             </p>
             {status.enabled ? (
-              <p className="muted">
-                Unused recovery codes remaining: {status.recoveryCodesRemaining}
-              </p>
+              <>
+                <p className="muted">
+                  Unused recovery codes remaining: {status.recoveryCodesRemaining}
+                </p>
+                <MfaManagementPanel
+                  onRecoveryCodesRotated={(codes) => {
+                    setRecoveryCodes(codes);
+                    setCopied(false);
+                    setStatus((current) =>
+                      current
+                        ? { ...current, recoveryCodesRemaining: codes.length }
+                        : current,
+                    );
+                  }}
+                />
+              </>
             ) : status.setupPending && !setup ? (
               <div className="notice">
                 A setup is pending, but its secret is intentionally not retrievable. Restart setup to generate a new one-time secret.

@@ -43,6 +43,8 @@ import lombok.extern.slf4j.Slf4j;
 public class MfaService {
 
 	private static final String LOCAL_PROVIDER = "LOCAL";
+	private static final int MAX_LOGIN_FACTOR_ATTEMPTS = 5;
+	private static final long LOGIN_FACTOR_ATTEMPT_WINDOW_SECONDS = 15L * 60L;
 
 	private final UserRepository userRepository;
 	private final MfaCredentialRepository credentialRepository;
@@ -165,15 +167,41 @@ public class MfaService {
 	@Transactional
 	public void verifyLoginFactor(UUID userId, String totpCode, String recoveryCode, String ipAddress) {
 		User user = requireEligibleLocalUser(userId);
+		if (blacklistService.isMfaUserBlocked(userId)) {
+			publishFactorFailure(
+					user,
+					ipAddress,
+					"auth.mfa.login.challenge.rate_limited",
+					"MFA_LOGIN_VERIFY");
+			throw new AuthException(
+					"Too many MFA verification attempts. Try again later.",
+					"MFA_LOGIN_ATTEMPTS_EXCEEDED");
+		}
+
 		MfaCredential credential = requireActiveCredential(user);
-		verifyActiveFactor(
-				user,
-				credential,
-				totpCode,
-				recoveryCode,
-				ipAddress,
-				"auth.mfa.login.challenge.failed",
-				"MFA_LOGIN_VERIFY");
+		try {
+			verifyActiveFactor(
+					user,
+					credential,
+					totpCode,
+					recoveryCode,
+					ipAddress,
+					"auth.mfa.login.challenge.failed",
+					"MFA_LOGIN_VERIFY");
+		} catch (AuthException ex) {
+			boolean blocked = blacklistService.recordMfaUserFailure(
+					userId,
+					LOGIN_FACTOR_ATTEMPT_WINDOW_SECONDS,
+					MAX_LOGIN_FACTOR_ATTEMPTS);
+			if (blocked) {
+				throw new AuthException(
+						"Too many MFA verification attempts. Try again later.",
+						"MFA_LOGIN_ATTEMPTS_EXCEEDED");
+			}
+			throw ex;
+		}
+
+		blacklistService.clearMfaUserFailures(userId);
 	}
 
 	@Transactional
