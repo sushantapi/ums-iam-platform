@@ -201,6 +201,7 @@ public class PayrollRunService {
         entry.setBasicPay(basicPay);
         entry.setAllowanceTotal(allowanceTotal);
         entry.setGrossPay(grossPay);
+        entry.setConfiguredDeductionTotal(deductionTotal);
         entry.setDeductionTotal(deductionTotal);
         entry.setNetPay(netPay);
         entry.setGeneratedAt(generatedAt);
