@@ -27,9 +27,24 @@ class PayrollTenantValidationServiceTests {
         UUID employeeId = UUID.randomUUID();
         EmployeeClient client = mock(EmployeeClient.class);
         when(client.getEmployee(employeeId, organizationId))
-                .thenReturn(new EmployeeInternalResponse(employeeId, organizationId, "ACTIVE"));
+                .thenReturn(new EmployeeInternalResponse(employeeId, organizationId, "EMP-001", "ACTIVE"));
 
         new PayrollTenantValidationService(client).validateActiveEmployee(employeeId, organizationId);
+    }
+
+    @Test
+    void returnsTenantScopedEmployeeMetadata() {
+        UUID organizationId = UUID.randomUUID();
+        UUID employeeId = UUID.randomUUID();
+        EmployeeClient client = mock(EmployeeClient.class);
+        when(client.getEmployee(employeeId, organizationId))
+                .thenReturn(new EmployeeInternalResponse(employeeId, organizationId, "EMP-009", "INACTIVE"));
+
+        EmployeeInternalResponse employee = new PayrollTenantValidationService(client)
+                .getEmployee(employeeId, organizationId);
+
+        assertEquals("EMP-009", employee.employeeCode());
+        assertEquals(organizationId, employee.organizationId());
     }
 
     @Test
@@ -84,7 +99,7 @@ class PayrollTenantValidationServiceTests {
         UUID employeeId = UUID.randomUUID();
         EmployeeClient client = mock(EmployeeClient.class);
         when(client.getEmployee(employeeId, organizationId))
-                .thenReturn(new EmployeeInternalResponse(employeeId, UUID.randomUUID(), "ACTIVE"));
+                .thenReturn(new EmployeeInternalResponse(employeeId, UUID.randomUUID(), "EMP-001", "ACTIVE"));
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
@@ -99,7 +114,7 @@ class PayrollTenantValidationServiceTests {
         UUID employeeId = UUID.randomUUID();
         EmployeeClient client = mock(EmployeeClient.class);
         when(client.getEmployee(employeeId, organizationId))
-                .thenReturn(new EmployeeInternalResponse(employeeId, organizationId, "INACTIVE"));
+                .thenReturn(new EmployeeInternalResponse(employeeId, organizationId, "EMP-001", "INACTIVE"));
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
