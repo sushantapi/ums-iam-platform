@@ -43,16 +43,16 @@ class OrganizationMfaRequiredEventHandlerTests {
 	private OrganizationMfaRequiredEventHandler handler;
 
 	@Test
-	void newEventRevokesActiveNonMfaOrganizationSessionsAndStoresMarker() {
+	void newEventRevokesAllActiveOrganizationSessionsAndStoresMarker() {
 		UUID eventId = UUID.randomUUID();
 		UUID organizationId = UUID.randomUUID();
 		UUID updatedBy = UUID.randomUUID();
-		Session first = session(organizationId);
-		Session second = session(organizationId);
+		Session first = session(organizationId, false);
+		Session second = session(organizationId, true);
 		OrganizationMfaRequiredEvent event = event(eventId, organizationId, updatedBy);
 
 		when(processedSecurityEventRepository.existsById(eventId)).thenReturn(false);
-		when(sessionRepository.findByOrganizationIdAndRevokedFalseAndMfaVerifiedFalseAndExpiresAtAfter(
+		when(sessionRepository.findByOrganizationIdAndRevokedFalseAndExpiresAtAfter(
 				eq(organizationId), any(Instant.class)))
 				.thenReturn(List.of(first, second));
 
@@ -86,7 +86,7 @@ class OrganizationMfaRequiredEventHandlerTests {
 
 		assertThat(processed).isFalse();
 		verify(sessionRepository, never())
-				.findByOrganizationIdAndRevokedFalseAndMfaVerifiedFalseAndExpiresAtAfter(any(), any());
+				.findByOrganizationIdAndRevokedFalseAndExpiresAtAfter(any(), any());
 		verify(sessionRepository, never()).saveAll(any());
 		verify(processedSecurityEventRepository, never()).save(any());
 		verifyNoInteractions(blacklistService);
@@ -101,11 +101,11 @@ class OrganizationMfaRequiredEventHandlerTests {
 				.build();
 	}
 
-	private Session session(UUID organizationId) {
+	private Session session(UUID organizationId, boolean mfaVerified) {
 		return Session.builder()
 				.id(UUID.randomUUID())
 				.organizationId(organizationId)
-				.mfaVerified(false)
+				.mfaVerified(mfaVerified)
 				.revoked(false)
 				.expiresAt(Instant.now().plusSeconds(3600))
 				.build();

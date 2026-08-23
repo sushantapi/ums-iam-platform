@@ -18,7 +18,7 @@ public interface SessionRepository extends JpaRepository<Session, UUID>, JpaSpec
 
 	List<Session> findByUserId(UUID userId);
 
-	List<Session> findByOrganizationIdAndRevokedFalseAndMfaVerifiedFalseAndExpiresAtAfter(
+	List<Session> findByOrganizationIdAndRevokedFalseAndExpiresAtAfter(
 			UUID organizationId,
 			Instant expiresAt);
 

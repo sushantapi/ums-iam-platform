@@ -36,7 +36,7 @@ public class OrganizationMfaRequiredEventHandler {
 
 		Instant now = Instant.now();
 		List<Session> sessions =
-				sessionRepository.findByOrganizationIdAndRevokedFalseAndMfaVerifiedFalseAndExpiresAtAfter(
+				sessionRepository.findByOrganizationIdAndRevokedFalseAndExpiresAtAfter(
 						event.getOrganizationId(),
 						now);
 
