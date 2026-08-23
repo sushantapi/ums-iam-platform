@@ -128,7 +128,7 @@ public class AuthService {
 
 		log.info("User registered successfully: {}", savedUser.getEmail());
 
-		return buildTokenResponse(savedUser, refreshToken, session.getId(), null);
+		return buildTokenResponse(savedUser, refreshToken, session.getId(), null, false);
 	}
 
 	@Transactional(noRollbackFor = AuthException.class)
@@ -349,7 +349,7 @@ public class AuthService {
 				.build());
 
 		log.info("Login successful: {}", user.getEmail());
-		return buildTokenResponse(user, refreshToken, session.getId(), organizationId);
+		return buildTokenResponse(user, refreshToken, session.getId(), organizationId, mfaVerified);
 	}
 
 	private String hash(String token) {
@@ -381,7 +381,12 @@ public class AuthService {
 				.build());
 	}
 
-	private TokenResponse buildTokenResponse(User user, String refreshToken, UUID sessionId, UUID organizationId) {
+	private TokenResponse buildTokenResponse(
+			User user,
+			String refreshToken,
+			UUID sessionId,
+			UUID organizationId,
+			boolean mfaVerified) {
 		Set<String> roles = new HashSet<>();
 		Set<String> permissions = new HashSet<>();
 
@@ -396,12 +401,21 @@ public class AuthService {
 					permissions);
 		}
 
-		String accessToken = jwtService.generateAccessToken(
-				user.getId().toString(),
-				user.getEmail(),
-				roles,
-				permissions,
-				sessionId);
+		String accessToken = organizationId == null
+				? jwtService.generateAccessToken(
+						user.getId().toString(),
+						user.getEmail(),
+						roles,
+						permissions,
+						sessionId)
+				: jwtService.generateAccessToken(
+						user.getId().toString(),
+						user.getEmail(),
+						roles,
+						permissions,
+						sessionId,
+						organizationId,
+						mfaVerified);
 
 		return TokenResponse.builder()
 				.accessToken(accessToken)
@@ -491,7 +505,12 @@ public class AuthService {
 		session.setExpiresAt(Instant.now().plusMillis(jwtService.getRefreshTokenExpiryMs()));
 		sessionRepository.save(session);
 
-		return buildTokenResponse(user, newRefreshToken, session.getId(), session.getOrganizationId());
+		return buildTokenResponse(
+				user,
+				newRefreshToken,
+				session.getId(),
+				session.getOrganizationId(),
+				session.isMfaVerified());
 	}
 
 	private void revokeSessionForOrganizationMfaPolicy(Session session, Instant now) {

@@ -3,6 +3,7 @@ package com.ums.auth.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -82,6 +83,7 @@ class AuthServiceMfaLoginTests {
 		assertThat(response.getRefreshToken()).isNull();
 		verify(sessionRepository, never()).save(any(Session.class));
 		verify(jwtService, never()).generateAccessToken(any(), any(), any(), any(), any());
+		verify(jwtService, never()).generateAccessToken(any(), any(), any(), any(), any(), any(), anyBoolean());
 		verify(jwtService, never()).generateRefreshToken(any(), any());
 	}
 
@@ -104,7 +106,8 @@ class AuthServiceMfaLoginTests {
 				.thenReturn(UserAuthorizationResponse.builder().roles(List.of()).permissions(List.of()).build());
 		when(authorizationClient.getAuthorization(user.getId(), "ORG", organizationId.toString()))
 				.thenReturn(UserAuthorizationResponse.builder().roles(List.of()).permissions(List.of()).build());
-		when(jwtService.generateAccessToken(any(), any(), any(), any(), any())).thenReturn("access-token");
+		when(jwtService.generateAccessToken(any(), any(), any(), any(), any(), eq(organizationId), eq(true)))
+				.thenReturn("access-token");
 		when(jwtService.getAccessTokenExpiryMs()).thenReturn(900000L);
 
 		var response = authService.verifyMfaChallenge(request, "127.0.0.1");
@@ -116,6 +119,7 @@ class AuthServiceMfaLoginTests {
 		ArgumentCaptor<Session> sessionCaptor = ArgumentCaptor.forClass(Session.class);
 		verify(sessionRepository).save(sessionCaptor.capture());
 		assertThat(sessionCaptor.getValue().isMfaVerified()).isTrue();
+		verify(jwtService).generateAccessToken(any(), any(), any(), any(), any(), eq(organizationId), eq(true));
 	}
 
 	@Test

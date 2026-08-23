@@ -37,6 +37,8 @@ class GatewayJwtAuthenticationFilterTests {
 		ServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest
 				.post("/api/v1/auth/login")
 				.header("X-Authenticated-User", "spoofed")
+				.header("X-Authenticated-Organization", "00000000-0000-0000-0000-000000000777")
+				.header("X-MFA-Verified", "true")
 				.header("X-User-Roles", "SUPER_ADMIN")
 				.header("X-User-Permissions", "ROLE_WRITE")
 				.header("X-Internal-Gateway-Secret", "spoofed-secret")
@@ -50,6 +52,8 @@ class GatewayJwtAuthenticationFilterTests {
 
 		HttpHeaders headers = forwarded.get().getRequest().getHeaders();
 		assertThat(headers.containsKey("X-Authenticated-User")).isFalse();
+		assertThat(headers.containsKey("X-Authenticated-Organization")).isFalse();
+		assertThat(headers.containsKey("X-MFA-Verified")).isFalse();
 		assertThat(headers.containsKey("X-User-Roles")).isFalse();
 		assertThat(headers.containsKey("X-User-Permissions")).isFalse();
 		assertThat(headers.containsKey("X-Internal-Gateway-Secret")).isFalse();
@@ -106,6 +110,7 @@ class GatewayJwtAuthenticationFilterTests {
 
 	@Test
 	void injectsTrustedIdentityOnlyFromValidatedJwtAuthentication() {
+		String organizationId = "00000000-0000-0000-0000-000000000777";
 		Jwt jwt = Jwt.withTokenValue("access-token")
 				.header("alg", "RS256")
 				.claim("jti", "jti-1")
@@ -114,6 +119,8 @@ class GatewayJwtAuthenticationFilterTests {
 				.expiresAt(Instant.now().plusSeconds(300))
 				.claim("roles", List.of("SUPER_ADMIN"))
 				.claim("permissions", List.of("ROLE_WRITE"))
+				.claim("organizationId", organizationId)
+				.claim("mfaVerified", true)
 				.claim("sessionId", "00000000-0000-0000-0000-000000000099")
 				.build();
 		when(tokenRevocationService.isRevoked(jwt)).thenReturn(Mono.just(false));
@@ -122,6 +129,8 @@ class GatewayJwtAuthenticationFilterTests {
 		ServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest
 				.get("/api/v1/users/me")
 				.header("X-Authenticated-User", "spoofed")
+				.header("X-Authenticated-Organization", "00000000-0000-0000-0000-000000000888")
+				.header("X-MFA-Verified", "false")
 				.build())
 				.mutate()
 				.principal(Mono.just(authentication))
@@ -136,6 +145,8 @@ class GatewayJwtAuthenticationFilterTests {
 		HttpHeaders headers = forwarded.get().getRequest().getHeaders();
 		assertThat(headers.getFirst("X-Authenticated-User"))
 				.isEqualTo("00000000-0000-0000-0000-000000000001");
+		assertThat(headers.getFirst("X-Authenticated-Organization")).isEqualTo(organizationId);
+		assertThat(headers.getFirst("X-MFA-Verified")).isEqualTo("true");
 		assertThat(headers.getFirst("X-User-Roles")).contains("SUPER_ADMIN");
 		assertThat(headers.getFirst("X-User-Permissions")).contains("ROLE_WRITE");
 		assertThat(headers.getFirst("X-Internal-Gateway-Secret")).isEqualTo(GATEWAY_SECRET);

@@ -99,13 +99,28 @@ public class JwtService {
 			Set<String> roles,
 			Set<String> permissions,
 			UUID sessionId) {
+		return generateAccessToken(userId, email, roles, permissions, sessionId, null, false);
+	}
 
-		return Jwts.builder().header().keyId(keyId).and()
+	public String generateAccessToken(
+			String userId,
+			String email,
+			Set<String> roles,
+			Set<String> permissions,
+			UUID sessionId,
+			UUID organizationId,
+			boolean mfaVerified) {
+
+		var builder = Jwts.builder().header().keyId(keyId).and()
 				.id(UUID.randomUUID().toString()).subject(userId).issuer(issuer).audience().add(audience).and().issuedAt(new Date())
 				.expiration(new Date(System.currentTimeMillis() + accessTokenExpiryMs))
 				.claim("email", email).claim("roles", roles).claim("permissions", permissions)
 				.claim("sessionId", sessionId.toString()).claim("type", "ACCESS")
-				.signWith(privateKey, Jwts.SIG.RS256).compact();
+				.claim("mfaVerified", mfaVerified);
+		if (organizationId != null) {
+			builder.claim("organizationId", organizationId.toString());
+		}
+		return builder.signWith(privateKey, Jwts.SIG.RS256).compact();
 	}
 
 	public String generateRefreshToken(String userId, UUID sessionId) {

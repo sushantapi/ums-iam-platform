@@ -3,6 +3,7 @@ package com.ums.auth.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -91,14 +92,18 @@ class AuthServiceOrganizationPolicyTests {
 		stubPlatformSession(user);
 		when(authorizationClient.getAuthorization(user.getId(), "ORG", organizationId.toString()))
 				.thenReturn(emptyAuthorization());
+		when(jwtService.generateAccessToken(any(), any(), any(), any(), any(), eq(organizationId), eq(false)))
+				.thenReturn("organization-access-token");
 
 		var response = authService.login(request, "127.0.0.1");
 
 		assertThat(response.isMfaEnrollmentRequired()).isFalse();
+		assertThat(response.getAccessToken()).isEqualTo("organization-access-token");
 		ArgumentCaptor<Session> sessionCaptor = ArgumentCaptor.forClass(Session.class);
 		verify(sessionRepository).save(sessionCaptor.capture());
 		assertThat(sessionCaptor.getValue().getOrganizationId()).isEqualTo(organizationId);
 		verify(authorizationClient).getAuthorization(user.getId(), "ORG", organizationId.toString());
+		verify(jwtService).generateAccessToken(any(), any(), any(), any(), any(), eq(organizationId), eq(false));
 	}
 
 	@Test

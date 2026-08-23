@@ -46,16 +46,19 @@ class JwtServiceTests {
 	}
 
 	@Test
-	void accessAndRefreshTokensCarryStrictTypesAndSessionBinding() {
+	void accessAndRefreshTokensCarryStrictTypesSessionBindingAndOrganizationAssurance() {
 		UUID userId = UUID.randomUUID();
 		UUID sessionId = UUID.randomUUID();
+		UUID organizationId = UUID.randomUUID();
 
 		String accessToken = jwtService.generateAccessToken(
 				userId.toString(),
 				"user@example.com",
 				Set.of("SUPER_ADMIN"),
 				Set.of("AUDIT_READ"),
-				sessionId);
+				sessionId,
+				organizationId,
+				true);
 		String refreshToken = jwtService.generateRefreshToken(userId.toString(), sessionId);
 
 		var accessClaims = jwtService.validateAndExtract(accessToken);
@@ -66,6 +69,8 @@ class JwtServiceTests {
 		assertThat(accessClaims.getId()).isNotBlank();
 		assertThat(accessClaims.get("type", String.class)).isEqualTo("ACCESS");
 		assertThat(accessClaims.get("sessionId", String.class)).isEqualTo(sessionId.toString());
+		assertThat(accessClaims.get("organizationId", String.class)).isEqualTo(organizationId.toString());
+		assertThat(accessClaims.get("mfaVerified", Boolean.class)).isTrue();
 		assertThat(accessClaims.get("roles").toString()).contains("SUPER_ADMIN");
 		assertThat(accessClaims.get("permissions").toString()).contains("AUDIT_READ");
 
@@ -73,7 +78,26 @@ class JwtServiceTests {
 		assertThat(refreshClaims.getId()).isNotBlank();
 		assertThat(refreshClaims.get("type", String.class)).isEqualTo("REFRESH");
 		assertThat(refreshClaims.get("sessionId", String.class)).isEqualTo(sessionId.toString());
-		assertThat(refreshClaims).doesNotContainKeys("roles", "permissions", "email");
+		assertThat(refreshClaims).doesNotContainKeys(
+				"roles", "permissions", "email", "organizationId", "mfaVerified");
+	}
+
+	@Test
+	void platformAccessTokenDoesNotCarryOrganizationContext() {
+		UUID userId = UUID.randomUUID();
+		UUID sessionId = UUID.randomUUID();
+
+		String accessToken = jwtService.generateAccessToken(
+				userId.toString(),
+				"user@example.com",
+				Set.of(),
+				Set.of(),
+				sessionId);
+
+		var claims = jwtService.validateAndExtract(accessToken);
+
+		assertThat(claims).doesNotContainKey("organizationId");
+		assertThat(claims.get("mfaVerified", Boolean.class)).isFalse();
 	}
 
 	@Test
