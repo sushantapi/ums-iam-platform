@@ -9,6 +9,8 @@ import { ForbiddenPage } from "../features/auth/ForbiddenPage";
 import { ForgotPasswordPage } from "../features/auth/ForgotPasswordPage";
 import { InvitationAcceptancePage } from "../features/auth/InvitationAcceptancePage";
 import { LoginPage } from "../features/auth/LoginPage";
+import { MfaChallengePage } from "../features/auth/MfaChallengePage";
+import { MfaSecurityPage } from "../features/auth/MfaSecurityPage";
 import { RegisterPage } from "../features/auth/RegisterPage";
 import { ResetPasswordPage } from "../features/auth/ResetPasswordPage";
 import { auditRoutes } from "../features/audit/routes";
@@ -26,6 +28,7 @@ export function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/mfa-challenge" element={<MfaChallengePage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -42,6 +45,8 @@ export function AppRouter() {
           path="/forbidden"
           element={<ForbiddenPage />}
         />
+
+        <Route path="/security" element={<MfaSecurityPage />} />
 
         <Route
           index

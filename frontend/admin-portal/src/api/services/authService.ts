@@ -33,6 +33,32 @@ export interface TokenResponse {
   expiresIn: number;
   userId: string;
   email: string;
+  mfaRequired?: boolean;
+  mfaChallengeToken?: string;
+  mfaChallengeExpiresIn?: number;
+}
+
+export interface MfaChallengeVerifyRequest {
+  challengeToken: string;
+  totpCode?: string;
+  recoveryCode?: string;
+}
+
+export interface MfaStatusResponse {
+  enabled: boolean;
+  setupPending: boolean;
+  setupExpiresAt?: string | null;
+  recoveryCodesRemaining: number;
+}
+
+export interface MfaTotpSetupResponse {
+  secret: string;
+  provisioningUri: string;
+  expiresAt: string;
+}
+
+export interface MfaRecoveryCodesResponse {
+  recoveryCodes: string[];
 }
 
 export interface ApiResponse<T> {
@@ -49,6 +75,20 @@ class AuthService {
     );
 
     return this.requireData(response.data, "Login response did not contain token data");
+  }
+
+  async verifyMfaChallenge(
+    data: MfaChallengeVerifyRequest,
+  ): Promise<TokenResponse> {
+    const response = await apiClient.post<ApiResponse<TokenResponse>>(
+      "/auth/mfa/challenge/verify",
+      data,
+    );
+
+    return this.requireData(
+      response.data,
+      "MFA verification response did not contain session data",
+    );
   }
 
   async register(data: RegisterRequest): Promise<TokenResponse> {
@@ -85,6 +125,31 @@ class AuthService {
       response.data,
       "Password reset could not be completed.",
     );
+  }
+
+  async mfaStatus(): Promise<MfaStatusResponse> {
+    const response = await apiClient.get<ApiResponse<MfaStatusResponse>>(
+      "/auth/mfa/status",
+    );
+
+    return this.requireData(response.data, "MFA status could not be loaded");
+  }
+
+  async setupTotp(): Promise<MfaTotpSetupResponse> {
+    const response = await apiClient.post<ApiResponse<MfaTotpSetupResponse>>(
+      "/auth/mfa/totp/setup",
+    );
+
+    return this.requireData(response.data, "MFA setup could not be started");
+  }
+
+  async confirmTotp(code: string): Promise<MfaRecoveryCodesResponse> {
+    const response = await apiClient.post<ApiResponse<MfaRecoveryCodesResponse>>(
+      "/auth/mfa/totp/confirm",
+      { code },
+    );
+
+    return this.requireData(response.data, "MFA setup could not be confirmed");
   }
 
   async logout(): Promise<void> {

@@ -1,6 +1,6 @@
-import { LogOut } from "lucide-react";
+import { LogOut, ShieldCheck } from "lucide-react";
 import { useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Link, Outlet, useNavigate } from "react-router-dom";
 
 import authService from "../../api/services/authService";
 import { useAuthStore } from "../../store/authStore";
@@ -33,10 +33,14 @@ export function AdminShell() {
 
       <main className="main-panel">
         <header className="topbar">
-
           <div className="operator-chip">
             {user?.email ?? "Admin"}
           </div>
+
+          <Link className="button-secondary topbar-logout" to="/security">
+            <ShieldCheck size={16} />
+            Security
+          </Link>
 
           <button
             type="button"
