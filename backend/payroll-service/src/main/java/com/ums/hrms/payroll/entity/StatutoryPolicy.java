@@ -39,6 +39,7 @@ public class StatutoryPolicy extends BaseEntity {
     @Column(name = "organization_id", nullable = false, length = 36)
     private UUID organizationId;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "country_code", nullable = false, length = 2)
     private String countryCode;
 
