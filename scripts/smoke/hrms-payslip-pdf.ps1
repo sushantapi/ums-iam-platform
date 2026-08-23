@@ -69,7 +69,6 @@ function Invoke-Api {
     }
     finally {
         $request.Dispose()
-        $httpMethod.Dispose()
     }
 }
 
