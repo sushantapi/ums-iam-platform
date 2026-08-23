@@ -36,6 +36,9 @@ public class PayslipPdfService {
     private static final float LEFT = 54f;
     private static final float TOP = 790f;
     private static final float LINE_HEIGHT = 20f;
+    private static final float DEFAULT_VALUE_X = 190f;
+    private static final float LABEL_VALUE_GAP = 12f;
+    private static final float FIELD_FONT_SIZE = 11f;
 
     private final PayrollEntryRepository payrollEntryRepository;
     private final PayrollRunRepository payrollRunRepository;
@@ -186,8 +189,15 @@ public class PayslipPdfService {
             float y,
             String label,
             String value) throws IOException {
-        text(stream, bold, 11, LEFT, y, label + ":");
-        text(stream, regular, 11, 190f, y, sanitizePdfText(value));
+        String renderedLabel = label + ":";
+        float labelWidth =
+                bold.getStringWidth(renderedLabel) / 1000f * FIELD_FONT_SIZE;
+        float valueX = Math.max(
+                DEFAULT_VALUE_X,
+                LEFT + labelWidth + LABEL_VALUE_GAP);
+
+        text(stream, bold, FIELD_FONT_SIZE, LEFT, y, renderedLabel);
+        text(stream, regular, FIELD_FONT_SIZE, valueX, y, sanitizePdfText(value));
         return y - LINE_HEIGHT;
     }
 

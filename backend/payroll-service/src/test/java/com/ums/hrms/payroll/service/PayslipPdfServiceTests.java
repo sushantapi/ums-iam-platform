@@ -77,7 +77,10 @@ class PayslipPdfServiceTests {
         assertTrue(new String(document.content(), 0, 4, StandardCharsets.US_ASCII).startsWith("%PDF"));
 
         try (PDDocument pdf = Loader.loadPDF(document.content())) {
-            String text = new PDFTextStripper().getText(pdf);
+            PDFTextStripper stripper = new PDFTextStripper();
+            stripper.setSortByPosition(true);
+            String text = stripper.getText(pdf);
+            String normalizedText = text.replaceAll("\\s+", " ");
             assertTrue(text.contains("EMP-001"));
             assertTrue(text.contains("2026-08"));
             assertTrue(text.contains("50000.00"));
@@ -87,6 +90,8 @@ class PayslipPdfServiceTests {
             assertTrue(text.contains("DEDUCTION BREAKDOWN"));
             assertTrue(text.contains("Configured / Other Deductions"));
             assertTrue(text.contains("500.00"));
+            assertTrue(normalizedText.contains(
+                    "Configured / Other Deductions: 500.00"));
             assertTrue(text.contains("Employee PF"));
             assertTrue(text.contains("1200.00"));
             assertTrue(text.contains("Employee ESI"));
@@ -95,6 +100,8 @@ class PayslipPdfServiceTests {
             assertTrue(text.contains("665.00"));
             assertTrue(text.contains("Statutory Employee Deductions"));
             assertTrue(text.contains("2000.00"));
+            assertTrue(normalizedText.contains(
+                    "Statutory Employee Deductions: 2000.00"));
             assertTrue(text.contains("Total Deductions"));
             assertTrue(text.contains("2500.00"));
             assertTrue(text.contains("Net Pay"));
