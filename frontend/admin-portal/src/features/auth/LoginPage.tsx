@@ -10,6 +10,7 @@ import {
 import authService from "../../api/services/authService";
 import type { ApiErrorResponse } from "../../api/apiClient";
 import { useAuthStore } from "../../store/authStore";
+import { beginMfaChallenge } from "./mfaChallengeState";
 
 function getLoginError(error: unknown): string {
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
@@ -67,7 +68,7 @@ export function LoginPage() {
     setError(null);
 
     try {
-      const session = await authService.login({
+      const response = await authService.login({
         email: email.trim(),
         password,
         deviceInfo: navigator.userAgent,
@@ -77,7 +78,17 @@ export function LoginPage() {
           : {}),
       });
 
-      setSession(session);
+      if (response.mfaRequired) {
+        beginMfaChallenge(response);
+        navigate("/mfa-challenge", { replace: true, state: { from } });
+        return;
+      }
+
+      if (!response.accessToken || !response.refreshToken) {
+        throw new Error("Login response did not contain session tokens.");
+      }
+
+      setSession(response);
       navigate(from, { replace: true });
     } catch (loginError) {
       setError(getLoginError(loginError));

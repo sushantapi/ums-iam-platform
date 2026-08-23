@@ -26,11 +26,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ums.auth.config.SecurityConfig;
 import com.ums.auth.controller.AdminSessionController;
 import com.ums.auth.controller.AuthController;
+import com.ums.auth.dto.MfaRecoveryCodesResponse;
 import com.ums.auth.dto.TokenResponse;
 import com.ums.auth.security.InternalServiceAuthenticationFilter;
 import com.ums.auth.security.TrustedGatewayAuthenticationFilter;
 import com.ums.auth.service.AdminSessionService;
 import com.ums.auth.service.AuthService;
+import com.ums.auth.service.MfaService;
 import com.ums.auth.service.PasswordRecoveryService;
 
 @WebMvcTest(
@@ -61,6 +63,9 @@ class AuthenticationSecurityBoundaryTests {
 	@MockitoBean
 	private AdminSessionService adminSessionService;
 
+	@MockitoBean
+	private MfaService mfaService;
+
 	@Autowired
 	private MockMvc mockMvc;
 
@@ -72,6 +77,7 @@ class AuthenticationSecurityBoundaryTests {
 		when(authService.login(any(), any())).thenReturn(tokenResponse());
 		when(authService.register(any(), any())).thenReturn(tokenResponse());
 		when(authService.refreshToken(any())).thenReturn(tokenResponse());
+		when(authService.verifyMfaChallenge(any(), any())).thenReturn(tokenResponse());
 
 		mockMvc.perform(post("/api/v1/auth/login")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -95,6 +101,40 @@ class AuthenticationSecurityBoundaryTests {
 		mockMvc.perform(post("/api/v1/auth/reset-password")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"token\":\"opaque-reset-token\",\"newPassword\":\"NewPassword@123\"}"))
+				.andExpect(status().isOk());
+		mockMvc.perform(post("/api/v1/auth/mfa/challenge/verify")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"challengeToken\":\"signed-challenge\",\"totpCode\":\"123456\"}"))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void mfaManagementRoutesRequireTrustedGatewayIdentity() throws Exception {
+		String requestBody = "{\"password\":\"Password@123\",\"totpCode\":\"123456\"}";
+		UUID userId = UUID.randomUUID();
+		when(mfaService.rotateRecoveryCodes(any(), any(), any()))
+				.thenReturn(MfaRecoveryCodesResponse.builder().recoveryCodes(List.of("AAAA-BBBB-CCCC-DDDD")).build());
+
+		mockMvc.perform(post("/api/v1/auth/mfa/recovery-codes/rotate")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestBody))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(post("/api/v1/auth/mfa/disable")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestBody))
+				.andExpect(status().isForbidden());
+
+		mockMvc.perform(post("/api/v1/auth/mfa/recovery-codes/rotate")
+				.header(AUTHENTICATED_USER_HEADER, userId.toString())
+				.header(GATEWAY_SECRET_HEADER, TEST_GATEWAY_SECRET)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestBody))
+				.andExpect(status().isOk());
+		mockMvc.perform(post("/api/v1/auth/mfa/disable")
+				.header(AUTHENTICATED_USER_HEADER, userId.toString())
+				.header(GATEWAY_SECRET_HEADER, TEST_GATEWAY_SECRET)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestBody))
 				.andExpect(status().isOk());
 	}
 
@@ -129,8 +169,6 @@ class AuthenticationSecurityBoundaryTests {
 		assertThat(knownBody.get("errorCode")).isNull();
 		assertThat(unknownBody.get("errorCode")).isNull();
 
-		// ApiResponse.timestamp is intentionally request-specific. Compare the complete
-		// outward contract after removing only that non-deterministic field.
 		knownBody.remove("timestamp");
 		unknownBody.remove("timestamp");
 		assertThat(knownBody).isEqualTo(unknownBody);
@@ -141,6 +179,8 @@ class AuthenticationSecurityBoundaryTests {
 		mockMvc.perform(get("/api/v1/auth/forgot-password"))
 				.andExpect(status().isForbidden());
 		mockMvc.perform(get("/api/v1/auth/reset-password"))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(get("/api/v1/auth/mfa/challenge/verify"))
 				.andExpect(status().isForbidden());
 		mockMvc.perform(post("/api/v1/auth/not-a-public-route")
 				.contentType(MediaType.APPLICATION_JSON)

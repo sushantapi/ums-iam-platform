@@ -12,4 +12,7 @@ public class TokenResponse {
 	private long expiresIn; // seconds until access token expires
 	private String userId;
 	private String email;
+	private boolean mfaRequired;
+	private String mfaChallengeToken;
+	private long mfaChallengeExpiresIn;
 }

@@ -12,11 +12,12 @@ class RsaKeyConfigTests {
 	private final RsaKeyConfig config = new RsaKeyConfig();
 
 	@Test
-	void gatewayAcceptsAccessTokensAndRejectsRefreshTokens() {
+	void gatewayAcceptsOnlyAccessTokens() {
 		var validator = config.jwtValidator("ums-iam-platform", "");
 
 		assertThat(validator.validate(jwt("ACCESS")).hasErrors()).isFalse();
 		assertThat(validator.validate(jwt("REFRESH")).hasErrors()).isTrue();
+		assertThat(validator.validate(jwt("MFA_CHALLENGE")).hasErrors()).isTrue();
 	}
 
 	private Jwt jwt(String type) {

@@ -18,6 +18,7 @@ import org.springframework.util.StringUtils;
 
 import com.ums.auth.client.AuthorizationClient;
 import com.ums.auth.dto.LoginRequest;
+import com.ums.auth.dto.MfaChallengeVerifyRequest;
 import com.ums.auth.dto.RefreshTokenRequest;
 import com.ums.auth.dto.RegisterRequest;
 import com.ums.auth.dto.TokenResponse;
@@ -46,9 +47,11 @@ public class AuthService {
 
 	private static final int MAX_FAILED_ATTEMPTS = 5;
 	private static final int LOCKOUT_MINUTES = 30;
+	private static final int MAX_MFA_CHALLENGE_ATTEMPTS = 5;
 	private static final String PLATFORM_SCOPE_TYPE = "PLATFORM";
 	private static final String PLATFORM_SCOPE_ID = "*";
 	private static final String ORGANIZATION_SCOPE_TYPE = "ORG";
+	private static final String MFA_CHALLENGE_TYPE = "MFA_CHALLENGE";
 
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
@@ -58,6 +61,7 @@ public class AuthService {
 	private final SessionRepository sessionRepository;
 	private final TokenBlacklistService blacklistService;
 	private final RabbitTemplate rabbitTemplate;
+	private final MfaService mfaService;
 
 	@Transactional
 	public TokenResponse register(RegisterRequest request, String ipAddress) {
@@ -157,15 +161,126 @@ public class AuthService {
 
 		user.setFailedLoginAttempts(0);
 		user.setLockedUntil(null);
+
+		if (user.isMfaEnabled()) {
+			userRepository.save(user);
+			String challengeToken = jwtService.generateMfaChallengeToken(
+					user.getId().toString(),
+					request.getOrganizationId(),
+					request.getClient(),
+					request.getDeviceInfo());
+			return TokenResponse.builder()
+					.mfaRequired(true)
+					.mfaChallengeToken(challengeToken)
+					.mfaChallengeExpiresIn(jwtService.getMfaChallengeExpiryMs() / 1000)
+					.userId(user.getId().toString())
+					.email(user.getEmail())
+					.build();
+		}
+
+		user.setLastLoginAt(Instant.now());
+		return createLoginSession(
+				user,
+				ipAddress,
+				request.getDeviceInfo(),
+				request.getClient(),
+				request.getOrganizationId());
+	}
+
+	@Transactional
+	public TokenResponse verifyMfaChallenge(MfaChallengeVerifyRequest request, String ipAddress) {
+		Claims claims;
+		try {
+			claims = jwtService.validateAndExtract(request.getChallengeToken());
+		} catch (Exception ex) {
+			throw new AuthException("Invalid or expired MFA challenge", "INVALID_MFA_CHALLENGE");
+		}
+
+		if (!MFA_CHALLENGE_TYPE.equals(claims.get("type", String.class))
+				|| !StringUtils.hasText(claims.getId())
+				|| !StringUtils.hasText(claims.getSubject())
+				|| claims.getExpiration() == null) {
+			throw new AuthException("Invalid MFA challenge", "INVALID_MFA_CHALLENGE");
+		}
+
+		String challengeId = claims.getId();
+		if (blacklistService.isMfaChallengeConsumed(challengeId)) {
+			throw new AuthException("MFA challenge has already been used", "MFA_CHALLENGE_REPLAYED");
+		}
+
+		long ttlSeconds = claims.getExpiration().getTime() / 1000 - System.currentTimeMillis() / 1000;
+		if (ttlSeconds <= 0) {
+			throw new AuthException("MFA challenge has expired", "INVALID_MFA_CHALLENGE");
+		}
+
+		UUID userId = parseUserId(claims.getSubject());
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new AuthException("Invalid MFA challenge", "INVALID_MFA_CHALLENGE"));
+		if (user.getStatus() != UserStatus.ACTIVE || !user.isMfaEnabled()) {
+			throw new AuthException("Invalid MFA challenge", "INVALID_MFA_CHALLENGE");
+		}
+
+		try {
+			mfaService.verifyLoginFactor(userId, request.getTotpCode(), request.getRecoveryCode(), ipAddress);
+		} catch (AuthException ex) {
+			boolean exhausted = blacklistService.recordMfaChallengeFailure(
+					challengeId,
+					ttlSeconds,
+					MAX_MFA_CHALLENGE_ATTEMPTS);
+			if (exhausted) {
+				blacklistService.consumeMfaChallenge(challengeId, ttlSeconds);
+				throw new AuthException(
+						"MFA challenge attempts exceeded",
+						"MFA_CHALLENGE_ATTEMPTS_EXCEEDED");
+			}
+			throw ex;
+		}
+
+		if (!blacklistService.consumeMfaChallenge(challengeId, ttlSeconds)) {
+			throw new AuthException("MFA challenge has already been used", "MFA_CHALLENGE_REPLAYED");
+		}
+
+		user.setFailedLoginAttempts(0);
+		user.setLockedUntil(null);
 		user.setLastLoginAt(Instant.now());
 
+		UUID organizationId = parseOptionalOrganizationId(claims.get("organizationId", String.class));
+		TokenResponse response = createLoginSession(
+				user,
+				ipAddress,
+				claims.get("deviceInfo", String.class),
+				claims.get("client", String.class),
+				organizationId);
+
+		publishAuditEvent(AuditEvent.builder()
+				.eventType("auth.mfa.login.challenge.succeeded")
+				.serviceName("authentication-service")
+				.userId(user.getId().toString())
+				.userEmail(user.getEmail())
+				.action("MFA_LOGIN_VERIFY")
+				.entityType("USER")
+				.entityId(user.getId().toString())
+				.details("MFA login challenge completed")
+				.ipAddress(ipAddress)
+				.timestamp(LocalDateTime.now())
+				.build());
+
+		return response;
+	}
+
+	private TokenResponse createLoginSession(
+			User user,
+			String ipAddress,
+			String deviceInfo,
+			String client,
+			UUID organizationId) {
 		Session session = Session.builder()
 				.user(user)
 				.refreshTokenHash("pending")
 				.ipAddress(ipAddress)
-				.deviceInfo(request.getDeviceInfo())
-				.client(request.getClient())
-				.organizationId(request.getOrganizationId())
+				.deviceInfo(deviceInfo)
+				.client(client)
+				.organizationId(organizationId)
 				.lastSeenAt(Instant.now())
 				.expiresAt(Instant.now().plusMillis(jwtService.getRefreshTokenExpiryMs()))
 				.build();
@@ -188,9 +303,8 @@ public class AuthService {
 				.timestamp(LocalDateTime.now())
 				.build());
 
-		log.info("Login successful: {}", email);
-
-		return buildTokenResponse(user, refreshToken, session.getId(), request.getOrganizationId());
+		log.info("Login successful: {}", user.getEmail());
+		return buildTokenResponse(user, refreshToken, session.getId(), organizationId);
 	}
 
 	private String hash(String token) {
@@ -384,6 +498,25 @@ public class AuthService {
 			return UUID.fromString(sessionId);
 		} catch (IllegalArgumentException ex) {
 			throw new AuthException("Token contains an invalid session", "INVALID_TOKEN_SESSION");
+		}
+	}
+
+	private UUID parseUserId(String subject) {
+		try {
+			return UUID.fromString(subject);
+		} catch (IllegalArgumentException ex) {
+			throw new AuthException("Invalid MFA challenge", "INVALID_MFA_CHALLENGE");
+		}
+	}
+
+	private UUID parseOptionalOrganizationId(String organizationId) {
+		if (!StringUtils.hasText(organizationId)) {
+			return null;
+		}
+		try {
+			return UUID.fromString(organizationId);
+		} catch (IllegalArgumentException ex) {
+			throw new AuthException("Invalid MFA challenge", "INVALID_MFA_CHALLENGE");
 		}
 	}
 

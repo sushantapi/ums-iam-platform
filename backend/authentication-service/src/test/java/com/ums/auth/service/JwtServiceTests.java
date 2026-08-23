@@ -31,6 +31,7 @@ class JwtServiceTests {
 		ReflectionTestUtils.setField(jwtService, "keyId", "test-key-1");
 		ReflectionTestUtils.setField(jwtService, "accessTokenExpiryMs", 900000L);
 		ReflectionTestUtils.setField(jwtService, "refreshTokenExpiryMs", 604800000L);
+		ReflectionTestUtils.setField(jwtService, "mfaChallengeExpiryMs", 300000L);
 	}
 
 	@Test
@@ -73,5 +74,25 @@ class JwtServiceTests {
 		assertThat(refreshClaims.get("type", String.class)).isEqualTo("REFRESH");
 		assertThat(refreshClaims.get("sessionId", String.class)).isEqualTo(sessionId.toString());
 		assertThat(refreshClaims).doesNotContainKeys("roles", "permissions", "email");
+	}
+
+	@Test
+	void mfaChallengeIsShortLivedSinglePurposeAndCarriesOnlyLoginContext() {
+		UUID userId = UUID.randomUUID();
+		UUID organizationId = UUID.randomUUID();
+
+		String token = jwtService.generateMfaChallengeToken(
+				userId.toString(), organizationId, "ADMIN_PORTAL", "Chrome");
+		var claims = jwtService.validateAndExtract(token);
+
+		assertThat(claims.getId()).isNotBlank();
+		assertThat(claims.getSubject()).isEqualTo(userId.toString());
+		assertThat(claims.get("type", String.class)).isEqualTo("MFA_CHALLENGE");
+		assertThat(claims.get("organizationId", String.class)).isEqualTo(organizationId.toString());
+		assertThat(claims.get("client", String.class)).isEqualTo("ADMIN_PORTAL");
+		assertThat(claims.get("deviceInfo", String.class)).isEqualTo("Chrome");
+		assertThat(claims).doesNotContainKeys("sessionId", "roles", "permissions", "email");
+		assertThat(claims.getExpiration().getTime() - claims.getIssuedAt().getTime())
+				.isBetween(299000L, 301000L);
 	}
 }

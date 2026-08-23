@@ -72,6 +72,17 @@ security:
   password-reset:
     ttl-minutes: ${PASSWORD_RESET_TTL_MINUTES:15}
     reset-page-url: ${PASSWORD_RESET_PAGE_URL}
+  mfa:
+    encryption-key: ${MFA_ENCRYPTION_KEY:}
+    recovery-code-count: ${MFA_RECOVERY_CODE_COUNT:10}
+    recovery-code-bytes: ${MFA_RECOVERY_CODE_BYTES:10}
+    totp:
+      issuer: ${MFA_TOTP_ISSUER:UMS IAM}
+      digits: ${MFA_TOTP_DIGITS:6}
+      period-seconds: ${MFA_TOTP_PERIOD_SECONDS:30}
+      allowed-window: ${MFA_TOTP_ALLOWED_WINDOW:1}
+      secret-bytes: ${MFA_TOTP_SECRET_BYTES:20}
+      setup-expiry-minutes: ${MFA_SETUP_EXPIRY_MINUTES:10}
 
 internal:
   gateway:

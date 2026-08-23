@@ -82,7 +82,8 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 					|| path.equals("/api/v1/auth/login")
 					|| path.equals("/api/v1/auth/refresh")
 					|| path.equals("/api/v1/auth/forgot-password")
-					|| path.equals("/api/v1/auth/reset-password");
+					|| path.equals("/api/v1/auth/reset-password")
+					|| path.equals("/api/v1/auth/mfa/challenge/verify");
 		}
 
 		return HttpMethod.GET.equals(method)
