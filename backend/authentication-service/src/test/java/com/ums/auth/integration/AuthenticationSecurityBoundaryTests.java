@@ -31,6 +31,7 @@ import com.ums.auth.security.InternalServiceAuthenticationFilter;
 import com.ums.auth.security.TrustedGatewayAuthenticationFilter;
 import com.ums.auth.service.AdminSessionService;
 import com.ums.auth.service.AuthService;
+import com.ums.auth.service.MfaService;
 import com.ums.auth.service.PasswordRecoveryService;
 
 @WebMvcTest(
@@ -60,6 +61,9 @@ class AuthenticationSecurityBoundaryTests {
 
 	@MockitoBean
 	private AdminSessionService adminSessionService;
+
+	@MockitoBean
+	private MfaService mfaService;
 
 	@Autowired
 	private MockMvc mockMvc;

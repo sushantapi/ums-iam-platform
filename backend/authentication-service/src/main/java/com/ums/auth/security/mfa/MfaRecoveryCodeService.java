@@ -11,6 +11,7 @@ import java.util.Set;
 
 import org.apache.commons.codec.binary.Base32;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -21,6 +22,7 @@ public class MfaRecoveryCodeService {
 	private final MfaProperties properties;
 	private final SecureRandom secureRandom;
 
+	@Autowired
 	public MfaRecoveryCodeService(MfaProperties properties) {
 		this(properties, new SecureRandom());
 	}

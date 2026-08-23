@@ -10,6 +10,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -25,6 +26,7 @@ public class MfaSecretEncryptionService {
 	private final MfaProperties properties;
 	private final SecureRandom secureRandom;
 
+	@Autowired
 	public MfaSecretEncryptionService(MfaProperties properties) {
 		this(properties, new SecureRandom());
 	}
