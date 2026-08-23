@@ -36,6 +36,7 @@ function Invoke-Api {
     $request = [System.Net.Http.HttpRequestMessage]::new($httpMethod, "$BaseUrl$Path")
     $request.Headers.Authorization = [System.Net.Http.Headers.AuthenticationHeaderValue]::new("Bearer", $AccessToken)
     $request.Headers.Accept.Add([System.Net.Http.Headers.MediaTypeWithQualityHeaderValue]::new("application/json"))
+    $request.Headers.Accept.Add([System.Net.Http.Headers.MediaTypeWithQualityHeaderValue]::new("application/pdf"))
 
     if ($null -ne $Body) {
         $json = $Body | ConvertTo-Json -Depth 10 -Compress
@@ -90,7 +91,7 @@ $script:HttpClient = [System.Net.Http.HttpClient]::new()
 $script:HttpClient.Timeout = [TimeSpan]::FromSeconds(30)
 
 try {
-    $snapshotBeforeResponse = Invoke-Api -Method GET -Path "/api/v1/hrms/payroll/payslips/$entry?organizationId=$org"
+    $snapshotBeforeResponse = Invoke-Api -Method GET -Path "/api/v1/hrms/payroll/payslips/${entry}?organizationId=${org}"
     Assert-Status $snapshotBeforeResponse 200 "JSON_PAYSLIP_BEFORE_FINALIZE"
     $snapshotBefore = $snapshotBeforeResponse.Text | ConvertFrom-Json
 
@@ -127,7 +128,7 @@ try {
     }
     Write-Host "PDF_BODY_SIGNATURE=PASS"
 
-    $snapshotAfterResponse = Invoke-Api -Method GET -Path "/api/v1/hrms/payroll/payslips/$entry?organizationId=$org"
+    $snapshotAfterResponse = Invoke-Api -Method GET -Path "/api/v1/hrms/payroll/payslips/${entry}?organizationId=${org}"
     Assert-Status $snapshotAfterResponse 200 "JSON_PAYSLIP_AFTER_FINALIZE"
     $snapshotAfter = $snapshotAfterResponse.Text | ConvertFrom-Json
 
