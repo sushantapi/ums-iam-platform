@@ -3,7 +3,11 @@ package com.ums.hrms.payroll.controller;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -19,7 +23,9 @@ import com.ums.hrms.payroll.dto.CreatePayrollRunRequest;
 import com.ums.hrms.payroll.dto.PayrollEntryResponse;
 import com.ums.hrms.payroll.dto.PayrollRunResponse;
 import com.ums.hrms.payroll.dto.PayrollTransitionRequest;
+import com.ums.hrms.payroll.dto.PayslipPdfDocument;
 import com.ums.hrms.payroll.service.PayrollRunService;
+import com.ums.hrms.payroll.service.PayslipPdfService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 public class PayrollRunController {
 
     private final PayrollRunService payrollRunService;
+    private final PayslipPdfService payslipPdfService;
 
     @PostMapping("/runs")
     @PreAuthorize("hasAuthority('PAYROLL_RUN_MANAGE')")
@@ -117,6 +124,27 @@ public class PayrollRunController {
                 organizationId,
                 currentUserId(authentication),
                 isSuperAdmin(authentication));
+    }
+
+    @GetMapping(value = "/payslips/{entryId}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @PreAuthorize("hasAuthority('PAYROLL_READ')")
+    public ResponseEntity<byte[]> downloadPayslipPdf(
+            @PathVariable UUID entryId,
+            @RequestParam UUID organizationId,
+            Authentication authentication) {
+        PayslipPdfDocument document = payslipPdfService.generate(
+                entryId,
+                organizationId,
+                currentUserId(authentication),
+                isSuperAdmin(authentication));
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .contentLength(document.content().length)
+                .cacheControl(CacheControl.noStore())
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(document.filename()).build().toString())
+                .body(document.content());
     }
 
     private UUID currentUserId(Authentication authentication) {

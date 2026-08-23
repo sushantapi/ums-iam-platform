@@ -31,6 +31,10 @@ public class InternalEmployeeController {
             @RequestParam UUID organizationId) {
         Employee employee = employeeRepository.findByIdAndOrganizationId(employeeId, organizationId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
-        return new EmployeeInternalResponse(employee.getId(), employee.getOrganizationId(), employee.getStatus());
+        return new EmployeeInternalResponse(
+                employee.getId(),
+                employee.getOrganizationId(),
+                employee.getEmployeeCode(),
+                employee.getStatus());
     }
 }

@@ -8,6 +8,11 @@ import { useAuthStore } from "../../store/authStore";
 
 export type HrmsQueryValue = string | number | boolean | undefined;
 
+export type HrmsDownloadResponse = {
+  blob: Blob;
+  filename?: string;
+};
+
 export function withHrmsQuery(
   path: string,
   query: Record<string, HrmsQueryValue>,
@@ -64,15 +69,34 @@ function errorMessage(response: Response, body: unknown): string {
   return `Request failed: ${response.status} ${response.statusText}`;
 }
 
-export async function hrmsGatewayRequest<T>(
+function filenameFromDisposition(value: string | null): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const encodedMatch = value.match(/filename\*=UTF-8''([^;]+)/i);
+  if (encodedMatch?.[1]) {
+    try {
+      return decodeURIComponent(encodedMatch[1].trim());
+    } catch {
+      return undefined;
+    }
+  }
+
+  const plainMatch = value.match(/filename="?([^";]+)"?/i);
+  return plainMatch?.[1]?.trim();
+}
+
+async function executeAuthenticated(
   path: string,
-  init?: RequestInit,
-): Promise<T> {
+  init: RequestInit | undefined,
+  accept?: string,
+): Promise<Response> {
   async function execute(accessToken: string | null) {
     return fetch(`${runtimeConfig.apiBaseUrl}${path}`, {
       ...init,
       headers: {
-        "Content-Type": "application/json",
+        ...(accept ? { Accept: accept } : {}),
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...init?.headers,
       },
@@ -96,6 +120,20 @@ export async function hrmsGatewayRequest<T>(
     redirectToForbidden();
   }
 
+  return response;
+}
+
+export async function hrmsGatewayRequest<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await executeAuthenticated(path, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...init?.headers,
+    },
+  });
   const body = await readResponseBody(response);
 
   if (!response.ok) {
@@ -103,4 +141,20 @@ export async function hrmsGatewayRequest<T>(
   }
 
   return body as T;
+}
+
+export async function hrmsGatewayDownload(
+  path: string,
+): Promise<HrmsDownloadResponse> {
+  const response = await executeAuthenticated(path, undefined, "application/pdf");
+
+  if (!response.ok) {
+    const body = await readResponseBody(response);
+    throw new Error(errorMessage(response, body));
+  }
+
+  return {
+    blob: await response.blob(),
+    filename: filenameFromDisposition(response.headers.get("content-disposition")),
+  };
 }

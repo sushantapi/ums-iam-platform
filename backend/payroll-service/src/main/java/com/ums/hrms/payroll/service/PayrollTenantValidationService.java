@@ -18,7 +18,7 @@ public class PayrollTenantValidationService {
 
     private final EmployeeClient employeeClient;
 
-    public void validateActiveEmployee(UUID employeeId, UUID organizationId) {
+    public EmployeeInternalResponse getEmployee(UUID employeeId, UUID organizationId) {
         EmployeeInternalResponse employee;
         try {
             employee = employeeClient.getEmployee(employeeId, organizationId);
@@ -33,7 +33,11 @@ public class PayrollTenantValidationService {
                 || !employeeId.equals(employee.id())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found");
         }
+        return employee;
+    }
 
+    public void validateActiveEmployee(UUID employeeId, UUID organizationId) {
+        EmployeeInternalResponse employee = getEmployee(employeeId, organizationId);
         if (!"ACTIVE".equalsIgnoreCase(employee.status())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Employee is not active");
         }

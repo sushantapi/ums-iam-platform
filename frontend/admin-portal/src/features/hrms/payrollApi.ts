@@ -1,4 +1,5 @@
 import {
+  hrmsGatewayDownload,
   hrmsGatewayRequest,
   withHrmsQuery,
 } from "./hrmsGatewayClient";
@@ -111,6 +112,12 @@ export const payrollApi = {
   payslip: (entryId: string, organizationId: string) =>
     hrmsGatewayRequest<PayrollEntryResponse>(
       withHrmsQuery(`/api/v1/hrms/payroll/payslips/${entryId}`, {
+        organizationId,
+      }),
+    ),
+  downloadPayslipPdf: (entryId: string, organizationId: string) =>
+    hrmsGatewayDownload(
+      withHrmsQuery(`/api/v1/hrms/payroll/payslips/${entryId}/pdf`, {
         organizationId,
       }),
     ),

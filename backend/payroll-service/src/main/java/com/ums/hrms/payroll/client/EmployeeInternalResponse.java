@@ -5,5 +5,6 @@ import java.util.UUID;
 public record EmployeeInternalResponse(
         UUID id,
         UUID organizationId,
+        String employeeCode,
         String status) {
 }

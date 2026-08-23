@@ -50,6 +50,7 @@ export function PayrollPage() {
   const [savingStructure, setSavingStructure] = useState(false);
   const [savingRun, setSavingRun] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
+  const [downloadingPayslip, setDownloadingPayslip] = useState(false);
   const [currency, setCurrency] = useState("INR");
   const [basicPay, setBasicPay] = useState("50000");
   const [allowanceTotal, setAllowanceTotal] = useState("0");
@@ -224,6 +225,38 @@ export function PayrollPage() {
       setPayslip(await payrollApi.payslip(entry.id, organizationId));
     } catch (err) {
       setError(`Payslip could not be loaded: ${(err as Error).message}`);
+    }
+  }
+
+  async function downloadPayslipPdf() {
+    if (!organizationId || !payslip || selectedRun?.status !== "FINALIZED") {
+      return;
+    }
+
+    setDownloadingPayslip(true);
+    setError(undefined);
+    try {
+      const { blob, filename } = await payrollApi.downloadPayslipPdf(
+        payslip.id,
+        organizationId,
+      );
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        const anchor = document.createElement("a");
+        anchor.href = objectUrl;
+        anchor.download =
+          filename ??
+          `payslip-${employeeCodes.get(payslip.employeeId) ?? payslip.employeeId}-${selectedRun.payrollMonth}.pdf`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    } catch (err) {
+      setError(`Payslip PDF could not be downloaded: ${(err as Error).message}`);
+    } finally {
+      setDownloadingPayslip(false);
     }
   }
 
@@ -517,6 +550,16 @@ export function PayrollPage() {
                 <li><strong>Net:</strong> {formatMoney(payslip.netPay)}</li>
                 <li><strong>Generated:</strong> {payslip.generatedAt}</li>
               </ul>
+              {selectedRun?.status === "FINALIZED" ? (
+                <button
+                  type="button"
+                  className="button-primary"
+                  disabled={downloadingPayslip}
+                  onClick={() => void downloadPayslipPdf()}
+                >
+                  {downloadingPayslip ? "Downloading..." : "Download PDF"}
+                </button>
+              ) : null}
             </section>
           ) : null}
         </>
