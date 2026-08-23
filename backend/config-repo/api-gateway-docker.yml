@@ -118,7 +118,7 @@ logging:
   level:
     root: ${LOG_LEVEL:INFO}
     com.ums: INFO
-    org.springframework.cloud.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
 
 eureka:
   client:
