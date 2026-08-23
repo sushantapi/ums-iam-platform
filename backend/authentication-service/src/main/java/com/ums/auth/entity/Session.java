@@ -52,6 +52,10 @@ public class Session {
 	@Column(length = 36)
 	private UUID organizationId;
 
+	@Builder.Default
+	@Column(name = "mfa_verified", nullable = false)
+	private boolean mfaVerified = false;
+
 	private Instant expiresAt;
 
 	private Instant lastSeenAt;

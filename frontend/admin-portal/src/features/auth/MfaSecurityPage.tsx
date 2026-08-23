@@ -1,13 +1,19 @@
 import axios from "axios";
 import { FormEvent, useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import type { ApiErrorResponse } from "../../api/apiClient";
 import authService, {
   type MfaStatusResponse,
   type MfaTotpSetupResponse,
 } from "../../api/services/authService";
+import { useAuthStore } from "../../store/authStore";
 import { MfaManagementPanel } from "./MfaManagementPanel";
+import {
+  clearPendingMfaEnrollment,
+  getPendingMfaEnrollment,
+} from "./mfaEnrollmentState";
 
 function getMfaError(error: unknown): string {
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
@@ -22,6 +28,9 @@ function getMfaError(error: unknown): string {
 }
 
 export function MfaSecurityPage() {
+  const navigate = useNavigate();
+  const clearSession = useAuthStore((state) => state.clearSession);
+  const [enrollment] = useState(() => getPendingMfaEnrollment());
   const [status, setStatus] = useState<MfaStatusResponse | null>(null);
   const [setup, setSetup] = useState<MfaTotpSetupResponse | null>(null);
   const [confirmationCode, setConfirmationCode] = useState("");
@@ -110,6 +119,31 @@ export function MfaSecurityPage() {
     }
   }
 
+  async function signInAgain() {
+    if (!enrollment) {
+      return;
+    }
+
+    setWorking(true);
+    setError(null);
+
+    try {
+      await authService.logout();
+    } catch {
+      // Local sign-out still proceeds if the remote logout request is unavailable.
+    } finally {
+      clearSession();
+      clearPendingMfaEnrollment();
+      navigate("/login", {
+        replace: true,
+        state: {
+          from: enrollment.returnPath,
+          organizationId: enrollment.organizationId,
+        },
+      });
+    }
+  }
+
   async function copyRecoveryCodes() {
     if (!navigator.clipboard) {
       setError("Clipboard access is unavailable. Save the recovery codes manually.");
@@ -138,6 +172,14 @@ export function MfaSecurityPage() {
           </p>
         </div>
       </header>
+
+      {enrollment ? (
+        <div className="notice" role="status">
+          Organization <strong>{enrollment.organizationId}</strong> requires MFA
+          before organization-scoped access can be issued. Complete MFA setup
+          here, then sign in again for that organization.
+        </div>
+      ) : null}
 
       {loading ? <div className="loading-state">Loading MFA status...</div> : null}
 
@@ -188,6 +230,19 @@ export function MfaSecurityPage() {
               >
                 {working ? "Starting setup..." : status.setupPending ? "Restart TOTP setup" : "Set up authenticator app"}
               </button>
+            ) : enrollment ? (
+              <div className="action-row panel-actions">
+                <button
+                  type="button"
+                  className="button-primary"
+                  onClick={signInAgain}
+                  disabled={working}
+                >
+                  {recoveryCodes.length > 0
+                    ? "I saved my recovery codes — sign in again"
+                    : "Sign in again for organization access"}
+                </button>
+              </div>
             ) : null}
           </section>
 

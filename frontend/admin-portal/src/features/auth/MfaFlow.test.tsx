@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   mfaStatus: vi.fn(),
   setupTotp: vi.fn(),
   confirmTotp: vi.fn(),
+  logout: vi.fn(),
 }));
 
 vi.mock("../../api/services/authService", () => ({
@@ -20,6 +21,7 @@ vi.mock("../../api/services/authService", () => ({
     mfaStatus: mocks.mfaStatus,
     setupTotp: mocks.setupTotp,
     confirmTotp: mocks.confirmTotp,
+    logout: mocks.logout,
   },
 }));
 
@@ -31,6 +33,10 @@ import {
   beginMfaChallenge,
   clearPendingMfaChallenge,
 } from "./mfaChallengeState";
+import {
+  clearPendingMfaEnrollment,
+  getPendingMfaEnrollment,
+} from "./mfaEnrollmentState";
 
 const session = {
   accessToken: "access-token",
@@ -39,6 +45,14 @@ const session = {
   expiresIn: 900,
   userId: "user-1",
   email: "user@example.test",
+};
+
+const enrollmentResponse = {
+  ...session,
+  accessToken: "platform-access-token",
+  refreshToken: "platform-refresh-token",
+  mfaEnrollmentRequired: true,
+  requiredOrganizationId: "org-1",
 };
 
 const challengeResponse = {
@@ -57,6 +71,7 @@ describe("Admin Portal MFA flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearPendingMfaChallenge();
+    clearPendingMfaEnrollment();
     useAuthStore.getState().clearSession();
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -67,6 +82,7 @@ describe("Admin Portal MFA flow", () => {
   afterEach(() => {
     cleanup();
     clearPendingMfaChallenge();
+    clearPendingMfaEnrollment();
     useAuthStore.getState().clearSession();
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -174,7 +190,11 @@ describe("Admin Portal MFA flow", () => {
       recoveryCodes: ["AAAA-BBBB-CCCC-DDDD", "EEEE-FFFF-GGGG-HHHH"],
     });
 
-    render(<MfaSecurityPage />);
+    render(
+      <MemoryRouter>
+        <MfaSecurityPage />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText("Not enabled")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Set up authenticator app" }));
@@ -191,4 +211,82 @@ describe("Admin Portal MFA flow", () => {
     expect(await screen.findByText("AAAA-BBBB-CCCC-DDDD")).toBeInTheDocument();
     expect(screen.getByText("EEEE-FFFF-GGGG-HHHH")).toBeInTheDocument();
   });
+  it("routes an MFA-enrollment-required login to security and re-signs into the required organization", async () => {
+    mocks.login.mockResolvedValue(enrollmentResponse);
+    mocks.logout.mockResolvedValue(undefined);
+    mocks.mfaStatus.mockResolvedValue({
+      enabled: false,
+      setupPending: false,
+      setupExpiresAt: null,
+      recoveryCodesRemaining: 0,
+    });
+    mocks.setupTotp.mockResolvedValue({
+      secret: "ENROLLMENT-TOTP-SECRET",
+      provisioningUri: "otpauth://totp/UMS%20IAM:user@example.test?secret=ENROLLMENT-TOTP-SECRET",
+      expiresAt: "2026-08-23T05:00:00Z",
+    });
+    mocks.confirmTotp.mockResolvedValue({
+      recoveryCodes: ["1111-2222-3333-4444"],
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/login"]}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/security" element={<MfaSecurityPage />} />
+          <Route path="/dashboard" element={<div>Dashboard</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "user@example.test" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "Password@123" },
+    });
+    fireEvent.change(screen.getByLabelText(/Organization ID/), {
+      target: { value: "org-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    const enrollmentNotice = await screen.findByRole("status");
+    expect(enrollmentNotice).toHaveTextContent(
+      "Organization org-1 requires MFA",
+    );
+    expect(useAuthStore.getState().accessToken).toBe("platform-access-token");
+    expect(getPendingMfaEnrollment()?.organizationId).toBe("org-1");
+    expect(mocks.login).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId: "org-1" }),
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Set up authenticator app" }),
+    );
+    expect(await screen.findByText("ENROLLMENT-TOTP-SECRET")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Authenticator code"), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enable MFA" }));
+
+    expect(
+      await screen.findByRole("button", {
+        name: "I saved my recovery codes — sign in again",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "I saved my recovery codes — sign in again",
+      }),
+    );
+
+    await waitFor(() => expect(mocks.logout).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Organization ID/)).toHaveValue("org-1");
+    expect(useAuthStore.getState().accessToken).toBeNull();
+    expect(getPendingMfaEnrollment()).toBeNull();
+  });
+
 });

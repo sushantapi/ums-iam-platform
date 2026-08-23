@@ -23,6 +23,8 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 
 	private static final Logger log = LoggerFactory.getLogger(GatewayJwtAuthenticationFilter.class);
 	private static final String AUTHENTICATED_USER_HEADER = "X-Authenticated-User";
+	private static final String AUTHENTICATED_ORGANIZATION_HEADER = "X-Authenticated-Organization";
+	private static final String MFA_VERIFIED_HEADER = "X-MFA-Verified";
 	private static final String USER_ROLES_HEADER = "X-User-Roles";
 	private static final String USER_PERMISSIONS_HEADER = "X-User-Permissions";
 	private static final String INTERNAL_GATEWAY_SECRET_HEADER = "X-Internal-Gateway-Secret";
@@ -93,6 +95,8 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 	private ServerWebExchange stripClientIdentityHeaders(ServerWebExchange exchange) {
 		ServerHttpRequest sanitizedRequest = exchange.getRequest().mutate().headers(headers -> {
 			headers.remove(AUTHENTICATED_USER_HEADER);
+			headers.remove(AUTHENTICATED_ORGANIZATION_HEADER);
+			headers.remove(MFA_VERIFIED_HEADER);
 			headers.remove(USER_ROLES_HEADER);
 			headers.remove(USER_PERMISSIONS_HEADER);
 			headers.remove(INTERNAL_GATEWAY_SECRET_HEADER);
@@ -104,12 +108,16 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 	private ServerWebExchange withTrustedIdentityHeaders(ServerWebExchange exchange,
 			JwtAuthenticationToken authentication) {
 		String userId = authentication.getToken().getSubject();
+		String organizationId = authentication.getToken().getClaimAsString("organizationId");
+		Boolean mfaVerified = authentication.getToken().getClaim("mfaVerified");
 		Object roles = authentication.getToken().getClaim("roles");
 		Object permissions = authentication.getToken().getClaim("permissions");
 
 		log.debug("Injecting trusted identity headers for subject {}", userId);
 
 		ServerHttpRequest trustedRequest = exchange.getRequest().mutate().header(AUTHENTICATED_USER_HEADER, userId)
+				.header(AUTHENTICATED_ORGANIZATION_HEADER, organizationId == null ? "" : organizationId)
+				.header(MFA_VERIFIED_HEADER, Boolean.toString(Boolean.TRUE.equals(mfaVerified)))
 				.header(USER_ROLES_HEADER, roles == null ? "" : roles.toString())
 				.header(USER_PERMISSIONS_HEADER, permissions == null ? "" : permissions.toString())
 				.header(INTERNAL_GATEWAY_SECRET_HEADER, internalGatewaySecret)

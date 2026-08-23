@@ -13,6 +13,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import com.ums.events.constants.RabbitMQConstants;
 import com.ums.events.event.organization.OrganizationCreatedEvent;
 import com.ums.events.event.organization.OrganizationInviteEvent;
+import com.ums.events.event.organization.OrganizationMfaRequiredEvent;
 import com.ums.org.config.OrganizationInvitationProperties;
 import com.ums.org.service.OrganizationInvitationDeliveryStateService;
 
@@ -34,6 +35,20 @@ public class OrganizationEventPublisher {
 
 		rabbitTemplate.convertAndSend(RabbitMQConstants.ORGANIZATION_EXCHANGE,
 				RabbitMQConstants.ORGANIZATION_CREATED_ROUTING_KEY, event);
+	}
+
+	public void publishOrganizationMfaRequired(OrganizationMfaRequiredEvent event) {
+		Objects.requireNonNull(event, "OrganizationMfaRequiredEvent is required");
+		Objects.requireNonNull(event.getEventId(), "eventId is required");
+		Objects.requireNonNull(event.getOrganizationId(), "organizationId is required");
+		Objects.requireNonNull(event.getUpdatedBy(), "updatedBy is required");
+
+		rabbitTemplate.convertAndSend(
+				RabbitMQConstants.ORGANIZATION_EXCHANGE,
+				RabbitMQConstants.ORGANIZATION_MFA_REQUIRED_ROUTING_KEY,
+				event);
+		log.info("Organization MFA-required event published eventId={} organizationId={}",
+				event.getEventId(), event.getOrganizationId());
 	}
 
 	public void publishOrganizationInvitationAfterCommit(UUID invitationId, String email, String organizationName,

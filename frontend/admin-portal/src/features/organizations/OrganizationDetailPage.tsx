@@ -34,12 +34,20 @@ export function OrganizationDetailPage() {
         title={organization?.name ?? organizationId}
         description="Organization profile reported by the admin API."
         actions={
-          <Link
-            className="button-secondary"
-            to={`/organizations/${organizationId}/members`}
-          >
-            Members
-          </Link>
+          <div className="action-row">
+            <Link
+              className="button-secondary"
+              to={`/organizations/${organizationId}/members`}
+            >
+              Members
+            </Link>
+            <Link
+              className="button-secondary"
+              to={`/organizations/${organizationId}/security`}
+            >
+              Security
+            </Link>
+          </div>
         }
       />
 

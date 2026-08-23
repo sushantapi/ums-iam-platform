@@ -1,5 +1,7 @@
 package com.ums.auth.dto;
 
+import java.util.UUID;
+
 import lombok.Builder;
 import lombok.Data;
 
@@ -15,4 +17,6 @@ public class TokenResponse {
 	private boolean mfaRequired;
 	private String mfaChallengeToken;
 	private long mfaChallengeExpiresIn;
+	private boolean mfaEnrollmentRequired;
+	private UUID requiredOrganizationId;
 }

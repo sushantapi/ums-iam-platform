@@ -23,8 +23,18 @@ public class RabbitProducerConfig {
 	}
 
 	@Bean
+	public TopicExchange organizationExchange() {
+		return new TopicExchange(RabbitMQConstants.ORGANIZATION_EXCHANGE);
+	}
+
+	@Bean
 	public Queue authRoleRevokedQueue() {
 		return new Queue(RabbitMQConstants.AUTH_ROLE_REVOKED_QUEUE, true);
+	}
+
+	@Bean
+	public Queue authOrganizationMfaRequiredQueue() {
+		return new Queue(RabbitMQConstants.AUTH_ORGANIZATION_MFA_REQUIRED_QUEUE, true);
 	}
 
 	@Bean
@@ -32,5 +42,14 @@ public class RabbitProducerConfig {
 		return BindingBuilder.bind(authRoleRevokedQueue)
 				.to(authExchange)
 				.with(RabbitMQConstants.ROLE_REVOKED_ROUTING_KEY);
+	}
+
+	@Bean
+	public Binding authOrganizationMfaRequiredBinding(
+			Queue authOrganizationMfaRequiredQueue,
+			TopicExchange organizationExchange) {
+		return BindingBuilder.bind(authOrganizationMfaRequiredQueue)
+				.to(organizationExchange)
+				.with(RabbitMQConstants.ORGANIZATION_MFA_REQUIRED_ROUTING_KEY);
 	}
 }

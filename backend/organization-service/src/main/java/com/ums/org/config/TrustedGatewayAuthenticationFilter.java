@@ -1,8 +1,10 @@
 package com.ums.org.config;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +24,10 @@ import jakarta.servlet.http.HttpServletResponse;
 public class TrustedGatewayAuthenticationFilter extends OncePerRequestFilter {
 
 	public static final String AUTHENTICATED_USER_HEADER = "X-Authenticated-User";
+	public static final String AUTHENTICATED_ORGANIZATION_HEADER = "X-Authenticated-Organization";
+	public static final String MFA_VERIFIED_HEADER = "X-MFA-Verified";
+	public static final String ORGANIZATION_CONTEXT_AUTHORITY_PREFIX = "ORG_CONTEXT_";
+	public static final String MFA_VERIFIED_AUTHORITY = "MFA_VERIFIED";
 	private static final String USER_ROLES_HEADER = "X-User-Roles";
 	private static final String INTERNAL_GATEWAY_SECRET_HEADER = "X-Internal-Gateway-Secret";
 
@@ -39,7 +45,8 @@ public class TrustedGatewayAuthenticationFilter extends OncePerRequestFilter {
 
 		if (isTrustedGatewayRequest(gatewaySecret) && StringUtils.hasText(authenticatedUser)
 				&& isUuid(authenticatedUser)) {
-			Collection<SimpleGrantedAuthority> authorities = parseAuthorities(request.getHeader(USER_ROLES_HEADER));
+			List<SimpleGrantedAuthority> authorities = new ArrayList<>(parseAuthorities(request.getHeader(USER_ROLES_HEADER)));
+			addTrustedSessionAuthorities(request, authorities);
 			UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
 					authenticatedUser, null, authorities);
 			SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -67,7 +74,7 @@ public class TrustedGatewayAuthenticationFilter extends OncePerRequestFilter {
 
 	private Collection<SimpleGrantedAuthority> parseAuthorities(String rolesHeader) {
 		if (!StringUtils.hasText(rolesHeader)) {
-			return java.util.List.of();
+			return List.of();
 		}
 
 		String normalizedRoles = rolesHeader.replace("[", "").replace("]", "");
@@ -78,6 +85,18 @@ public class TrustedGatewayAuthenticationFilter extends OncePerRequestFilter {
 				.map(this::toRoleAuthority)
 				.map(SimpleGrantedAuthority::new)
 				.toList();
+	}
+
+	private void addTrustedSessionAuthorities(
+			HttpServletRequest request,
+			List<SimpleGrantedAuthority> authorities) {
+		String organizationId = request.getHeader(AUTHENTICATED_ORGANIZATION_HEADER);
+		if (StringUtils.hasText(organizationId) && isUuid(organizationId)) {
+			authorities.add(new SimpleGrantedAuthority(ORGANIZATION_CONTEXT_AUTHORITY_PREFIX + organizationId));
+		}
+		if (Boolean.parseBoolean(request.getHeader(MFA_VERIFIED_HEADER))) {
+			authorities.add(new SimpleGrantedAuthority(MFA_VERIFIED_AUTHORITY));
+		}
 	}
 
 	private String toRoleAuthority(String role) {

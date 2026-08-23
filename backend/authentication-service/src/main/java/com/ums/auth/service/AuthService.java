@@ -2,6 +2,7 @@ package com.ums.auth.service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -17,8 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.ums.auth.client.AuthorizationClient;
+import com.ums.auth.client.OrganizationSecurityPolicyClient;
 import com.ums.auth.dto.LoginRequest;
 import com.ums.auth.dto.MfaChallengeVerifyRequest;
+import com.ums.auth.dto.OrganizationSecurityPolicyResponse;
 import com.ums.auth.dto.RefreshTokenRequest;
 import com.ums.auth.dto.RegisterRequest;
 import com.ums.auth.dto.TokenResponse;
@@ -35,6 +38,7 @@ import com.ums.events.event.AuditEvent;
 import com.ums.events.event.user.UserRegisteredEvent;
 import com.ums.events.publisher.AuditPublisher;
 
+import feign.FeignException;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +61,7 @@ public class AuthService {
 	private final PasswordEncoder passwordEncoder;
 	private final AuditPublisher auditPublisher;
 	private final AuthorizationClient authorizationClient;
+	private final OrganizationSecurityPolicyClient organizationSecurityPolicyClient;
 	private final JwtService jwtService;
 	private final SessionRepository sessionRepository;
 	private final TokenBlacklistService blacklistService;
@@ -123,7 +128,7 @@ public class AuthService {
 
 		log.info("User registered successfully: {}", savedUser.getEmail());
 
-		return buildTokenResponse(savedUser, refreshToken, session.getId(), null);
+		return buildTokenResponse(savedUser, refreshToken, session.getId(), null, false);
 	}
 
 	@Transactional(noRollbackFor = AuthException.class)
@@ -162,6 +167,10 @@ public class AuthService {
 		user.setFailedLoginAttempts(0);
 		user.setLockedUntil(null);
 
+		OrganizationSecurityPolicyResponse organizationPolicy = request.getOrganizationId() == null
+				? null
+				: resolveOrganizationPolicy(request.getOrganizationId());
+
 		if (user.isMfaEnabled()) {
 			userRepository.save(user);
 			String challengeToken = jwtService.generateMfaChallengeToken(
@@ -179,12 +188,41 @@ public class AuthService {
 		}
 
 		user.setLastLoginAt(Instant.now());
+
+		if (organizationPolicy != null && organizationPolicy.requireMfa()) {
+			TokenResponse response = createLoginSession(
+					user,
+					ipAddress,
+					request.getDeviceInfo(),
+					request.getClient(),
+					null,
+					false);
+			response.setMfaEnrollmentRequired(true);
+			response.setRequiredOrganizationId(request.getOrganizationId());
+
+			publishAuditEvent(AuditEvent.builder()
+					.eventType("auth.organization.mfa.enrollment.required")
+					.serviceName("authentication-service")
+					.userId(user.getId().toString())
+					.userEmail(user.getEmail())
+					.action("ORGANIZATION_MFA_ENROLLMENT_REQUIRED")
+					.entityType("ORGANIZATION")
+					.entityId(request.getOrganizationId().toString())
+					.details("Organization access requires MFA enrollment")
+					.ipAddress(ipAddress)
+					.timestamp(LocalDateTime.now())
+					.build());
+
+			return response;
+		}
+
 		return createLoginSession(
 				user,
 				ipAddress,
 				request.getDeviceInfo(),
 				request.getClient(),
-				request.getOrganizationId());
+				request.getOrganizationId(),
+				false);
 	}
 
 	@Transactional
@@ -220,6 +258,11 @@ public class AuthService {
 			throw new AuthException("Invalid MFA challenge", "INVALID_MFA_CHALLENGE");
 		}
 
+		UUID organizationId = parseOptionalOrganizationId(claims.get("organizationId", String.class));
+		if (organizationId != null) {
+			resolveOrganizationPolicy(organizationId);
+		}
+
 		try {
 			mfaService.verifyLoginFactor(userId, request.getTotpCode(), request.getRecoveryCode(), ipAddress);
 		} catch (AuthException ex) {
@@ -244,13 +287,13 @@ public class AuthService {
 		user.setLockedUntil(null);
 		user.setLastLoginAt(Instant.now());
 
-		UUID organizationId = parseOptionalOrganizationId(claims.get("organizationId", String.class));
 		TokenResponse response = createLoginSession(
 				user,
 				ipAddress,
 				claims.get("deviceInfo", String.class),
 				claims.get("client", String.class),
-				organizationId);
+				organizationId,
+				true);
 
 		publishAuditEvent(AuditEvent.builder()
 				.eventType("auth.mfa.login.challenge.succeeded")
@@ -273,7 +316,8 @@ public class AuthService {
 			String ipAddress,
 			String deviceInfo,
 			String client,
-			UUID organizationId) {
+			UUID organizationId,
+			boolean mfaVerified) {
 		Session session = Session.builder()
 				.user(user)
 				.refreshTokenHash("pending")
@@ -281,6 +325,7 @@ public class AuthService {
 				.deviceInfo(deviceInfo)
 				.client(client)
 				.organizationId(organizationId)
+				.mfaVerified(mfaVerified)
 				.lastSeenAt(Instant.now())
 				.expiresAt(Instant.now().plusMillis(jwtService.getRefreshTokenExpiryMs()))
 				.build();
@@ -304,7 +349,7 @@ public class AuthService {
 				.build());
 
 		log.info("Login successful: {}", user.getEmail());
-		return buildTokenResponse(user, refreshToken, session.getId(), organizationId);
+		return buildTokenResponse(user, refreshToken, session.getId(), organizationId, mfaVerified);
 	}
 
 	private String hash(String token) {
@@ -336,7 +381,12 @@ public class AuthService {
 				.build());
 	}
 
-	private TokenResponse buildTokenResponse(User user, String refreshToken, UUID sessionId, UUID organizationId) {
+	private TokenResponse buildTokenResponse(
+			User user,
+			String refreshToken,
+			UUID sessionId,
+			UUID organizationId,
+			boolean mfaVerified) {
 		Set<String> roles = new HashSet<>();
 		Set<String> permissions = new HashSet<>();
 
@@ -351,12 +401,21 @@ public class AuthService {
 					permissions);
 		}
 
-		String accessToken = jwtService.generateAccessToken(
-				user.getId().toString(),
-				user.getEmail(),
-				roles,
-				permissions,
-				sessionId);
+		String accessToken = organizationId == null
+				? jwtService.generateAccessToken(
+						user.getId().toString(),
+						user.getEmail(),
+						roles,
+						permissions,
+						sessionId)
+				: jwtService.generateAccessToken(
+						user.getId().toString(),
+						user.getEmail(),
+						roles,
+						permissions,
+						sessionId,
+						organizationId,
+						mfaVerified);
 
 		return TokenResponse.builder()
 				.accessToken(accessToken)
@@ -397,7 +456,7 @@ public class AuthService {
 		}
 	}
 
-	@Transactional
+	@Transactional(noRollbackFor = AuthException.class)
 	public TokenResponse refreshToken(RefreshTokenRequest request) {
 		Claims claims;
 		try {
@@ -431,13 +490,43 @@ public class AuthService {
 			throw new AuthException("User is not active", "ACCOUNT_INACTIVE");
 		}
 
+		UUID organizationId = session.getOrganizationId();
+		if (organizationId != null) {
+			OrganizationSecurityPolicyResponse organizationPolicy = resolveOrganizationPolicy(organizationId);
+			if (organizationPolicy.requireMfa() && !session.isMfaVerified()) {
+				revokeSessionForOrganizationMfaPolicy(session, Instant.now());
+				throw new AuthException("Organization access requires an MFA-verified session", "ORGANIZATION_MFA_REQUIRED");
+			}
+		}
+
 		String newRefreshToken = jwtService.generateRefreshToken(user.getId().toString(), session.getId());
 		session.setRefreshTokenHash(hash(newRefreshToken));
 		session.setLastSeenAt(Instant.now());
 		session.setExpiresAt(Instant.now().plusMillis(jwtService.getRefreshTokenExpiryMs()));
 		sessionRepository.save(session);
 
-		return buildTokenResponse(user, newRefreshToken, session.getId(), session.getOrganizationId());
+		return buildTokenResponse(
+				user,
+				newRefreshToken,
+				session.getId(),
+				session.getOrganizationId(),
+				session.isMfaVerified());
+	}
+
+	private void revokeSessionForOrganizationMfaPolicy(Session session, Instant now) {
+		session.setRevoked(true);
+		if (session.getRevokedAt() == null) {
+			session.setRevokedAt(now);
+		}
+
+		if (session.getExpiresAt() != null) {
+			long ttlSeconds = Duration.between(now, session.getExpiresAt()).getSeconds();
+			if (ttlSeconds > 0) {
+				blacklistService.revokeSession(session.getId(), ttlSeconds);
+			}
+		}
+
+		sessionRepository.save(session);
 	}
 
 	@Transactional
@@ -517,6 +606,37 @@ public class AuthService {
 			return UUID.fromString(organizationId);
 		} catch (IllegalArgumentException ex) {
 			throw new AuthException("Invalid MFA challenge", "INVALID_MFA_CHALLENGE");
+		}
+	}
+
+	private OrganizationSecurityPolicyResponse resolveOrganizationPolicy(UUID organizationId) {
+		try {
+			OrganizationSecurityPolicyResponse policy =
+					organizationSecurityPolicyClient.getSecurityPolicy(organizationId);
+			if (policy == null || !organizationId.equals(policy.organizationId())) {
+				throw new UmsException(
+						"Organization security policy response is invalid",
+						HttpStatus.SERVICE_UNAVAILABLE,
+						"ORGANIZATION_POLICY_UNAVAILABLE");
+			}
+			if (!policy.active()) {
+				throw new AuthException("Organization is not active", "ORGANIZATION_INACTIVE");
+			}
+			return policy;
+		} catch (FeignException.NotFound ex) {
+			throw new AuthException("Organization not found", "ORGANIZATION_NOT_FOUND");
+		} catch (AuthException | UmsException ex) {
+			throw ex;
+		} catch (Exception ex) {
+			log.warn(
+					"Organization security policy unavailable organizationId={} failureType={}",
+					organizationId,
+					ex.getClass().getName());
+			throw new UmsException(
+					"Organization security policy is unavailable",
+					ex,
+					HttpStatus.SERVICE_UNAVAILABLE,
+					"ORGANIZATION_POLICY_UNAVAILABLE");
 		}
 	}
 
