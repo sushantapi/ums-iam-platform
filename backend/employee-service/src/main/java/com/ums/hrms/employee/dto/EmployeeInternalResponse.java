@@ -7,5 +7,6 @@ import com.ums.hrms.employee.entity.EmployeeStatus;
 public record EmployeeInternalResponse(
         UUID id,
         UUID organizationId,
+        String employeeCode,
         EmployeeStatus status) {
 }
