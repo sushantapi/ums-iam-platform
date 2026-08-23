@@ -9,6 +9,8 @@ import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -50,6 +52,25 @@ public class SalaryStructure extends BaseEntity {
 
     @Column(name = "deduction_total", nullable = false, precision = 19, scale = 2)
     private BigDecimal deductionTotal;
+
+    @Column(name = "pf_applicable", nullable = false)
+    private boolean pfApplicable;
+
+    @Column(name = "pf_contribution_wage", precision = 19, scale = 2)
+    private BigDecimal pfContributionWage;
+
+    @Column(name = "esi_applicable", nullable = false)
+    private boolean esiApplicable;
+
+    @Column(name = "esi_contribution_wage", precision = 19, scale = 2)
+    private BigDecimal esiContributionWage;
+
+    @Column(name = "tds_amount", nullable = false, precision = 19, scale = 2)
+    private BigDecimal tdsAmount = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tax_regime", length = 10)
+    private TaxRegime taxRegime;
 
     @Column(name = "effective_from", nullable = false)
     private LocalDate effectiveFrom;

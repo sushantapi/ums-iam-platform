@@ -5,6 +5,7 @@ import {
 } from "./hrmsGatewayClient";
 
 export type PayrollRunStatus = "DRAFT" | "PROCESSED" | "FINALIZED";
+export type TaxRegime = "OLD" | "NEW";
 
 export type SalaryStructureResponse = {
   id: string;
@@ -14,6 +15,12 @@ export type SalaryStructureResponse = {
   basicPay: number;
   allowanceTotal: number;
   deductionTotal: number;
+  pfApplicable: boolean;
+  pfContributionWage: number | null;
+  esiApplicable: boolean;
+  esiContributionWage: number | null;
+  tdsAmount: number;
+  taxRegime: TaxRegime | null;
   effectiveFrom: string;
   effectiveTo: string | null;
   active: boolean;
@@ -29,6 +36,12 @@ export type CreateSalaryStructureRequest = {
   basicPay: number;
   allowanceTotal: number;
   deductionTotal: number;
+  pfApplicable?: boolean;
+  pfContributionWage?: number | null;
+  esiApplicable?: boolean;
+  esiContributionWage?: number | null;
+  tdsAmount?: number;
+  taxRegime?: TaxRegime | null;
   effectiveFrom: string;
   effectiveTo?: string | null;
   active?: boolean;
@@ -57,6 +70,19 @@ export type PayrollEntryResponse = {
   basicPay: number;
   allowanceTotal: number;
   grossPay: number;
+  configuredDeductionTotal: number;
+  pfContributionWage: number;
+  employeePfContribution: number;
+  employerPfContribution: number;
+  esiContributionWage: number;
+  employeeEsiContribution: number;
+  employerEsiContribution: number;
+  tdsAmount: number;
+  statutoryEmployeeDeductionTotal: number;
+  employerStatutoryContributionTotal: number;
+  statutoryPolicyId: string | null;
+  statutoryPolicyVersion: string | null;
+  taxRegime: TaxRegime | null;
   deductionTotal: number;
   netPay: number;
   generatedAt: string;

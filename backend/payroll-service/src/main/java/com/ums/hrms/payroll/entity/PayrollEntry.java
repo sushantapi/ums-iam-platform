@@ -9,6 +9,8 @@ import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -65,6 +67,47 @@ public class PayrollEntry {
 
     @Column(name = "net_pay", nullable = false, precision = 19, scale = 2, updatable = false)
     private BigDecimal netPay;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "statutory_policy_id", length = 36, updatable = false)
+    private UUID statutoryPolicyId;
+
+    @Column(name = "statutory_policy_version", length = 50, updatable = false)
+    private String statutoryPolicyVersion;
+
+    @Column(name = "configured_deduction_total", nullable = false, precision = 19, scale = 2, updatable = false)
+    private BigDecimal configuredDeductionTotal = BigDecimal.ZERO;
+
+    @Column(name = "pf_contribution_wage", nullable = false, precision = 19, scale = 2, updatable = false)
+    private BigDecimal pfContributionWage = BigDecimal.ZERO;
+
+    @Column(name = "employee_pf_contribution", nullable = false, precision = 19, scale = 2, updatable = false)
+    private BigDecimal employeePfContribution = BigDecimal.ZERO;
+
+    @Column(name = "employer_pf_contribution", nullable = false, precision = 19, scale = 2, updatable = false)
+    private BigDecimal employerPfContribution = BigDecimal.ZERO;
+
+    @Column(name = "esi_contribution_wage", nullable = false, precision = 19, scale = 2, updatable = false)
+    private BigDecimal esiContributionWage = BigDecimal.ZERO;
+
+    @Column(name = "employee_esi_contribution", nullable = false, precision = 19, scale = 2, updatable = false)
+    private BigDecimal employeeEsiContribution = BigDecimal.ZERO;
+
+    @Column(name = "employer_esi_contribution", nullable = false, precision = 19, scale = 2, updatable = false)
+    private BigDecimal employerEsiContribution = BigDecimal.ZERO;
+
+    @Column(name = "tds_amount", nullable = false, precision = 19, scale = 2, updatable = false)
+    private BigDecimal tdsAmount = BigDecimal.ZERO;
+
+    @Column(name = "statutory_employee_deduction_total", nullable = false, precision = 19, scale = 2, updatable = false)
+    private BigDecimal statutoryEmployeeDeductionTotal = BigDecimal.ZERO;
+
+    @Column(name = "employer_statutory_contribution_total", nullable = false, precision = 19, scale = 2, updatable = false)
+    private BigDecimal employerStatutoryContributionTotal = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tax_regime", length = 10, updatable = false)
+    private TaxRegime taxRegime;
 
     @Column(name = "generated_at", nullable = false, updatable = false)
     private LocalDateTime generatedAt;

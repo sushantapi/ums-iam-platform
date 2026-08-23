@@ -52,6 +52,12 @@ public class SalaryStructureService {
         structure.setBasicPay(request.basicPay());
         structure.setAllowanceTotal(request.allowanceTotal());
         structure.setDeductionTotal(request.deductionTotal());
+        structure.setPfApplicable(Boolean.TRUE.equals(request.pfApplicable()));
+        structure.setPfContributionWage(request.pfContributionWage());
+        structure.setEsiApplicable(Boolean.TRUE.equals(request.esiApplicable()));
+        structure.setEsiContributionWage(request.esiContributionWage());
+        structure.setTdsAmount(request.tdsAmount() == null ? BigDecimal.ZERO : request.tdsAmount());
+        structure.setTaxRegime(request.taxRegime());
         structure.setEffectiveFrom(request.effectiveFrom());
         structure.setEffectiveTo(request.effectiveTo());
         structure.setActive(request.active() == null || request.active());
@@ -94,6 +100,21 @@ public class SalaryStructureService {
         validateMoney("basicPay", request.basicPay());
         validateMoney("allowanceTotal", request.allowanceTotal());
         validateMoney("deductionTotal", request.deductionTotal());
+        validateOptionalMoney("pfContributionWage", request.pfContributionWage());
+        validateOptionalMoney("esiContributionWage", request.esiContributionWage());
+        validateOptionalMoney("tdsAmount", request.tdsAmount());
+
+        if (Boolean.TRUE.equals(request.pfApplicable()) && request.pfContributionWage() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "pfContributionWage is required when PF is applicable");
+        }
+
+        if (Boolean.TRUE.equals(request.esiApplicable()) && request.esiContributionWage() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "esiContributionWage is required when ESI is applicable");
+        }
 
         if (request.effectiveFrom() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "effectiveFrom is required");
@@ -107,6 +128,12 @@ public class SalaryStructureService {
         String currency = normalizeCurrency(request.currency());
         if (!currency.matches("[A-Z]{3}")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "currency must be a 3-letter ISO code");
+        }
+    }
+
+    private void validateOptionalMoney(String field, BigDecimal value) {
+        if (value != null) {
+            validateMoney(field, value);
         }
     }
 
@@ -138,6 +165,12 @@ public class SalaryStructureService {
                 structure.getBasicPay(),
                 structure.getAllowanceTotal(),
                 structure.getDeductionTotal(),
+                structure.isPfApplicable(),
+                structure.getPfContributionWage(),
+                structure.isEsiApplicable(),
+                structure.getEsiContributionWage(),
+                structure.getTdsAmount(),
+                structure.getTaxRegime(),
                 structure.getEffectiveFrom(),
                 structure.getEffectiveTo(),
                 structure.isActive(),

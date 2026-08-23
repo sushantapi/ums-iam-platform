@@ -5,6 +5,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.ums.hrms.payroll.entity.TaxRegime;
+
 public record SalaryStructureResponse(
         UUID id,
         UUID organizationId,
@@ -13,6 +15,12 @@ public record SalaryStructureResponse(
         BigDecimal basicPay,
         BigDecimal allowanceTotal,
         BigDecimal deductionTotal,
+        boolean pfApplicable,
+        BigDecimal pfContributionWage,
+        boolean esiApplicable,
+        BigDecimal esiContributionWage,
+        BigDecimal tdsAmount,
+        TaxRegime taxRegime,
         LocalDate effectiveFrom,
         LocalDate effectiveTo,
         boolean active,

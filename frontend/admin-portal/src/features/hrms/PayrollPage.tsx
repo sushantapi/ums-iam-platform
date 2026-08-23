@@ -16,6 +16,7 @@ import {
   type PayrollEntryResponse,
   type PayrollRunResponse,
   type SalaryStructureResponse,
+  type TaxRegime,
 } from "./payrollApi";
 
 function currentMonth(): string {
@@ -55,6 +56,12 @@ export function PayrollPage() {
   const [basicPay, setBasicPay] = useState("50000");
   const [allowanceTotal, setAllowanceTotal] = useState("0");
   const [deductionTotal, setDeductionTotal] = useState("0");
+  const [pfApplicable, setPfApplicable] = useState(false);
+  const [pfContributionWage, setPfContributionWage] = useState("15000");
+  const [esiApplicable, setEsiApplicable] = useState(false);
+  const [esiContributionWage, setEsiContributionWage] = useState("0");
+  const [tdsAmount, setTdsAmount] = useState("0");
+  const [taxRegime, setTaxRegime] = useState<TaxRegime | "">("");
   const [effectiveFrom, setEffectiveFrom] = useState(
     new Date().toISOString().slice(0, 10),
   );
@@ -148,6 +155,16 @@ export function PayrollPage() {
         basicPay: Number(basicPay),
         allowanceTotal: Number(allowanceTotal),
         deductionTotal: Number(deductionTotal),
+        pfApplicable,
+        pfContributionWage: pfApplicable
+          ? Number(pfContributionWage)
+          : null,
+        esiApplicable,
+        esiContributionWage: esiApplicable
+          ? Number(esiContributionWage)
+          : null,
+        tdsAmount: Number(tdsAmount),
+        taxRegime: taxRegime || null,
         effectiveFrom,
         effectiveTo: effectiveTo || null,
         active: true,
@@ -345,6 +362,78 @@ export function PayrollPage() {
                     onChange={(event) => setDeductionTotal(event.target.value)}
                     disabled={savingStructure}
                   />
+                </label>
+                <label>
+                  <span>PF applicable</span>
+                  <input
+                    type="checkbox"
+                    checked={pfApplicable}
+                    onChange={(event) => setPfApplicable(event.target.checked)}
+                    disabled={savingStructure}
+                  />
+                </label>
+                {pfApplicable ? (
+                  <label>
+                    PF contribution wage
+                    <input
+                      required
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={pfContributionWage}
+                      onChange={(event) => setPfContributionWage(event.target.value)}
+                      disabled={savingStructure}
+                    />
+                  </label>
+                ) : null}
+                <label>
+                  <span>ESI applicable</span>
+                  <input
+                    type="checkbox"
+                    checked={esiApplicable}
+                    onChange={(event) => setEsiApplicable(event.target.checked)}
+                    disabled={savingStructure}
+                  />
+                </label>
+                {esiApplicable ? (
+                  <label>
+                    ESI contribution wage
+                    <input
+                      required
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={esiContributionWage}
+                      onChange={(event) => setEsiContributionWage(event.target.value)}
+                      disabled={savingStructure}
+                    />
+                  </label>
+                ) : null}
+                <label>
+                  Monthly TDS
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={tdsAmount}
+                    onChange={(event) => setTdsAmount(event.target.value)}
+                    disabled={savingStructure}
+                  />
+                </label>
+                <label>
+                  Tax regime
+                  <select
+                    value={taxRegime}
+                    onChange={(event) =>
+                      setTaxRegime(event.target.value as TaxRegime | "")
+                    }
+                    disabled={savingStructure}
+                  >
+                    <option value="">Not specified</option>
+                    <option value="NEW">New</option>
+                    <option value="OLD">Old</option>
+                  </select>
                 </label>
                 <label>
                   Effective from
@@ -546,8 +635,20 @@ export function PayrollPage() {
                 <li><strong>Basic:</strong> {formatMoney(payslip.basicPay)}</li>
                 <li><strong>Allowances:</strong> {formatMoney(payslip.allowanceTotal)}</li>
                 <li><strong>Gross:</strong> {formatMoney(payslip.grossPay)}</li>
-                <li><strong>Deductions:</strong> {formatMoney(payslip.deductionTotal)}</li>
+                <li><strong>Configured / other deductions:</strong> {formatMoney(payslip.configuredDeductionTotal)}</li>
+                <li><strong>PF contribution wage:</strong> {formatMoney(payslip.pfContributionWage)}</li>
+                <li><strong>Employee PF:</strong> {formatMoney(payslip.employeePfContribution)}</li>
+                <li><strong>Employer PF:</strong> {formatMoney(payslip.employerPfContribution)}</li>
+                <li><strong>ESI contribution wage:</strong> {formatMoney(payslip.esiContributionWage)}</li>
+                <li><strong>Employee ESI:</strong> {formatMoney(payslip.employeeEsiContribution)}</li>
+                <li><strong>Employer ESI:</strong> {formatMoney(payslip.employerEsiContribution)}</li>
+                <li><strong>TDS:</strong> {formatMoney(payslip.tdsAmount)}</li>
+                <li><strong>Statutory employee deductions:</strong> {formatMoney(payslip.statutoryEmployeeDeductionTotal)}</li>
+                <li><strong>Total deductions:</strong> {formatMoney(payslip.deductionTotal)}</li>
                 <li><strong>Net:</strong> {formatMoney(payslip.netPay)}</li>
+                <li><strong>Employer statutory total:</strong> {formatMoney(payslip.employerStatutoryContributionTotal)}</li>
+                <li><strong>Statutory policy:</strong> {payslip.statutoryPolicyVersion ?? "Not applicable"}</li>
+                <li><strong>Tax regime:</strong> {payslip.taxRegime ?? "Not specified"}</li>
                 <li><strong>Generated:</strong> {payslip.generatedAt}</li>
               </ul>
               {selectedRun?.status === "FINALIZED" ? (

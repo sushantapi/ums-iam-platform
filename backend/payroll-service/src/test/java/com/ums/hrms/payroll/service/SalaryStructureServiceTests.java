@@ -23,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.ums.hrms.payroll.dto.CreateSalaryStructureRequest;
 import com.ums.hrms.payroll.entity.SalaryStructure;
+import com.ums.hrms.payroll.entity.TaxRegime;
 import com.ums.hrms.payroll.repository.SalaryStructureRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -118,6 +119,127 @@ class SalaryStructureServiceTests {
 
         assertEquals(409, ex.getStatusCode().value());
         assertEquals("Overlapping salary structure effective range exists", ex.getReason());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void createsStatutorySalaryInputsAndMapsResponse() {
+        CreateSalaryStructureRequest request = new CreateSalaryStructureRequest(
+                organizationId,
+                employeeId,
+                "INR",
+                new BigDecimal("50000.00"),
+                new BigDecimal("5000.00"),
+                new BigDecimal("2500.00"),
+                true,
+                new BigDecimal("15000.00"),
+                true,
+                new BigDecimal("18000.00"),
+                new BigDecimal("1250.00"),
+                TaxRegime.NEW,
+                LocalDate.of(2026, 8, 1),
+                null,
+                true);
+
+        when(repository.countOverlappingEffectiveRanges(
+                organizationId, employeeId, request.effectiveFrom(), null)).thenReturn(0L);
+        when(repository.save(any(SalaryStructure.class))).thenAnswer(invocation -> {
+            SalaryStructure saved = invocation.getArgument(0);
+            saved.setId(UUID.randomUUID());
+            return saved;
+        });
+
+        var response = service.create(request, actorUserId, false);
+
+        assertEquals(true, response.pfApplicable());
+        assertEquals(new BigDecimal("15000.00"), response.pfContributionWage());
+        assertEquals(true, response.esiApplicable());
+        assertEquals(new BigDecimal("18000.00"), response.esiContributionWage());
+        assertEquals(new BigDecimal("1250.00"), response.tdsAmount());
+        assertEquals(TaxRegime.NEW, response.taxRegime());
+    }
+
+    @Test
+    void rejectsMissingPfContributionWageWhenPfApplicable() {
+        CreateSalaryStructureRequest request = new CreateSalaryStructureRequest(
+                organizationId,
+                employeeId,
+                "INR",
+                new BigDecimal("50000.00"),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                true,
+                null,
+                false,
+                null,
+                BigDecimal.ZERO,
+                null,
+                LocalDate.of(2026, 8, 1),
+                null,
+                true);
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> service.create(request, actorUserId, false));
+
+        assertEquals(400, ex.getStatusCode().value());
+        assertEquals("pfContributionWage is required when PF is applicable", ex.getReason());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void rejectsMissingEsiContributionWageWhenEsiApplicable() {
+        CreateSalaryStructureRequest request = new CreateSalaryStructureRequest(
+                organizationId,
+                employeeId,
+                "INR",
+                new BigDecimal("50000.00"),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                false,
+                null,
+                true,
+                null,
+                BigDecimal.ZERO,
+                null,
+                LocalDate.of(2026, 8, 1),
+                null,
+                true);
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> service.create(request, actorUserId, false));
+
+        assertEquals(400, ex.getStatusCode().value());
+        assertEquals("esiContributionWage is required when ESI is applicable", ex.getReason());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void rejectsNegativeTdsAmount() {
+        CreateSalaryStructureRequest request = new CreateSalaryStructureRequest(
+                organizationId,
+                employeeId,
+                "INR",
+                new BigDecimal("50000.00"),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                false,
+                null,
+                false,
+                null,
+                new BigDecimal("-1.00"),
+                null,
+                LocalDate.of(2026, 8, 1),
+                null,
+                true);
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> service.create(request, actorUserId, false));
+
+        assertEquals(400, ex.getStatusCode().value());
+        assertEquals("tdsAmount cannot be negative", ex.getReason());
         verify(repository, never()).save(any());
     }
 

@@ -36,6 +36,9 @@ public class PayslipPdfService {
     private static final float LEFT = 54f;
     private static final float TOP = 790f;
     private static final float LINE_HEIGHT = 20f;
+    private static final float DEFAULT_VALUE_X = 190f;
+    private static final float LABEL_VALUE_GAP = 12f;
+    private static final float FIELD_FONT_SIZE = 11f;
 
     private final PayrollEntryRepository payrollEntryRepository;
     private final PayrollRunRepository payrollRunRepository;
@@ -100,8 +103,60 @@ public class PayslipPdfService {
                 y = moneyField(stream, bold, regular, y, "Basic Pay", entry.getBasicPay());
                 y = moneyField(stream, bold, regular, y, "Allowances", entry.getAllowanceTotal());
                 y = moneyField(stream, bold, regular, y, "Gross Pay", entry.getGrossPay());
-                y = moneyField(stream, bold, regular, y, "Deductions", entry.getDeductionTotal());
+                y -= 10;
+
+                y = text(stream, bold, 14, LEFT, y, "DEDUCTION BREAKDOWN");
+                y -= 6;
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Configured / Other Deductions",
+                        entry.getConfiguredDeductionTotal());
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Employee PF",
+                        entry.getEmployeePfContribution());
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Employee ESI",
+                        entry.getEmployeeEsiContribution());
+                y = moneyField(stream, bold, regular, y, "TDS", entry.getTdsAmount());
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Statutory Employee Deductions",
+                        entry.getStatutoryEmployeeDeductionTotal());
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Total Deductions",
+                        entry.getDeductionTotal());
                 y = moneyField(stream, bold, regular, y, "Net Pay", entry.getNetPay());
+                y -= 10;
+
+                y = text(stream, bold, 14, LEFT, y, "EMPLOYER CONTRIBUTIONS");
+                y -= 6;
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Employer PF",
+                        entry.getEmployerPfContribution());
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Employer ESI",
+                        entry.getEmployerEsiContribution());
+                y = moneyField(
+                        stream, bold, regular, y,
+                        "Employer Statutory Total",
+                        entry.getEmployerStatutoryContributionTotal());
+                y -= 10;
+
+                y = text(stream, bold, 14, LEFT, y, "STATUTORY SNAPSHOT");
+                y -= 6;
+                y = field(
+                        stream, bold, regular, y,
+                        "Policy Version",
+                        entry.getStatutoryPolicyVersion());
+                y = field(
+                        stream, bold, regular, y,
+                        "Tax Regime",
+                        entry.getTaxRegime() == null ? "" : entry.getTaxRegime().name());
                 y -= 14;
 
                 y = text(stream, bold, 14, LEFT, y, "AUDIT DETAILS");
@@ -134,8 +189,15 @@ public class PayslipPdfService {
             float y,
             String label,
             String value) throws IOException {
-        text(stream, bold, 11, LEFT, y, label + ":");
-        text(stream, regular, 11, 190f, y, sanitizePdfText(value));
+        String renderedLabel = label + ":";
+        float labelWidth =
+                bold.getStringWidth(renderedLabel) / 1000f * FIELD_FONT_SIZE;
+        float valueX = Math.max(
+                DEFAULT_VALUE_X,
+                LEFT + labelWidth + LABEL_VALUE_GAP);
+
+        text(stream, bold, FIELD_FONT_SIZE, LEFT, y, renderedLabel);
+        text(stream, regular, FIELD_FONT_SIZE, valueX, y, sanitizePdfText(value));
         return y - LINE_HEIGHT;
     }
 
@@ -155,7 +217,8 @@ public class PayslipPdfService {
     }
 
     private String formatAmount(BigDecimal amount) {
-        return amount.setScale(2, RoundingMode.HALF_UP).toPlainString();
+        BigDecimal safeAmount = amount == null ? BigDecimal.ZERO : amount;
+        return safeAmount.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 
     private String safeEmployeeCode(String employeeCode, UUID employeeId) {
