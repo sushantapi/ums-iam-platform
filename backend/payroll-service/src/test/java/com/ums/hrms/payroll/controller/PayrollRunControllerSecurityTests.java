@@ -5,8 +5,11 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -21,7 +25,9 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.ums.hrms.payroll.config.SecurityConfig;
 import com.ums.hrms.payroll.config.TrustedGatewayAuthenticationFilter;
+import com.ums.hrms.payroll.dto.PayslipPdfDocument;
 import com.ums.hrms.payroll.service.PayrollRunService;
+import com.ums.hrms.payroll.service.PayslipPdfService;
 
 @WebMvcTest(PayrollRunController.class)
 @Import({SecurityConfig.class, TrustedGatewayAuthenticationFilter.class})
@@ -38,6 +44,7 @@ class PayrollRunControllerSecurityTests {
 
     @Autowired MockMvc mockMvc;
     @MockitoBean PayrollRunService payrollRunService;
+    @MockitoBean PayslipPdfService payslipPdfService;
 
     @Test
     void createAndProcessRequireRunManagePermission() throws Exception {
@@ -74,6 +81,10 @@ class PayrollRunControllerSecurityTests {
         when(payrollRunService.list(any(), any(), anyBoolean())).thenReturn(List.of());
         when(payrollRunService.listEntries(any(), any(), any(), anyBoolean())).thenReturn(List.of());
         when(payrollRunService.getPayslip(any(), any(), any(), anyBoolean())).thenReturn(null);
+        when(payslipPdfService.generate(any(), any(), any(), anyBoolean()))
+                .thenReturn(new PayslipPdfDocument(
+                        "%PDF-1.4".getBytes(StandardCharsets.US_ASCII),
+                        "payslip-EMP-001-2026-08.pdf"));
 
         mockMvc.perform(get("/api/v1/hrms/payroll/runs")
                         .param("organizationId", ORGANIZATION_ID.toString())
@@ -95,6 +106,27 @@ class PayrollRunControllerSecurityTests {
                         .header("X-User-Permissions", "PAYROLL_READ")
                         .header("X-Internal-Gateway-Secret", "test-gateway-secret"))
                 .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/hrms/payroll/payslips/" + ENTRY_ID + "/pdf")
+                        .param("organizationId", ORGANIZATION_ID.toString())
+                        .header("X-Authenticated-User", USER_ID.toString())
+                        .header("X-User-Permissions", "PAYROLL_READ")
+                        .header("X-Internal-Gateway-Secret", "test-gateway-secret"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"payslip-EMP-001-2026-08.pdf\""));
+    }
+
+    @Test
+    void payslipPdfWithoutReadPermissionIsForbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/hrms/payroll/payslips/" + ENTRY_ID + "/pdf")
+                        .param("organizationId", ORGANIZATION_ID.toString())
+                        .header("X-Authenticated-User", USER_ID.toString())
+                        .header("X-User-Permissions", "PAYROLL_RUN_MANAGE")
+                        .header("X-Internal-Gateway-Secret", "test-gateway-secret"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
