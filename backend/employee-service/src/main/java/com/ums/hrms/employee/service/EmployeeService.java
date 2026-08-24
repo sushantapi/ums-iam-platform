@@ -51,6 +51,12 @@ public class EmployeeService {
                 .employeeCode(employeeCode)
                 .departmentId(request.departmentId())
                 .designationId(request.designationId())
+                .displayName(normalizeNullable(request.displayName()))
+                .dateOfJoining(request.dateOfJoining())
+                .panDisplay(maskIdentifier(request.panNumber()))
+                .uanDisplay(maskIdentifier(request.uanNumber()))
+                .esiDisplay(maskIdentifier(request.esiNumber()))
+                .bankAccountDisplay(maskIdentifier(request.bankAccountNumber()))
                 .status(EmployeeStatus.ACTIVE)
                 .build();
 
@@ -104,6 +110,12 @@ public class EmployeeService {
         employee.setEmployeeCode(employeeCode);
         employee.setDepartmentId(request.departmentId());
         employee.setDesignationId(request.designationId());
+        employee.setDisplayName(normalizeNullable(request.displayName()));
+        employee.setDateOfJoining(request.dateOfJoining());
+        employee.setPanDisplay(maskIdentifier(request.panNumber()));
+        employee.setUanDisplay(maskIdentifier(request.uanNumber()));
+        employee.setEsiDisplay(maskIdentifier(request.esiNumber()));
+        employee.setBankAccountDisplay(maskIdentifier(request.bankAccountNumber()));
         employee.setStatus(request.status());
 
         Employee saved = employeeRepository.save(employee);
@@ -120,6 +132,26 @@ public class EmployeeService {
         return employeeCode.trim();
     }
 
+    private String normalizeNullable(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String maskIdentifier(String value) {
+        String normalized = normalizeNullable(value);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized.length() <= 4) {
+            return "*".repeat(normalized.length());
+        }
+        return "*".repeat(normalized.length() - 4)
+                + normalized.substring(normalized.length() - 4);
+    }
+
     private void validatePage(int page, int size) {
         if (page < 0 || size < 1 || size > 200) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid page or size");
@@ -134,6 +166,12 @@ public class EmployeeService {
                 employee.getEmployeeCode(),
                 employee.getDepartmentId(),
                 employee.getDesignationId(),
+                employee.getDisplayName(),
+                employee.getDateOfJoining(),
+                employee.getPanDisplay(),
+                employee.getUanDisplay(),
+                employee.getEsiDisplay(),
+                employee.getBankAccountDisplay(),
                 employee.getStatus(),
                 employee.getCreatedAt(),
                 employee.getUpdatedAt());

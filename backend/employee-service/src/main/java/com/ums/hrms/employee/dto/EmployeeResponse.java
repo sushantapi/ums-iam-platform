@@ -1,5 +1,6 @@
 package com.ums.hrms.employee.dto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -12,6 +13,12 @@ public record EmployeeResponse(
         String employeeCode,
         UUID departmentId,
         UUID designationId,
+        String displayName,
+        LocalDate dateOfJoining,
+        String panDisplay,
+        String uanDisplay,
+        String esiDisplay,
+        String bankAccountDisplay,
         EmployeeStatus status,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
