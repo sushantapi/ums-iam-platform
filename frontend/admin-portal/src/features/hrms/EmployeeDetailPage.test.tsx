@@ -107,7 +107,9 @@ describe("EmployeeDetailPage", () => {
   it("shows masked reusable payslip identity fields", async () => {
     render(<EmployeeDetailPage />);
 
-    expect(await screen.findByText("Sushant Kumar")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Sushant Kumar" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("******234F")).toBeInTheDocument();
     expect(screen.getByText("********0400")).toBeInTheDocument();
     expect(screen.getByText("******7890")).toBeInTheDocument();
@@ -118,7 +120,7 @@ describe("EmployeeDetailPage", () => {
 
   it("sends only explicit raw sensitive replacements while keeping masked values hidden", async () => {
     render(<EmployeeDetailPage />);
-    await screen.findByText("Sushant Kumar");
+    await screen.findByRole("heading", { name: "Sushant Kumar" });
 
     fireEvent.click(screen.getByRole("button", { name: "Edit employee" }));
     expect(screen.getByLabelText("Replace PAN number")).toHaveValue("");
