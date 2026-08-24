@@ -42,6 +42,8 @@ public class PayslipPdfService {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd-MMM-yyyy", Locale.ENGLISH);
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH);
     private static final DecimalFormat MONEY = new DecimalFormat("#,##0.00");
+    private static final String SYSTEM_GENERATED_DISCLAIMER =
+            "This is a system-generated payslip rendered from the finalized payroll snapshot; no signature is required.";
 
     private static final float LEFT = 54f;
     private static final float RIGHT = 541f;
@@ -361,14 +363,14 @@ public class PayslipPdfService {
 
         text(stream, regular, 8f, LEFT, 143f,
                 "Payslip Ref: " + entry.getId() + " | Finalized: " + DATE_TIME.format(run.getFinalizedAt()));
-        text(stream, regular, 8f, LEFT, 130f,
-                "This is a system-generated payslip rendered from the finalized payroll snapshot; no signature is required.");
+        text(stream, regular, 8f, LEFT, 130f, SYSTEM_GENERATED_DISCLAIMER);
 
         if (hasText(entry.getAuthorizedSignatoryLabelSnapshot())) {
             rightText(stream, bold, 8.5f, RIGHT, 113f, entry.getAuthorizedSignatoryLabelSnapshot());
         }
 
-        if (hasText(entry.getPayslipFooterTextSnapshot())) {
+        if (hasText(entry.getPayslipFooterTextSnapshot())
+                && !isRedundantSignatureDisclaimer(entry.getPayslipFooterTextSnapshot())) {
             wrappedText(
                     stream,
                     regular,
@@ -565,6 +567,19 @@ public class PayslipPdfService {
             }
         }
         return "";
+    }
+
+    private boolean isRedundantSignatureDisclaimer(String value) {
+        if (!hasText(value)) {
+            return false;
+        }
+        String normalized = value.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+        return normalized.contains("system generated payslip")
+                && normalized.contains("signature")
+                && (normalized.contains("does not require") || normalized.contains("no signature is required"));
     }
 
     private boolean hasText(String value) {
