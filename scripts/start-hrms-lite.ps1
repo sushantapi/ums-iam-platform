@@ -160,12 +160,18 @@ function Export-ExistingOrganizationAssets {
         return
     }
 
-    $running = (& docker inspect -f '{{.State.Running}}' ums-organization-service 2>$null)
-    if ($LASTEXITCODE -eq 0 -and $running -eq "true") {
+    $runningNames = @(& docker ps --format '{{.Names}}')
+    if ($runningNames -contains "ums-organization-service") {
         Write-Host "    Preserving organization logo assets from the running organization container..."
-        & docker cp "ums-organization-service:/app/data/organization-assets/." $organizationAssetsRoot 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            return
+        $previousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            & docker cp "ums-organization-service:/app/data/organization-assets/." $organizationAssetsRoot 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                return
+            }
+        } finally {
+            $ErrorActionPreference = $previousErrorActionPreference
         }
     }
 
@@ -175,14 +181,20 @@ function Export-ExistingOrganizationAssets {
 
     if ($volume) {
         Write-Host "    Preserving organization logo assets from Docker volume $volume..."
-        & docker run --rm `
-            --entrypoint sh `
-            -v "${volume}:/from:ro" `
-            -v "${organizationAssetsRoot}:/to" `
-            mysql:8.0 `
-            -c "cp -a /from/. /to/" 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            return
+        $previousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            & docker run --rm `
+                --entrypoint sh `
+                -v "${volume}:/from:ro" `
+                -v "${organizationAssetsRoot}:/to" `
+                mysql:8.0 `
+                -c "cp -a /from/. /to/" 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                return
+            }
+        } finally {
+            $ErrorActionPreference = $previousErrorActionPreference
         }
     }
 
