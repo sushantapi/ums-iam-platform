@@ -11,6 +11,8 @@ export type SalaryStructureResponse = {
   id: string;
   organizationId: string;
   employeeId: string;
+  versionNumber: number;
+  supersedesStructureId: string | null;
   currency: string;
   basicPay: number;
   allowanceTotal: number;
@@ -24,6 +26,8 @@ export type SalaryStructureResponse = {
   effectiveFrom: string;
   effectiveTo: string | null;
   active: boolean;
+  supersededAt: string | null;
+  supersededBy: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -45,6 +49,21 @@ export type CreateSalaryStructureRequest = {
   effectiveFrom: string;
   effectiveTo?: string | null;
   active?: boolean;
+};
+
+export type SupersedeSalaryStructureRequest = {
+  organizationId: string;
+  currency: string;
+  basicPay: number;
+  allowanceTotal: number;
+  deductionTotal: number;
+  pfApplicable?: boolean;
+  pfContributionWage?: number | null;
+  esiApplicable?: boolean;
+  esiContributionWage?: number | null;
+  tdsAmount?: number;
+  taxRegime?: TaxRegime | null;
+  effectiveFrom: string;
 };
 
 export type PayrollRunResponse = {
@@ -99,6 +118,17 @@ export const payrollApi = {
   createSalaryStructure: (body: CreateSalaryStructureRequest) =>
     hrmsGatewayRequest<SalaryStructureResponse>(
       "/api/v1/hrms/payroll/salary-structures",
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+    ),
+  supersedeSalaryStructure: (
+    salaryStructureId: string,
+    body: SupersedeSalaryStructureRequest,
+  ) =>
+    hrmsGatewayRequest<SalaryStructureResponse>(
+      `/api/v1/hrms/payroll/salary-structures/${salaryStructureId}/supersede`,
       {
         method: "POST",
         body: JSON.stringify(body),

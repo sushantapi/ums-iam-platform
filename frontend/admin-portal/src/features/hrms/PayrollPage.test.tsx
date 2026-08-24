@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   runs: vi.fn(),
   salaryStructures: vi.fn(),
   createSalaryStructure: vi.fn(),
+  supersedeSalaryStructure: vi.fn(),
   createRun: vi.fn(),
   entries: vi.fn(),
   processRun: vi.fn(),
@@ -39,6 +40,7 @@ vi.mock("./payrollApi", () => ({
     runs: mocks.runs,
     salaryStructures: mocks.salaryStructures,
     createSalaryStructure: mocks.createSalaryStructure,
+    supersedeSalaryStructure: mocks.supersedeSalaryStructure,
     createRun: mocks.createRun,
     entries: mocks.entries,
     processRun: mocks.processRun,
@@ -90,6 +92,50 @@ const finalizedRun = {
   finalizedAt: "2026-08-20T11:00:00",
 };
 
+const salaryV1 = {
+  id: "structure-1",
+  organizationId: "org-1",
+  employeeId: "emp-1",
+  versionNumber: 1,
+  supersedesStructureId: null,
+  currency: "INR",
+  basicPay: 50000,
+  allowanceTotal: 5000,
+  deductionTotal: 1000,
+  pfApplicable: true,
+  pfContributionWage: 15000,
+  esiApplicable: false,
+  esiContributionWage: null,
+  tdsAmount: 500,
+  taxRegime: "NEW",
+  effectiveFrom: "2026-01-01",
+  effectiveTo: null,
+  active: true,
+  supersededAt: null,
+  supersededBy: null,
+  createdBy: "user-1",
+  createdAt: "2026-01-01T09:00:00",
+  updatedAt: "2026-01-01T09:00:00",
+};
+
+const salaryV1Closed = {
+  ...salaryV1,
+  effectiveTo: "2026-08-31",
+  supersededAt: "2026-08-25T01:00:00",
+  supersededBy: "user-1",
+};
+
+const salaryV2 = {
+  ...salaryV1,
+  id: "structure-2",
+  versionNumber: 2,
+  supersedesStructureId: "structure-1",
+  basicPay: 60000,
+  effectiveFrom: "2026-09-01",
+  createdAt: "2026-08-25T01:00:00",
+  updatedAt: "2026-08-25T01:00:00",
+};
+
 const entry = {
   id: "entry-1",
   payrollRunId: "run-1",
@@ -131,6 +177,7 @@ describe("PayrollPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.employees.mockResolvedValue(employeePage());
+    mocks.runs.mockResolvedValue([]);
     mocks.salaryStructures.mockResolvedValue([]);
     mocks.entries.mockResolvedValue([]);
     mocks.payslip.mockResolvedValue(entry);
@@ -148,6 +195,63 @@ describe("PayrollPage", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+  });
+
+  it("shows versioned salary history and revises the current version", async () => {
+    mocks.salaryStructures
+      .mockResolvedValueOnce([salaryV1])
+      .mockResolvedValueOnce([salaryV2, salaryV1Closed]);
+    mocks.supersedeSalaryStructure.mockResolvedValue(salaryV2);
+
+    render(<PayrollPage />);
+
+    fireEvent.change(await screen.findByLabelText("Employee"), {
+      target: { value: "emp-1" },
+    });
+
+    expect(await screen.findByText("V1")).toBeInTheDocument();
+    expect(screen.getByText("2026-01-01 → Open")).toBeInTheDocument();
+    expect(screen.getByText("CURRENT")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Revise salary" }));
+
+    expect(screen.getByText("Revise salary — V1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Basic pay")).toHaveValue(50000);
+    expect(screen.getByLabelText("Allowance total")).toHaveValue(5000);
+    expect(screen.getByLabelText("Deduction total")).toHaveValue(1000);
+    expect(screen.queryByLabelText("Effective to")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Basic pay"), {
+      target: { value: "60000" },
+    });
+    fireEvent.change(screen.getByLabelText("Effective from"), {
+      target: { value: "2026-09-01" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save revision" }));
+
+    await waitFor(() =>
+      expect(mocks.supersedeSalaryStructure).toHaveBeenCalledWith(
+        "structure-1",
+        expect.objectContaining({
+          organizationId: "org-1",
+          currency: "INR",
+          basicPay: 60000,
+          allowanceTotal: 5000,
+          deductionTotal: 1000,
+          effectiveFrom: "2026-09-01",
+        }),
+      ),
+    );
+
+    const request = mocks.supersedeSalaryStructure.mock.calls[0][1];
+    expect(request).not.toHaveProperty("employeeId");
+    expect(request).not.toHaveProperty("effectiveTo");
+    expect(request).not.toHaveProperty("active");
+
+    expect(await screen.findByText("V2")).toBeInTheDocument();
+    expect(screen.getByText("2026-01-01 → 2026-08-31")).toBeInTheDocument();
+    expect(screen.getByText("2026-09-01 → Open")).toBeInTheDocument();
+    expect(mocks.salaryStructures).toHaveBeenCalledTimes(2);
   });
 
   it("offers process only for a DRAFT payroll run", async () => {
