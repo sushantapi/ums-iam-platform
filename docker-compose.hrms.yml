@@ -1,4 +1,10 @@
 services:
+  organization-service:
+    environment:
+      ORGANIZATION_LOGO_STORAGE_ROOT: /app/data/organization-assets
+    volumes:
+      - organization_assets:/app/data/organization-assets
+
   employee-db-init:
     image: mysql:8.0
     container_name: ums-employee-db-init
@@ -280,3 +286,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 180s
+
+volumes:
+  organization_assets:
+    driver: local
