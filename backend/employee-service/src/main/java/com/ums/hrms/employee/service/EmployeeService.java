@@ -110,12 +110,24 @@ public class EmployeeService {
         employee.setEmployeeCode(employeeCode);
         employee.setDepartmentId(request.departmentId());
         employee.setDesignationId(request.designationId());
-        employee.setDisplayName(normalizeNullable(request.displayName()));
-        employee.setDateOfJoining(request.dateOfJoining());
-        employee.setPanDisplay(maskIdentifier(request.panNumber()));
-        employee.setUanDisplay(maskIdentifier(request.uanNumber()));
-        employee.setEsiDisplay(maskIdentifier(request.esiNumber()));
-        employee.setBankAccountDisplay(maskIdentifier(request.bankAccountNumber()));
+        if (request.displayName() != null) {
+            employee.setDisplayName(normalizeNullable(request.displayName()));
+        }
+        if (request.dateOfJoining() != null) {
+            employee.setDateOfJoining(request.dateOfJoining());
+        }
+        if (request.panNumber() != null) {
+            employee.setPanDisplay(maskIdentifier(request.panNumber()));
+        }
+        if (request.uanNumber() != null) {
+            employee.setUanDisplay(maskIdentifier(request.uanNumber()));
+        }
+        if (request.esiNumber() != null) {
+            employee.setEsiDisplay(maskIdentifier(request.esiNumber()));
+        }
+        if (request.bankAccountNumber() != null) {
+            employee.setBankAccountDisplay(maskIdentifier(request.bankAccountNumber()));
+        }
         employee.setStatus(request.status());
 
         Employee saved = employeeRepository.save(employee);
