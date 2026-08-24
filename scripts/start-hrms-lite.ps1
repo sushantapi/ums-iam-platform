@@ -15,13 +15,6 @@ $logsRoot = Join-Path $repoRoot "logs\hrms-lite"
 $organizationAssetsRoot = Join-Path $repoRoot "runtime\organization-assets"
 $stateFile = Join-Path $runtimeRoot "processes.json"
 
-$infraContainers = @(
-    "ums-mysql",
-    "ums-rabbitmq",
-    "ums-redis",
-    "ums-mailpit"
-)
-
 $appContainers = @(
     "ums-discovery-service",
     "ums-config-service",
@@ -168,15 +161,32 @@ function Export-ExistingOrganizationAssets {
     }
 
     $running = (& docker inspect -f '{{.State.Running}}' ums-organization-service 2>$null)
-    if ($LASTEXITCODE -ne 0 -or $running -ne "true") {
-        return
+    if ($LASTEXITCODE -eq 0 -and $running -eq "true") {
+        Write-Host "    Preserving organization logo assets from the running organization container..."
+        & docker cp "ums-organization-service:/app/data/organization-assets/." $organizationAssetsRoot 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            return
+        }
     }
 
-    Write-Host "    Preserving existing organization logo assets for local runtime..."
-    & docker cp "ums-organization-service:/app/data/organization-assets/." $organizationAssetsRoot 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warning "Could not copy existing organization logo assets. Existing DB data is untouched; re-upload the logo if the local preview is missing."
+    $volume = @(& docker volume ls --format '{{.Name}}') |
+        Where-Object { $_ -like '*organization_assets' } |
+        Select-Object -First 1
+
+    if ($volume) {
+        Write-Host "    Preserving organization logo assets from Docker volume $volume..."
+        & docker run --rm `
+            --entrypoint sh `
+            -v "${volume}:/from:ro" `
+            -v "${organizationAssetsRoot}:/to" `
+            mysql:8.0 `
+            -c "cp -a /from/. /to/" 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            return
+        }
     }
+
+    Write-Warning "No existing organization logo assets could be copied. Database/volume data is untouched; re-upload the logo only if the local preview is missing."
 }
 
 function Stop-DockerApplicationContainers {
@@ -257,12 +267,12 @@ $env:RABBITMQ_PORT = "5672"
 $env:REDIS_HOST = "localhost"
 $env:REDIS_PORT = "6379"
 $env:CONFIG_SERVER_URL = "http://localhost:8888"
-$env:SPRING_CONFIG_IMPORT = "optional:configserver:http://localhost:8888"
 $env:EUREKA_DEFAULT_ZONE = "http://localhost:8761/eureka/"
 $env:CONFIG_REPO_PATH = ("file:/" + ((Join-Path $backendRoot "config-repo").Replace('\', '/')))
 $env:ORGANIZATION_LOGO_STORAGE_ROOT = $organizationAssetsRoot
 $env:JAVA_TOOL_OPTIONS = ""
 Remove-Item Env:SPRING_PROFILES_ACTIVE -ErrorAction SilentlyContinue
+Remove-Item Env:SPRING_CONFIG_IMPORT -ErrorAction SilentlyContinue
 Remove-Item Env:OTEL_EXPORTER_OTLP_ENDPOINT -ErrorAction SilentlyContinue
 
 $jwtPrivate = Join-Path $repoRoot "secrets\jwt\private_key.pem"
