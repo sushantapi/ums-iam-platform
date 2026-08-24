@@ -113,6 +113,12 @@ public class OrganizationLogoService {
         return loadAsset(organizationId, assetId);
     }
 
+    @Transactional(readOnly = true)
+    public OrganizationLogoDocument getInternalVersion(UUID organizationId, UUID assetId) {
+        getOrganization(organizationId);
+        return loadAsset(organizationId, assetId);
+    }
+
     private OrganizationLogoDocument loadAsset(UUID organizationId, UUID assetId) {
         OrganizationLogoAsset asset = logoAssetRepository.findByIdAndOrganizationId(assetId, organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization logo asset not found"));

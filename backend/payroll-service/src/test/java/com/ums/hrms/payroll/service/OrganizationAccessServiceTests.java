@@ -1,9 +1,11 @@
 package com.ums.hrms.payroll.service;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -27,6 +29,7 @@ import feign.RequestTemplate;
 class OrganizationAccessServiceTests {
 
     @Mock OrganizationServiceClient organizationServiceClient;
+    @Mock PayrollTenantValidationService payrollTenantValidationService;
     @InjectMocks OrganizationAccessService organizationAccessService;
 
     private final UUID organizationId = UUID.randomUUID();
@@ -36,6 +39,28 @@ class OrganizationAccessServiceTests {
     void delegatesActorIdentityAndSuperAdminFlag() {
         organizationAccessService.assertCanAccess(organizationId, actorUserId, true);
         verify(organizationServiceClient).assertAccessible(organizationId, actorUserId, true);
+    }
+
+    @Test
+    void returnsImmutableLogoAssetBytes() {
+        UUID assetId = UUID.randomUUID();
+        byte[] logo = new byte[] {1, 2, 3, 4};
+        when(organizationServiceClient.getLogoAsset(organizationId, assetId)).thenReturn(logo);
+
+        assertArrayEquals(logo, organizationAccessService.getLogoAsset(organizationId, assetId));
+        verify(organizationServiceClient).getLogoAsset(organizationId, assetId);
+    }
+
+    @Test
+    void rejectsEmptyLogoAssetResponse() {
+        UUID assetId = UUID.randomUUID();
+        when(organizationServiceClient.getLogoAsset(organizationId, assetId)).thenReturn(new byte[0]);
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> organizationAccessService.getLogoAsset(organizationId, assetId));
+
+        assertEquals(502, ex.getStatusCode().value());
     }
 
     @Test

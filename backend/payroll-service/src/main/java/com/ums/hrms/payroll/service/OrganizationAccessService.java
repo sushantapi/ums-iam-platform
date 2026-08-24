@@ -49,6 +49,22 @@ public class OrganizationAccessService {
         return profile;
     }
 
+    public byte[] getLogoAsset(UUID organizationId, UUID assetId) {
+        byte[] content;
+        try {
+            content = organizationServiceClient.getLogoAsset(organizationId, assetId);
+        } catch (FeignException.NotFound ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization logo snapshot not found", ex);
+        } catch (FeignException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Organization service unavailable", ex);
+        }
+
+        if (content == null || content.length == 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Organization logo snapshot is empty");
+        }
+        return content;
+    }
+
     public EmployeeInternalResponse getEmployeePresentation(UUID employeeId, UUID organizationId) {
         return payrollTenantValidationService.getEmployee(employeeId, organizationId);
     }

@@ -23,4 +23,9 @@ public interface OrganizationServiceClient {
 
     @GetMapping("/api/v1/internal/organizations/{organizationId}/profile")
     OrganizationProfileInternalResponse getProfile(@PathVariable UUID organizationId);
+
+    @GetMapping("/api/v1/internal/organizations/{organizationId}/profile/logo/{assetId}")
+    byte[] getLogoAsset(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID assetId);
 }
