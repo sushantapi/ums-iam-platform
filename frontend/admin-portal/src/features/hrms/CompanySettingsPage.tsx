@@ -8,6 +8,7 @@ import {
   type OrganizationProfileResponse,
   type UpdateOrganizationProfileRequest,
 } from "./companyProfileApi";
+import "./CompanySettingsPage.css";
 import { HrmsOrganizationScope } from "./HrmsOrganizationScope";
 import { getStoredHrmsOrganizationId } from "./hrmsOrganizationScopeStorage";
 
@@ -195,172 +196,234 @@ export function CompanySettingsPage() {
   }
 
   return (
-    <section className="page">
+    <section className="page company-settings-page">
       <PageHeader
         eyebrow="HRMS"
         title="Company Settings"
         description="Maintain reusable company identity and payslip branding for this tenant. Finalized payroll snapshots keep their historical values."
       />
 
-      <HrmsOrganizationScope
-        organizationId={organizationId}
-        onChange={setOrganizationId}
-      />
+      <section className="company-settings-context" aria-label="Tenant context">
+        <div className="company-settings-context-copy">
+          <span>Tenant context</span>
+          <strong>{profile?.displayName || profile?.legalName || "Selected organization"}</strong>
+          <small>
+            Company identity is reused across HRMS and captured into finalized payroll snapshots.
+          </small>
+        </div>
+        <HrmsOrganizationScope
+          organizationId={organizationId}
+          onChange={setOrganizationId}
+        />
+      </section>
 
       {!organizationId ? (
         <ErrorState message="Enter the tenant organization ID to manage company settings." />
       ) : null}
       {loading ? <LoadingState label="Loading company settings" /> : null}
       {error ? <ErrorState message={error} /> : null}
-      {notice ? <p role="status">{notice}</p> : null}
+      {notice ? (
+        <p role="status" className="success-message company-settings-notice">
+          {notice}
+        </p>
+      ) : null}
 
       {organizationId && profile && !loading ? (
-        <>
-          <section className="panel">
-            <h2>Company profile & payslip branding</h2>
-            <form onSubmit={saveProfile}>
-              <label>
-                Legal company name
-                <input
-                  maxLength={255}
-                  value={draft.legalName}
-                  onChange={(event) => setField("legalName", event.target.value)}
-                  disabled={saving}
-                />
-              </label>
-              <label>
-                Display name
-                <input
-                  maxLength={255}
-                  value={draft.displayName}
-                  onChange={(event) => setField("displayName", event.target.value)}
-                  disabled={saving}
-                />
-              </label>
-              <label>
-                Registered address
-                <textarea
-                  maxLength={1000}
-                  value={draft.registeredAddress}
-                  onChange={(event) =>
-                    setField("registeredAddress", event.target.value)
-                  }
-                  disabled={saving}
-                />
-              </label>
-              <label>
-                Business email
-                <input
-                  type="email"
-                  maxLength={255}
-                  value={draft.businessEmail}
-                  onChange={(event) => setField("businessEmail", event.target.value)}
-                  disabled={saving}
-                />
-              </label>
-              <label>
-                Business phone
-                <input
-                  maxLength={50}
-                  value={draft.businessPhone}
-                  onChange={(event) => setField("businessPhone", event.target.value)}
-                  disabled={saving}
-                />
-              </label>
-              <label>
-                Website
-                <input
-                  maxLength={255}
-                  value={draft.website}
-                  onChange={(event) => setField("website", event.target.value)}
-                  disabled={saving}
-                />
-              </label>
-              <label>
-                Default currency
-                <input
-                  maxLength={3}
-                  value={draft.defaultCurrency}
-                  onChange={(event) =>
-                    setField("defaultCurrency", event.target.value.toUpperCase())
-                  }
-                  disabled={saving}
-                />
-              </label>
-              <label>
-                Payroll country
-                <input
-                  maxLength={2}
-                  value={draft.payrollCountry}
-                  onChange={(event) =>
-                    setField("payrollCountry", event.target.value.toUpperCase())
-                  }
-                  disabled={saving}
-                />
-              </label>
-              <label>
-                Payslip footer text
-                <textarea
-                  maxLength={500}
-                  value={draft.payslipFooterText}
-                  onChange={(event) =>
-                    setField("payslipFooterText", event.target.value)
-                  }
-                  disabled={saving}
-                />
-              </label>
-              <label>
-                Authorized signatory label
-                <input
-                  maxLength={255}
-                  value={draft.authorizedSignatoryLabel}
-                  onChange={(event) =>
-                    setField("authorizedSignatoryLabel", event.target.value)
-                  }
-                  disabled={saving}
-                />
-              </label>
-              <button type="submit" className="button-primary" disabled={saving}>
-                {saving ? "Saving..." : "Save company profile"}
-              </button>
+        <div className="company-settings-grid">
+          <section className="panel company-settings-card">
+            <header className="company-settings-card-header">
+              <div>
+                <span className="company-settings-kicker">Company identity</span>
+                <h2>Profile & payslip details</h2>
+                <p>
+                  Keep company information accurate once and reuse it whenever payroll creates
+                  a professional employee-facing payslip.
+                </p>
+              </div>
+              <span className="badge badge-live">Payslip source</span>
+            </header>
+
+            <form onSubmit={saveProfile} className="company-settings-form">
+              <section className="company-settings-section">
+                <div className="company-settings-section-title">
+                  <strong>Business identity</strong>
+                  <span>Names, contact details and registered business address.</span>
+                </div>
+                <div className="company-settings-fields company-settings-fields-two">
+                  <label className="company-settings-field">
+                    Legal company name
+                    <input
+                      maxLength={255}
+                      value={draft.legalName}
+                      onChange={(event) => setField("legalName", event.target.value)}
+                      disabled={saving}
+                    />
+                  </label>
+                  <label className="company-settings-field">
+                    Display name
+                    <input
+                      maxLength={255}
+                      value={draft.displayName}
+                      onChange={(event) => setField("displayName", event.target.value)}
+                      disabled={saving}
+                    />
+                  </label>
+                  <label className="company-settings-field company-settings-field-wide">
+                    Registered address
+                    <textarea
+                      maxLength={1000}
+                      value={draft.registeredAddress}
+                      onChange={(event) =>
+                        setField("registeredAddress", event.target.value)
+                      }
+                      disabled={saving}
+                    />
+                  </label>
+                  <label className="company-settings-field">
+                    Business email
+                    <input
+                      type="email"
+                      maxLength={255}
+                      value={draft.businessEmail}
+                      onChange={(event) => setField("businessEmail", event.target.value)}
+                      disabled={saving}
+                    />
+                  </label>
+                  <label className="company-settings-field">
+                    Business phone
+                    <input
+                      maxLength={50}
+                      value={draft.businessPhone}
+                      onChange={(event) => setField("businessPhone", event.target.value)}
+                      disabled={saving}
+                    />
+                  </label>
+                  <label className="company-settings-field company-settings-field-wide">
+                    Website
+                    <input
+                      maxLength={255}
+                      value={draft.website}
+                      onChange={(event) => setField("website", event.target.value)}
+                      disabled={saving}
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <section className="company-settings-section">
+                <div className="company-settings-section-title">
+                  <strong>Payroll defaults</strong>
+                  <span>Defaults applied when payroll captures a new immutable payslip snapshot.</span>
+                </div>
+                <div className="company-settings-fields company-settings-fields-two">
+                  <label className="company-settings-field">
+                    Default currency
+                    <input
+                      maxLength={3}
+                      value={draft.defaultCurrency}
+                      onChange={(event) =>
+                        setField("defaultCurrency", event.target.value.toUpperCase())
+                      }
+                      disabled={saving}
+                    />
+                  </label>
+                  <label className="company-settings-field">
+                    Payroll country
+                    <input
+                      maxLength={2}
+                      value={draft.payrollCountry}
+                      onChange={(event) =>
+                        setField("payrollCountry", event.target.value.toUpperCase())
+                      }
+                      disabled={saving}
+                    />
+                  </label>
+                  <label className="company-settings-field company-settings-field-wide">
+                    Payslip footer text
+                    <textarea
+                      maxLength={500}
+                      value={draft.payslipFooterText}
+                      onChange={(event) =>
+                        setField("payslipFooterText", event.target.value)
+                      }
+                      disabled={saving}
+                    />
+                  </label>
+                  <label className="company-settings-field company-settings-field-wide">
+                    Authorized signatory label
+                    <input
+                      maxLength={255}
+                      value={draft.authorizedSignatoryLabel}
+                      onChange={(event) =>
+                        setField("authorizedSignatoryLabel", event.target.value)
+                      }
+                      disabled={saving}
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <div className="company-settings-actions">
+                <button type="submit" className="button-primary" disabled={saving}>
+                  {saving ? "Saving..." : "Save company profile"}
+                </button>
+              </div>
             </form>
           </section>
 
-          <section className="panel">
-            <h2>Company logo</h2>
-            <p>
-              PNG or JPEG. Every upload creates a new immutable logo version so
-              historical payslips can keep referencing the version used at payroll time.
-            </p>
-            {logoUrl ? (
-              <img
-                src={logoUrl}
-                alt="Current company logo"
-                style={{ maxWidth: 220, maxHeight: 100, objectFit: "contain" }}
-              />
-            ) : (
-              <p>No company logo uploaded yet.</p>
-            )}
-            {profile.logoAssetVersion ? (
-              <p>Current logo version: {profile.logoAssetVersion}</p>
-            ) : null}
-            {logoError ? <ErrorState message={logoError} /> : null}
-            <form onSubmit={uploadLogo}>
-              <label>
-                Logo file
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg"
-                  onChange={(event) => setLogoFile(event.target.files?.[0])}
-                  disabled={uploading}
-                />
-              </label>
-              <button type="submit" className="button-primary" disabled={uploading}>
-                {uploading ? "Uploading..." : "Upload new logo version"}
-              </button>
-            </form>
+          <section className="panel company-settings-card">
+            <header className="company-settings-card-header">
+              <div>
+                <span className="company-settings-kicker">Branding</span>
+                <h2>Company logo</h2>
+                <p>Use a clean PNG or JPEG logo for employee-facing payroll documents.</p>
+              </div>
+              {profile.logoAssetVersion ? (
+                <span className="badge">Version {profile.logoAssetVersion}</span>
+              ) : null}
+            </header>
+
+            <div className="company-settings-logo-body">
+              <div className="company-settings-logo-preview">
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Current company logo" />
+                ) : (
+                  <p className="company-settings-logo-empty">
+                    No company logo uploaded yet. Upload a PNG or JPEG to establish your
+                    payslip branding.
+                  </p>
+                )}
+              </div>
+
+              <div className="company-settings-logo-meta">
+                <span>Current logo version</span>
+                <strong>{profile.logoAssetVersion ?? "Not set"}</strong>
+              </div>
+
+              <div className="company-settings-info-note">
+                Every upload creates a new immutable logo version. Finalized historical
+                payslips continue referencing the exact version captured at payroll time.
+              </div>
+
+              {logoError ? <ErrorState message={logoError} /> : null}
+
+              <form onSubmit={uploadLogo} className="company-settings-upload-form">
+                <label className="company-settings-file-field">
+                  Logo file
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    onChange={(event) => setLogoFile(event.target.files?.[0])}
+                    disabled={uploading}
+                  />
+                </label>
+                <button type="submit" className="button-primary" disabled={uploading}>
+                  {uploading ? "Uploading..." : "Upload new logo version"}
+                </button>
+              </form>
+            </div>
           </section>
-        </>
+        </div>
       ) : null}
     </section>
   );
