@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ums.org.dto.AddMemberRequest;
 import com.ums.org.dto.CreateOrganizationRequest;
 import com.ums.org.dto.OrganizationMemberResponse;
+import com.ums.org.dto.OrganizationProfileResponse;
 import com.ums.org.dto.OrganizationResponse;
 import com.ums.org.dto.OrganizationSecurityPolicyInternalResponse;
 import com.ums.org.dto.UpdateOrganizationRequest;
@@ -27,6 +28,7 @@ import com.ums.org.dto.admin.OrganizationAdminResponse;
 import com.ums.org.dto.admin.OrganizationMetricsResponse;
 import com.ums.org.enums.OrganizationStatus;
 import com.ums.org.repositoty.OrganizationRepository;
+import com.ums.org.service.OrganizationProfileService;
 import com.ums.org.service.OrganizationSecurityPolicyService;
 import com.ums.org.service.OrganizationService;
 
@@ -43,6 +45,7 @@ public class InternalOrganizationController {
 	private static final String SUPER_ADMIN_HEADER = "X-Actor-Super-Admin";
 	private final OrganizationService organizationService;
 	private final OrganizationSecurityPolicyService securityPolicyService;
+	private final OrganizationProfileService organizationProfileService;
 	private final OrganizationRepository organizationRepository;
 
 	@GetMapping("/metrics")
@@ -77,6 +80,11 @@ public class InternalOrganizationController {
 			@RequestHeader(ACTOR_HEADER) UUID actorUserId,
 			@RequestHeader(SUPER_ADMIN_HEADER) boolean superAdmin) {
 		return organizationService.getOrganizationForAdmin(organizationId, actorUserId, superAdmin);
+	}
+
+	@GetMapping("/{organizationId}/profile")
+	public OrganizationProfileResponse profile(@PathVariable UUID organizationId) {
+		return organizationProfileService.getInternal(organizationId);
 	}
 
 	@GetMapping("/{organizationId}/security-policy")

@@ -37,10 +37,13 @@ public class OrganizationProfileService {
             boolean superAdmin) {
         Organization organization = getOrganization(organizationId);
         accessService.assertCanViewOrganization(actorUserId, organization, superAdmin);
+        return resolveProfileResponse(organization);
+    }
 
-        return profileRepository.findById(organizationId)
-                .map(profile -> toResponse(organization, profile))
-                .orElseGet(() -> fallbackResponse(organization));
+    @Transactional(readOnly = true)
+    public OrganizationProfileResponse getInternal(UUID organizationId) {
+        Organization organization = getOrganization(organizationId);
+        return resolveProfileResponse(organization);
     }
 
     @Transactional
@@ -71,6 +74,12 @@ public class OrganizationProfileService {
         OrganizationProfile saved = profileRepository.save(profile);
         publishProfileUpdatedAudit(actorUserId, organizationId);
         return toResponse(organization, saved);
+    }
+
+    private OrganizationProfileResponse resolveProfileResponse(Organization organization) {
+        return profileRepository.findById(organization.getId())
+                .map(profile -> toResponse(organization, profile))
+                .orElseGet(() -> fallbackResponse(organization));
     }
 
     private Organization getOrganization(UUID organizationId) {
