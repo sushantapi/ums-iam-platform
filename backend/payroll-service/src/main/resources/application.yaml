@@ -1,8 +1,13 @@
 spring:
   application:
     name: payroll-service
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
   config:
     import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+
 internal:
   gateway:
     secret: ${INTERNAL_GATEWAY_SECRET:local-dev-gateway-secret-change-me}
