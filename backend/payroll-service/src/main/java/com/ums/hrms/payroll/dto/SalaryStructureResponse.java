@@ -24,6 +24,10 @@ public record SalaryStructureResponse(
         LocalDate effectiveFrom,
         LocalDate effectiveTo,
         boolean active,
+        int versionNumber,
+        UUID supersedesStructureId,
+        LocalDateTime supersededAt,
+        UUID supersededBy,
         UUID createdBy,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {

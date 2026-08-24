@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ums.hrms.payroll.dto.CreateSalaryStructureRequest;
 import com.ums.hrms.payroll.dto.SalaryStructureResponse;
+import com.ums.hrms.payroll.dto.SupersedeSalaryStructureRequest;
 import com.ums.hrms.payroll.service.SalaryStructureService;
 
 import jakarta.validation.Valid;
@@ -36,6 +37,20 @@ public class SalaryStructureController {
             Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(salaryStructureService.create(
+                        request,
+                        currentUserId(authentication),
+                        isSuperAdmin(authentication)));
+    }
+
+    @PostMapping("/{id}/supersede")
+    @PreAuthorize("hasAuthority('PAYROLL_STRUCTURE_MANAGE')")
+    public ResponseEntity<SalaryStructureResponse> supersede(
+            @PathVariable UUID id,
+            @Valid @RequestBody SupersedeSalaryStructureRequest request,
+            Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(salaryStructureService.supersede(
+                        id,
                         request,
                         currentUserId(authentication),
                         isSuperAdmin(authentication)));

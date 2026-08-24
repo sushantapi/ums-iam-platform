@@ -2,6 +2,7 @@ package com.ums.hrms.payroll.entity;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.hibernate.annotations.JdbcTypeCode;
@@ -39,6 +40,13 @@ public class SalaryStructure extends BaseEntity {
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "employee_id", nullable = false, length = 36)
     private UUID employeeId;
+
+    @Column(name = "version_number", nullable = false)
+    private int versionNumber = 1;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "supersedes_structure_id", length = 36)
+    private UUID supersedesStructureId;
 
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(nullable = false, length = 3)
@@ -80,6 +88,13 @@ public class SalaryStructure extends BaseEntity {
 
     @Column(nullable = false)
     private boolean active = true;
+
+    @Column(name = "superseded_at")
+    private LocalDateTime supersededAt;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "superseded_by", length = 36)
+    private UUID supersededBy;
 
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "created_by", nullable = false, length = 36, updatable = false)

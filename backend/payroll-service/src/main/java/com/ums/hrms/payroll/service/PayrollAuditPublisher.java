@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 public class PayrollAuditPublisher {
 
     static final String SALARY_STRUCTURE_CREATED = "hrms.payroll.salary-structure.created";
+    static final String SALARY_STRUCTURE_SUPERSEDED = "hrms.payroll.salary-structure.superseded";
     static final String STATUTORY_POLICY_CREATED = "hrms.payroll.statutory-policy.created";
     static final String PAYROLL_RUN_PROCESSED = "hrms.payroll.run.processed";
     static final String PAYROLL_RUN_FINALIZED = "hrms.payroll.run.finalized";
@@ -35,14 +36,38 @@ public class PayrollAuditPublisher {
                 "SALARY_STRUCTURE",
                 structure.getId(),
                 actorUserId,
-                "Salary structure created; organizationId=%s; employeeId=%s; currency=%s; effectiveFrom=%s; effectiveTo=%s; active=%s"
+                "Salary structure created; organizationId=%s; employeeId=%s; version=%d; currency=%s; effectiveFrom=%s; effectiveTo=%s; active=%s"
                         .formatted(
                                 structure.getOrganizationId(),
                                 structure.getEmployeeId(),
+                                structure.getVersionNumber(),
                                 structure.getCurrency(),
                                 structure.getEffectiveFrom(),
                                 structure.getEffectiveTo(),
                                 structure.isActive()));
+        publishAfterCommit(event);
+    }
+
+    public void publishSalaryStructureSuperseded(
+            SalaryStructure predecessor,
+            SalaryStructure successor,
+            UUID actorUserId) {
+        AuditEvent event = baseEvent(
+                SALARY_STRUCTURE_SUPERSEDED,
+                "SUPERSEDE",
+                "SALARY_STRUCTURE",
+                successor.getId(),
+                actorUserId,
+                "Salary structure superseded; organizationId=%s; employeeId=%s; predecessorId=%s; predecessorVersion=%d; successorId=%s; successorVersion=%d; predecessorEffectiveTo=%s; successorEffectiveFrom=%s"
+                        .formatted(
+                                successor.getOrganizationId(),
+                                successor.getEmployeeId(),
+                                predecessor.getId(),
+                                predecessor.getVersionNumber(),
+                                successor.getId(),
+                                successor.getVersionNumber(),
+                                predecessor.getEffectiveTo(),
+                                successor.getEffectiveFrom()));
         publishAfterCommit(event);
     }
 
