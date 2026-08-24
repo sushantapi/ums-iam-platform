@@ -1,6 +1,7 @@
 package com.ums.hrms.payroll.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
@@ -132,6 +133,33 @@ class PayslipPdfServiceTests {
         verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
         verify(payrollTenantValidationService, never()).getEmployee(employeeId, organizationId);
         verify(organizationAccessService, never()).getProfile(organizationId);
+    }
+
+    @Test
+    void suppressesRedundantSystemGeneratedSignatureFooter() throws Exception {
+        PayrollEntry entry = entry();
+        applyPresentationSnapshot(entry);
+        entry.setPayslipFooterTextSnapshot("This is a system generated payslip and does not require a signature.");
+        PayrollRun run = run(PayrollRunStatus.FINALIZED);
+        run.setFinalizedAt(LocalDateTime.of(2026, 8, 31, 18, 30));
+
+        when(payrollEntryRepository.findByIdAndOrganizationId(entryId, organizationId))
+                .thenReturn(Optional.of(entry));
+        when(payrollRunRepository.findByIdAndOrganizationId(runId, organizationId))
+                .thenReturn(Optional.of(run));
+
+        var document = payslipPdfService.generate(entryId, organizationId, actorUserId, false);
+
+        try (PDDocument pdf = Loader.loadPDF(document.content())) {
+            PDFTextStripper stripper = new PDFTextStripper();
+            stripper.setSortByPosition(true);
+            String normalizedText = stripper.getText(pdf).replaceAll("\\s+", " ");
+
+            assertTrue(normalizedText.contains(
+                    "This is a system-generated payslip rendered from the finalized payroll snapshot; no signature is required."));
+            assertFalse(normalizedText.contains(
+                    "This is a system generated payslip and does not require a signature."));
+        }
     }
 
     @Test
