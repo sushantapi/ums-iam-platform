@@ -125,12 +125,12 @@ function Show-LogTail([string]$ServiceName, [int]$Lines = 35) {
     }
 }
 
-function Wait-ServiceHealthy([pscustomobject]$Service, [int]$Pid, [int]$TimeoutSeconds) {
+function Wait-ServiceHealthy([pscustomobject]$Service, [int]$ProcessId, [int]$TimeoutSeconds) {
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     $healthUrl = "http://127.0.0.1:$($Service.Port)/actuator/health"
 
     do {
-        $process = Get-Process -Id $Pid -ErrorAction SilentlyContinue
+        $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
         if (-not $process) {
             Show-LogTail $Service.Name
             throw "$($Service.Name) exited before becoming healthy."
@@ -139,7 +139,7 @@ function Wait-ServiceHealthy([pscustomobject]$Service, [int]$Pid, [int]$TimeoutS
         try {
             $health = Invoke-RestMethod -Uri $healthUrl -Method Get -TimeoutSec 3
             if ($health.status -eq "UP") {
-                Write-Host "    $($Service.Name) UP on :$($Service.Port) (PID $Pid)" -ForegroundColor Green
+                Write-Host "    $($Service.Name) UP on :$($Service.Port) (PID $ProcessId)" -ForegroundColor Green
                 return
             }
         } catch {
@@ -242,7 +242,7 @@ function Start-LocalService([pscustomobject]$Service) {
         -WindowStyle Hidden `
         -PassThru
 
-    Wait-ServiceHealthy -Service $Service -Pid $process.Id -TimeoutSeconds $StartupTimeoutSeconds
+    Wait-ServiceHealthy -Service $Service -ProcessId $process.Id -TimeoutSeconds $StartupTimeoutSeconds
 
     return [pscustomobject]@{
         service = $Service.Name
