@@ -50,6 +50,12 @@ const employee = {
   employeeCode: "EMP-001",
   departmentId: "dep-1",
   designationId: "des-1",
+  displayName: "Sushant Kumar",
+  dateOfJoining: "2025-09-24",
+  panDisplay: "******234F",
+  uanDisplay: "********0400",
+  esiDisplay: "******7890",
+  bankAccountDisplay: "********7890",
   status: "ACTIVE",
   createdAt: "2026-08-20T09:00:00",
   updatedAt: "2026-08-20T09:00:00",
@@ -98,15 +104,17 @@ describe("EmployeesPage", () => {
       id: "emp-2",
       umsUserId: "user-2",
       employeeCode: "EMP-002",
+      displayName: "New Employee",
     });
   });
 
   afterEach(cleanup);
 
-  it("loads tenant-scoped employees with department and designation labels", async () => {
+  it("loads tenant-scoped employees with reusable payslip identity", async () => {
     render(<EmployeesPage />);
 
     expect(await screen.findByText("EMP-001")).toBeInTheDocument();
+    expect(screen.getByText("Sushant Kumar")).toBeInTheDocument();
     expect(screen.getByText("Engineering")).toBeInTheDocument();
     expect(screen.getByText("Software Engineer")).toBeInTheDocument();
 
@@ -117,7 +125,7 @@ describe("EmployeesPage", () => {
     });
   });
 
-  it("creates an employee using the selected same-tenant master data", async () => {
+  it("creates an employee with payslip identity inputs", async () => {
     render(<EmployeesPage />);
     await screen.findByText("EMP-001");
 
@@ -128,11 +136,29 @@ describe("EmployeesPage", () => {
     fireEvent.change(screen.getByLabelText("Employee code"), {
       target: { value: "EMP-002" },
     });
+    fireEvent.change(screen.getByLabelText("Employee display name"), {
+      target: { value: " New Employee " },
+    });
+    fireEvent.change(screen.getByLabelText("Date of joining"), {
+      target: { value: "2026-08-01" },
+    });
     fireEvent.change(screen.getByLabelText("Department"), {
       target: { value: "dep-1" },
     });
     fireEvent.change(screen.getByLabelText("Designation"), {
       target: { value: "des-1" },
+    });
+    fireEvent.change(screen.getByLabelText("PAN number"), {
+      target: { value: "ABCDE1234F" },
+    });
+    fireEvent.change(screen.getByLabelText("UAN number"), {
+      target: { value: "100200300400" },
+    });
+    fireEvent.change(screen.getByLabelText("ESI number"), {
+      target: { value: "1234567890" },
+    });
+    fireEvent.change(screen.getByLabelText("Bank account number"), {
+      target: { value: "001234567890" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create employee" }));
 
@@ -143,6 +169,12 @@ describe("EmployeesPage", () => {
         employeeCode: "EMP-002",
         departmentId: "dep-1",
         designationId: "des-1",
+        displayName: "New Employee",
+        dateOfJoining: "2026-08-01",
+        panNumber: "ABCDE1234F",
+        uanNumber: "100200300400",
+        esiNumber: "1234567890",
+        bankAccountNumber: "001234567890",
       }),
     );
     expect(mocks.navigate).toHaveBeenCalledWith("/hrms/employees/emp-2");

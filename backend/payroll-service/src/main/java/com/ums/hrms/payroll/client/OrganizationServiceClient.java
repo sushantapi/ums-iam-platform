@@ -20,4 +20,12 @@ public interface OrganizationServiceClient {
             @PathVariable UUID organizationId,
             @RequestHeader("X-Actor-User-Id") UUID actorUserId,
             @RequestHeader("X-Actor-Super-Admin") boolean superAdmin);
+
+    @GetMapping("/api/v1/internal/organizations/{organizationId}/profile")
+    OrganizationProfileInternalResponse getProfile(@PathVariable UUID organizationId);
+
+    @GetMapping("/api/v1/internal/organizations/{organizationId}/profile/logo/{assetId}")
+    byte[] getLogoAsset(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID assetId);
 }

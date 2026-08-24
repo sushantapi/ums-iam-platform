@@ -1,0 +1,22 @@
+ALTER TABLE hrms_payroll_entries ADD COLUMN organization_legal_name VARCHAR(255);
+ALTER TABLE hrms_payroll_entries ADD COLUMN organization_display_name VARCHAR(255);
+ALTER TABLE hrms_payroll_entries ADD COLUMN organization_registered_address VARCHAR(1000);
+ALTER TABLE hrms_payroll_entries ADD COLUMN organization_business_email VARCHAR(255);
+ALTER TABLE hrms_payroll_entries ADD COLUMN organization_business_phone VARCHAR(50);
+ALTER TABLE hrms_payroll_entries ADD COLUMN organization_website VARCHAR(255);
+ALTER TABLE hrms_payroll_entries ADD COLUMN organization_default_currency CHAR(3);
+ALTER TABLE hrms_payroll_entries ADD COLUMN organization_payroll_country CHAR(2);
+ALTER TABLE hrms_payroll_entries ADD COLUMN payslip_footer_text_snapshot VARCHAR(500);
+ALTER TABLE hrms_payroll_entries ADD COLUMN authorized_signatory_label_snapshot VARCHAR(255);
+ALTER TABLE hrms_payroll_entries ADD COLUMN organization_logo_asset_id CHAR(36);
+ALTER TABLE hrms_payroll_entries ADD COLUMN organization_logo_asset_version INT;
+
+ALTER TABLE hrms_payroll_entries ADD COLUMN employee_code_snapshot VARCHAR(64);
+ALTER TABLE hrms_payroll_entries ADD COLUMN employee_display_name VARCHAR(255);
+ALTER TABLE hrms_payroll_entries ADD COLUMN employee_date_of_joining DATE;
+ALTER TABLE hrms_payroll_entries ADD COLUMN employee_department_name VARCHAR(120);
+ALTER TABLE hrms_payroll_entries ADD COLUMN employee_designation_name VARCHAR(120);
+ALTER TABLE hrms_payroll_entries ADD COLUMN employee_pan_display VARCHAR(64);
+ALTER TABLE hrms_payroll_entries ADD COLUMN employee_uan_display VARCHAR(64);
+ALTER TABLE hrms_payroll_entries ADD COLUMN employee_esi_display VARCHAR(64);
+ALTER TABLE hrms_payroll_entries ADD COLUMN employee_bank_account_display VARCHAR(64);

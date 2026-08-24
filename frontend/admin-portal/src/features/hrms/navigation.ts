@@ -4,6 +4,7 @@ import {
   ClipboardCheck,
   FileClock,
   Landmark,
+  Settings2,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -26,6 +27,13 @@ type HrmsNavigationSection = {
 export const hrmsSidebarSection: HrmsNavigationSection = {
   section: "HRMS",
   screens: [
+    {
+      title: "Company Settings",
+      path: "/hrms/company-settings",
+      icon: Settings2,
+      status: "Live starter",
+      requiredCapability: "hrms.payroll.read",
+    },
     {
       title: "Employees",
       path: "/hrms/employees",

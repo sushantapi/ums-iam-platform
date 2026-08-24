@@ -143,6 +143,38 @@ export async function hrmsGatewayRequest<T>(
   return body as T;
 }
 
+export async function hrmsGatewayMultipart<T>(
+  path: string,
+  formData: FormData,
+  method = "POST",
+): Promise<T> {
+  const response = await executeAuthenticated(path, {
+    method,
+    body: formData,
+  });
+  const body = await readResponseBody(response);
+
+  if (!response.ok) {
+    throw new Error(errorMessage(response, body));
+  }
+
+  return body as T;
+}
+
+export async function hrmsGatewayBlob(
+  path: string,
+  accept = "application/octet-stream",
+): Promise<Blob> {
+  const response = await executeAuthenticated(path, undefined, accept);
+
+  if (!response.ok) {
+    const body = await readResponseBody(response);
+    throw new Error(errorMessage(response, body));
+  }
+
+  return response.blob();
+}
+
 export async function hrmsGatewayDownload(
   path: string,
 ): Promise<HrmsDownloadResponse> {

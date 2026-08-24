@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.ums.hrms.payroll.client.EmployeeInternalResponse;
+import com.ums.hrms.payroll.client.OrganizationProfileInternalResponse;
 import com.ums.hrms.payroll.dto.CreatePayrollRunRequest;
 import com.ums.hrms.payroll.dto.PayrollEntryResponse;
 import com.ums.hrms.payroll.dto.PayrollRunResponse;
@@ -115,6 +117,8 @@ public class PayrollRunService {
                 organizationId,
                 effectiveOn,
                 structures);
+        OrganizationProfileInternalResponse organizationProfile =
+                organizationAccessService.getProfile(organizationId);
 
         LocalDateTime generatedAt = LocalDateTime.now();
         List<PayrollEntry> entries = structures.stream()
@@ -122,7 +126,11 @@ public class PayrollRunService {
                         run,
                         structure,
                         statutoryPolicy,
-                        generatedAt))
+                        generatedAt,
+                        organizationProfile,
+                        organizationAccessService.getEmployeePresentation(
+                                structure.getEmployeeId(),
+                                organizationId)))
                 .toList();
         payrollEntryRepository.saveAll(entries);
 
@@ -194,7 +202,9 @@ public class PayrollRunService {
             PayrollRun run,
             SalaryStructure structure,
             StatutoryPolicy statutoryPolicy,
-            LocalDateTime generatedAt) {
+            LocalDateTime generatedAt,
+            OrganizationProfileInternalResponse organizationProfile,
+            EmployeeInternalResponse employee) {
         BigDecimal basicPay = money(structure.getBasicPay());
         BigDecimal allowanceTotal = money(structure.getAllowanceTotal());
         BigDecimal configuredDeductionTotal = money(structure.getDeductionTotal());
@@ -241,8 +251,41 @@ public class PayrollRunService {
                 statutoryCalculation.employerStatutoryContributionTotal());
         entry.setTaxRegime(statutoryCalculation.taxRegime());
 
+        applyPresentationSnapshot(entry, organizationProfile, employee);
         entry.setGeneratedAt(generatedAt);
         return entry;
+    }
+
+    private void applyPresentationSnapshot(
+            PayrollEntry entry,
+            OrganizationProfileInternalResponse organizationProfile,
+            EmployeeInternalResponse employee) {
+        if (organizationProfile != null) {
+            entry.setOrganizationLegalName(organizationProfile.legalName());
+            entry.setOrganizationDisplayName(organizationProfile.displayName());
+            entry.setOrganizationRegisteredAddress(organizationProfile.registeredAddress());
+            entry.setOrganizationBusinessEmail(organizationProfile.businessEmail());
+            entry.setOrganizationBusinessPhone(organizationProfile.businessPhone());
+            entry.setOrganizationWebsite(organizationProfile.website());
+            entry.setOrganizationDefaultCurrency(organizationProfile.defaultCurrency());
+            entry.setOrganizationPayrollCountry(organizationProfile.payrollCountry());
+            entry.setPayslipFooterTextSnapshot(organizationProfile.payslipFooterText());
+            entry.setAuthorizedSignatoryLabelSnapshot(organizationProfile.authorizedSignatoryLabel());
+            entry.setOrganizationLogoAssetId(organizationProfile.logoAssetId());
+            entry.setOrganizationLogoAssetVersion(organizationProfile.logoAssetVersion());
+        }
+
+        if (employee != null) {
+            entry.setEmployeeCodeSnapshot(employee.employeeCode());
+            entry.setEmployeeDisplayName(employee.displayName());
+            entry.setEmployeeDateOfJoining(employee.dateOfJoining());
+            entry.setEmployeeDepartmentName(employee.departmentName());
+            entry.setEmployeeDesignationName(employee.designationName());
+            entry.setEmployeePanDisplay(employee.panDisplay());
+            entry.setEmployeeUanDisplay(employee.uanDisplay());
+            entry.setEmployeeEsiDisplay(employee.esiDisplay());
+            entry.setEmployeeBankAccountDisplay(employee.bankAccountDisplay());
+        }
     }
 
     private StatutoryPolicy resolveStatutoryPolicy(

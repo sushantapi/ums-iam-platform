@@ -257,6 +257,12 @@ export type EmployeeResponse = {
   employeeCode: string;
   departmentId: string | null;
   designationId: string | null;
+  displayName: string | null;
+  dateOfJoining: string | null;
+  panDisplay: string | null;
+  uanDisplay: string | null;
+  esiDisplay: string | null;
+  bankAccountDisplay: string | null;
   status: EmployeeStatus;
   createdAt: string;
   updatedAt: string;
@@ -268,6 +274,12 @@ export type CreateEmployeeRequest = {
   employeeCode: string;
   departmentId?: string | null;
   designationId?: string | null;
+  displayName?: string | null;
+  dateOfJoining?: string | null;
+  panNumber?: string | null;
+  uanNumber?: string | null;
+  esiNumber?: string | null;
+  bankAccountNumber?: string | null;
 };
 
 export type UpdateEmployeeRequest = {
@@ -276,6 +288,12 @@ export type UpdateEmployeeRequest = {
   departmentId?: string | null;
   designationId?: string | null;
   status: EmployeeStatus;
+  displayName?: string | null;
+  dateOfJoining?: string | null;
+  panNumber?: string | null;
+  uanNumber?: string | null;
+  esiNumber?: string | null;
+  bankAccountNumber?: string | null;
 };
 
 export type DepartmentResponse = {

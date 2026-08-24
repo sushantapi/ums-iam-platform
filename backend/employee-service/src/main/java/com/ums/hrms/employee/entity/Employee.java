@@ -1,5 +1,6 @@
 package com.ums.hrms.employee.entity;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 import org.hibernate.annotations.JdbcTypeCode;
@@ -58,6 +59,24 @@ public class Employee extends BaseEntity {
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "designation_id", length = 36)
     private UUID designationId;
+
+    @Column(name = "display_name", length = 255)
+    private String displayName;
+
+    @Column(name = "date_of_joining")
+    private LocalDate dateOfJoining;
+
+    @Column(name = "pan_display", length = 64)
+    private String panDisplay;
+
+    @Column(name = "uan_display", length = 64)
+    private String uanDisplay;
+
+    @Column(name = "esi_display", length = 64)
+    private String esiDisplay;
+
+    @Column(name = "bank_account_display", length = 64)
+    private String bankAccountDisplay;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)

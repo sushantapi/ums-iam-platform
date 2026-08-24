@@ -21,6 +21,10 @@ organization:
   invitation:
     expiry-hours: ${ORGANIZATION_INVITATION_EXPIRY_HOURS:72}
     accept-page-url: ${ORGANIZATION_INVITATION_ACCEPT_URL:http://localhost:5174/accept-invitation}
+  logo:
+    storage:
+      root: ${ORGANIZATION_LOGO_STORAGE_ROOT:./data/organization-assets}
+      max-bytes: ${ORGANIZATION_LOGO_MAX_BYTES:2097152}
 
 internal:
   gateway:

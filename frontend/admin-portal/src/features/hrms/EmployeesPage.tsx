@@ -19,6 +19,11 @@ import { getStoredHrmsOrganizationId } from "./hrmsOrganizationScopeStorage";
 
 const pageSize = 20;
 
+function nullable(value: string): string | null {
+  const normalized = value.trim();
+  return normalized ? normalized : null;
+}
+
 export function EmployeesPage() {
   const navigate = useNavigate();
   const canCreate = hasAdminCapability("hrms.employees.create");
@@ -40,8 +45,14 @@ export function EmployeesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [umsUserId, setUmsUserId] = useState("");
   const [employeeCode, setEmployeeCode] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [dateOfJoining, setDateOfJoining] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [designationId, setDesignationId] = useState("");
+  const [panNumber, setPanNumber] = useState("");
+  const [uanNumber, setUanNumber] = useState("");
+  const [esiNumber, setEsiNumber] = useState("");
+  const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -102,11 +113,23 @@ export function EmployeesPage() {
         employeeCode: employeeCode.trim(),
         departmentId: departmentId || null,
         designationId: designationId || null,
+        displayName: nullable(displayName),
+        dateOfJoining: dateOfJoining || null,
+        panNumber: nullable(panNumber),
+        uanNumber: nullable(uanNumber),
+        esiNumber: nullable(esiNumber),
+        bankAccountNumber: nullable(bankAccountNumber),
       });
       setUmsUserId("");
       setEmployeeCode("");
+      setDisplayName("");
+      setDateOfJoining("");
       setDepartmentId("");
       setDesignationId("");
+      setPanNumber("");
+      setUanNumber("");
+      setEsiNumber("");
+      setBankAccountNumber("");
       setShowCreate(false);
       navigate(`/hrms/employees/${created.id}`);
     } catch (err) {
@@ -121,7 +144,7 @@ export function EmployeesPage() {
       <PageHeader
         eyebrow="HRMS"
         title="Employees"
-        description="Tenant-scoped employee records linked to immutable UMS IAM user identities."
+        description="Maintain tenant employee identity and reusable payslip details once, then snapshot them into payroll."
         actions={
           canCreate && organizationId ? (
             <button
@@ -146,6 +169,9 @@ export function EmployeesPage() {
       {showCreate && canCreate && organizationId ? (
         <section className="panel">
           <h2>Create employee</h2>
+          <p>
+            Payslip identifiers are accepted once and stored only as masked display values.
+          </p>
           <form onSubmit={handleCreate}>
             <label>
               UMS user ID
@@ -164,6 +190,24 @@ export function EmployeesPage() {
                 maxLength={64}
                 value={employeeCode}
                 onChange={(event) => setEmployeeCode(event.target.value)}
+                disabled={creating}
+              />
+            </label>
+            <label>
+              Employee display name
+              <input
+                maxLength={255}
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                disabled={creating}
+              />
+            </label>
+            <label>
+              Date of joining
+              <input
+                type="date"
+                value={dateOfJoining}
+                onChange={(event) => setDateOfJoining(event.target.value)}
                 disabled={creating}
               />
             </label>
@@ -201,6 +245,46 @@ export function EmployeesPage() {
                   ))}
               </select>
             </label>
+            <label>
+              PAN number
+              <input
+                maxLength={64}
+                value={panNumber}
+                onChange={(event) => setPanNumber(event.target.value)}
+                disabled={creating}
+                autoComplete="off"
+              />
+            </label>
+            <label>
+              UAN number
+              <input
+                maxLength={64}
+                value={uanNumber}
+                onChange={(event) => setUanNumber(event.target.value)}
+                disabled={creating}
+                autoComplete="off"
+              />
+            </label>
+            <label>
+              ESI number
+              <input
+                maxLength={64}
+                value={esiNumber}
+                onChange={(event) => setEsiNumber(event.target.value)}
+                disabled={creating}
+                autoComplete="off"
+              />
+            </label>
+            <label>
+              Bank account number
+              <input
+                maxLength={64}
+                value={bankAccountNumber}
+                onChange={(event) => setBankAccountNumber(event.target.value)}
+                disabled={creating}
+                autoComplete="off"
+              />
+            </label>
             <button type="submit" className="button-primary" disabled={creating}>
               {creating ? "Creating..." : "Create employee"}
             </button>
@@ -223,8 +307,12 @@ export function EmployeesPage() {
               navigate(`/hrms/employees/${String(row.id)}`)
             }
             columns={[
+              {
+                key: "displayName",
+                label: "Employee",
+                render: (row) => String(row.displayName ?? "-")
+              },
               { key: "employeeCode", label: "Employee code" },
-              { key: "umsUserId", label: "UMS user ID" },
               {
                 key: "departmentId",
                 label: "Department",

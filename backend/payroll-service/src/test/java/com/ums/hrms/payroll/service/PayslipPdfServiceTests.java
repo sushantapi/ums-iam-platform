@@ -1,14 +1,16 @@
 package com.ums.hrms.payroll.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.Optional;
@@ -22,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -40,6 +43,7 @@ class PayslipPdfServiceTests {
     @Mock PayrollRunRepository payrollRunRepository;
     @Mock OrganizationAccessService organizationAccessService;
     @Mock PayrollTenantValidationService payrollTenantValidationService;
+    @Spy AmountInWordsFormatter amountInWordsFormatter = new AmountInWordsFormatter();
     @InjectMocks PayslipPdfService payslipPdfService;
 
     private UUID organizationId;
@@ -58,8 +62,9 @@ class PayslipPdfServiceTests {
     }
 
     @Test
-    void generatesFinalizedPdfFromPersistedSnapshot() throws Exception {
+    void generatesProfessionalFinalizedPdfFromPersistedPresentationSnapshot() throws Exception {
         PayrollEntry entry = entry();
+        applyPresentationSnapshot(entry);
         PayrollRun run = run(PayrollRunStatus.FINALIZED);
         run.setFinalizedAt(LocalDateTime.of(2026, 8, 31, 18, 30));
 
@@ -67,8 +72,6 @@ class PayslipPdfServiceTests {
                 .thenReturn(Optional.of(entry));
         when(payrollRunRepository.findByIdAndOrganizationId(runId, organizationId))
                 .thenReturn(Optional.of(run));
-        when(payrollTenantValidationService.getEmployee(employeeId, organizationId))
-                .thenReturn(new EmployeeInternalResponse(employeeId, organizationId, "EMP-001", "ACTIVE"));
 
         var document = payslipPdfService.generate(entryId, organizationId, actorUserId, false);
 
@@ -81,47 +84,102 @@ class PayslipPdfServiceTests {
             stripper.setSortByPosition(true);
             String text = stripper.getText(pdf);
             String normalizedText = text.replaceAll("\\s+", " ");
+
+            assertTrue(text.contains("Acme Technologies"));
+            assertTrue(text.contains("PAYSLIP - AUGUST 2026"));
+            assertTrue(text.contains("Sushant Kumar"));
             assertTrue(text.contains("EMP-001"));
-            assertTrue(text.contains("2026-08"));
-            assertTrue(text.contains("50000.00"));
-            assertTrue(text.contains("7500.00"));
-            assertTrue(text.contains("57500.00"));
+            assertTrue(text.contains("Engineering"));
+            assertTrue(text.contains("Backend Engineer"));
+            assertTrue(text.contains("24-Sep-2025"));
+            assertTrue(text.contains("******234F"));
+            assertTrue(text.contains("********7890"));
 
-            assertTrue(text.contains("DEDUCTION BREAKDOWN"));
-            assertTrue(text.contains("Configured / Other Deductions"));
-            assertTrue(text.contains("500.00"));
-            assertTrue(normalizedText.contains(
-                    "Configured / Other Deductions: 500.00"));
+            assertTrue(text.contains("EARNINGS"));
+            assertTrue(text.contains("DEDUCTIONS"));
+            assertTrue(text.contains("INR 50,000.00"));
+            assertTrue(text.contains("INR 7,500.00"));
+            assertTrue(text.contains("INR 57,500.00"));
+            assertTrue(text.contains("Configured / Other"));
+            assertTrue(text.contains("INR 500.00"));
             assertTrue(text.contains("Employee PF"));
-            assertTrue(text.contains("1200.00"));
+            assertTrue(text.contains("INR 1,200.00"));
             assertTrue(text.contains("Employee ESI"));
-            assertTrue(text.contains("135.00"));
+            assertTrue(text.contains("INR 135.00"));
             assertTrue(text.contains("TDS"));
-            assertTrue(text.contains("665.00"));
-            assertTrue(text.contains("Statutory Employee Deductions"));
-            assertTrue(text.contains("2000.00"));
-            assertTrue(normalizedText.contains(
-                    "Statutory Employee Deductions: 2000.00"));
+            assertTrue(text.contains("INR 665.00"));
             assertTrue(text.contains("Total Deductions"));
-            assertTrue(text.contains("2500.00"));
-            assertTrue(text.contains("Net Pay"));
-            assertTrue(text.contains("55000.00"));
+            assertTrue(text.contains("INR 2,500.00"));
 
-            assertTrue(text.contains("EMPLOYER CONTRIBUTIONS"));
+            assertTrue(text.contains("NET PAYABLE"));
+            assertTrue(text.contains("INR 55,000.00"));
+            assertTrue(normalizedText.contains("Amount in words: Rupees Fifty Five Thousand Only"));
+
+            assertTrue(text.contains("STATUTORY & EMPLOYER SUMMARY"));
+            assertTrue(text.contains("PF Contribution Wage"));
+            assertTrue(text.contains("ESI Contribution Wage"));
             assertTrue(text.contains("Employer PF"));
             assertTrue(text.contains("Employer ESI"));
-            assertTrue(text.contains("585.00"));
             assertTrue(text.contains("Employer Statutory Total"));
-            assertTrue(text.contains("1785.00"));
-
-            assertTrue(text.contains("STATUTORY SNAPSHOT"));
-            assertTrue(text.contains("Policy Version"));
             assertTrue(text.contains("IN-2026.1"));
-            assertTrue(text.contains("Tax Regime"));
             assertTrue(text.contains("NEW"));
+
+            assertTrue(text.contains("Payslip Ref"));
+            assertTrue(text.contains("system-generated payslip"));
+            assertTrue(text.contains("Payroll Authorized Signatory"));
+            assertTrue(text.contains("For internal payroll use only."));
         }
 
         verify(organizationAccessService).assertCanAccess(organizationId, actorUserId, false);
+        verify(payrollTenantValidationService, never()).getEmployee(employeeId, organizationId);
+        verify(organizationAccessService, never()).getProfile(organizationId);
+    }
+
+    @Test
+    void suppressesRedundantSystemGeneratedSignatureFooter() throws Exception {
+        PayrollEntry entry = entry();
+        applyPresentationSnapshot(entry);
+        entry.setPayslipFooterTextSnapshot("This is a system generated payslip and does not require a signature.");
+        PayrollRun run = run(PayrollRunStatus.FINALIZED);
+        run.setFinalizedAt(LocalDateTime.of(2026, 8, 31, 18, 30));
+
+        when(payrollEntryRepository.findByIdAndOrganizationId(entryId, organizationId))
+                .thenReturn(Optional.of(entry));
+        when(payrollRunRepository.findByIdAndOrganizationId(runId, organizationId))
+                .thenReturn(Optional.of(run));
+
+        var document = payslipPdfService.generate(entryId, organizationId, actorUserId, false);
+
+        try (PDDocument pdf = Loader.loadPDF(document.content())) {
+            PDFTextStripper stripper = new PDFTextStripper();
+            stripper.setSortByPosition(true);
+            String normalizedText = stripper.getText(pdf).replaceAll("\\s+", " ");
+
+            assertTrue(normalizedText.contains(
+                    "This is a system-generated payslip rendered from the finalized payroll snapshot; no signature is required."));
+            assertFalse(normalizedText.contains(
+                    "This is a system generated payslip and does not require a signature."));
+        }
+    }
+
+    @Test
+    void legacyFinalizedEntryFallsBackToEmployeeCodeWithoutLiveOrganizationProfile() {
+        PayrollEntry entry = entry();
+        PayrollRun run = run(PayrollRunStatus.FINALIZED);
+        run.setFinalizedAt(LocalDateTime.of(2026, 8, 31, 18, 30));
+
+        when(payrollEntryRepository.findByIdAndOrganizationId(entryId, organizationId))
+                .thenReturn(Optional.of(entry));
+        when(payrollRunRepository.findByIdAndOrganizationId(runId, organizationId))
+                .thenReturn(Optional.of(run));
+        when(payrollTenantValidationService.getEmployee(employeeId, organizationId))
+                .thenReturn(new EmployeeInternalResponse(employeeId, organizationId, "LEGACY-001", "ACTIVE"));
+
+        var document = payslipPdfService.generate(entryId, organizationId, actorUserId, false);
+
+        assertEquals("payslip-LEGACY-001-2026-08.pdf", document.filename());
+        verify(payrollTenantValidationService).getEmployee(employeeId, organizationId);
+        verify(organizationAccessService, never()).getProfile(organizationId);
     }
 
     @Test
@@ -184,6 +242,29 @@ class PayslipPdfServiceTests {
         entry.setNetPay(new BigDecimal("55000.00"));
         entry.setGeneratedAt(LocalDateTime.of(2026, 8, 31, 12, 0));
         return entry;
+    }
+
+    private void applyPresentationSnapshot(PayrollEntry entry) {
+        entry.setOrganizationLegalName("Acme Technologies Private Limited");
+        entry.setOrganizationDisplayName("Acme Technologies");
+        entry.setOrganizationRegisteredAddress("100 Business Park, Bengaluru, Karnataka 560001");
+        entry.setOrganizationBusinessEmail("payroll@acme.example");
+        entry.setOrganizationBusinessPhone("+91-9000000000");
+        entry.setOrganizationWebsite("www.acme.example");
+        entry.setOrganizationDefaultCurrency("INR");
+        entry.setOrganizationPayrollCountry("IN");
+        entry.setPayslipFooterTextSnapshot("For internal payroll use only.");
+        entry.setAuthorizedSignatoryLabelSnapshot("Payroll Authorized Signatory");
+
+        entry.setEmployeeCodeSnapshot("EMP-001");
+        entry.setEmployeeDisplayName("Sushant Kumar");
+        entry.setEmployeeDateOfJoining(LocalDate.of(2025, 9, 24));
+        entry.setEmployeeDepartmentName("Engineering");
+        entry.setEmployeeDesignationName("Backend Engineer");
+        entry.setEmployeePanDisplay("******234F");
+        entry.setEmployeeUanDisplay("********0400");
+        entry.setEmployeeEsiDisplay("******7890");
+        entry.setEmployeeBankAccountDisplay("********7890");
     }
 
     private PayrollRun run(PayrollRunStatus status) {

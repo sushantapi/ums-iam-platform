@@ -7,6 +7,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.ums.hrms.payroll.client.EmployeeInternalResponse;
+import com.ums.hrms.payroll.client.OrganizationProfileInternalResponse;
 import com.ums.hrms.payroll.client.OrganizationServiceClient;
 
 import feign.FeignException;
@@ -17,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 public class OrganizationAccessService {
 
     private final OrganizationServiceClient organizationServiceClient;
+    private final PayrollTenantValidationService payrollTenantValidationService;
 
     public void assertCanAccess(UUID organizationId, UUID actorUserId, boolean superAdmin) {
         try {
@@ -28,5 +31,41 @@ public class OrganizationAccessService {
         } catch (FeignException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Organization service unavailable", ex);
         }
+    }
+
+    public OrganizationProfileInternalResponse getProfile(UUID organizationId) {
+        OrganizationProfileInternalResponse profile;
+        try {
+            profile = organizationServiceClient.getProfile(organizationId);
+        } catch (FeignException.NotFound ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization profile not found", ex);
+        } catch (FeignException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Organization service unavailable", ex);
+        }
+
+        if (profile == null || !organizationId.equals(profile.organizationId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Organization profile response is invalid");
+        }
+        return profile;
+    }
+
+    public byte[] getLogoAsset(UUID organizationId, UUID assetId) {
+        byte[] content;
+        try {
+            content = organizationServiceClient.getLogoAsset(organizationId, assetId);
+        } catch (FeignException.NotFound ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization logo snapshot not found", ex);
+        } catch (FeignException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Organization service unavailable", ex);
+        }
+
+        if (content == null || content.length == 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Organization logo snapshot is empty");
+        }
+        return content;
+    }
+
+    public EmployeeInternalResponse getEmployeePresentation(UUID employeeId, UUID organizationId) {
+        return payrollTenantValidationService.getEmployee(employeeId, organizationId);
     }
 }
