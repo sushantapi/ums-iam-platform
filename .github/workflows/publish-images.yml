@@ -64,7 +64,7 @@ jobs:
     name: Publish ${{ matrix.service }}
     needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -88,6 +88,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -98,12 +103,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push immutable image
+      - name: Build and push immutable multi-arch image
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           file: ./backend/Dockerfile
           target: ${{ matrix.service }}
+          platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
             SERVICE_MODULE=${{ matrix.service }}
@@ -131,7 +137,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify version and SHA tags exist
+      - name: Verify version and SHA tags contain both target architectures
         shell: bash
         env:
           VERSION: ${{ inputs.version }}
@@ -145,10 +151,28 @@ jobs:
             admin-service employee-service attendance-service leave-service payroll-service api-gateway
           )
 
+          verify_manifest() {
+            local image="$1"
+            local manifest
+            manifest="$(docker manifest inspect "$image")"
+
+            for arch in amd64 arm64; do
+              if ! jq -e --arg arch "$arch" \
+                '.manifests[]? | select(.platform.os == "linux" and .platform.architecture == $arch)' \
+                <<<"$manifest" >/dev/null; then
+                echo "::error::$image is missing linux/$arch"
+                exit 1
+              fi
+            done
+          }
+
           for service in "${services[@]}"; do
-            docker manifest inspect "${IMAGE_PREFIX}/${service}:${VERSION}" >/dev/null
-            docker manifest inspect "${IMAGE_PREFIX}/${service}:sha-${SOURCE_SHA}" >/dev/null
-            echo "verified ${service}"
+            version_image="${IMAGE_PREFIX}/${service}:${VERSION}"
+            sha_image="${IMAGE_PREFIX}/${service}:sha-${SOURCE_SHA}"
+
+            verify_manifest "$version_image"
+            verify_manifest "$sha_image"
+            echo "verified ${service}: linux/amd64 + linux/arm64"
           done
 
-          echo "All production images published for ${VERSION} at ${SOURCE_SHA}."
+          echo "All production images published for ${VERSION} at ${SOURCE_SHA} with amd64 + arm64 manifests."
