@@ -4,10 +4,7 @@ import { ErrorState } from "../../components/ui/ErrorState";
 import { LoadingState } from "../../components/ui/LoadingState";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import {
-  hrmsApi,
-  type EmployeeResponse,
-} from "../../lib/api";
+import { hrmsApi, type EmployeeResponse } from "../../lib/api";
 import { hasAdminCapability } from "../../lib/auth/capabilities";
 import { HrmsOrganizationScope } from "./HrmsOrganizationScope";
 import { getStoredHrmsOrganizationId } from "./hrmsOrganizationScopeStorage";
@@ -21,6 +18,10 @@ import {
 
 function currentMonth(): string {
   return new Date().toISOString().slice(0, 7);
+}
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function formatMoney(value: number, currency = "INR"): string {
@@ -43,6 +44,8 @@ export function PayrollPage() {
   const [runs, setRuns] = useState<PayrollRunResponse[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [structures, setStructures] = useState<SalaryStructureResponse[]>([]);
+  const [revisingStructure, setRevisingStructure] =
+    useState<SalaryStructureResponse>();
   const [selectedRun, setSelectedRun] = useState<PayrollRunResponse>();
   const [entries, setEntries] = useState<PayrollEntryResponse[]>([]);
   const [payslip, setPayslip] = useState<PayrollEntryResponse>();
@@ -62,15 +65,14 @@ export function PayrollPage() {
   const [esiContributionWage, setEsiContributionWage] = useState("0");
   const [tdsAmount, setTdsAmount] = useState("0");
   const [taxRegime, setTaxRegime] = useState<TaxRegime | "">("");
-  const [effectiveFrom, setEffectiveFrom] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
+  const [effectiveFrom, setEffectiveFrom] = useState(today());
   const [effectiveTo, setEffectiveTo] = useState("");
   const [payrollMonth, setPayrollMonth] = useState(currentMonth());
 
   useEffect(() => {
     setSelectedEmployeeId("");
     setStructures([]);
+    setRevisingStructure(undefined);
     setSelectedRun(undefined);
     setEntries([]);
     setPayslip(undefined);
@@ -98,6 +100,7 @@ export function PayrollPage() {
   }, [organizationId]);
 
   useEffect(() => {
+    setRevisingStructure(undefined);
     if (!organizationId || !selectedEmployeeId) {
       setStructures([]);
       return;
@@ -117,6 +120,18 @@ export function PayrollPage() {
     [employees],
   );
 
+  const latestEligibleStructure = useMemo(
+    () =>
+      structures.find(
+        (structure) =>
+          structure.active &&
+          !structures.some(
+            (candidate) => candidate.supersedesStructureId === structure.id,
+          ),
+      ),
+    [structures],
+  );
+
   async function refreshRuns(selectId?: string) {
     if (!organizationId) {
       return;
@@ -124,8 +139,7 @@ export function PayrollPage() {
     const refreshed = await payrollApi.runs(organizationId);
     setRuns(refreshed);
     if (selectId) {
-      const match = refreshed.find((run) => run.id === selectId);
-      setSelectedRun(match);
+      setSelectedRun(refreshed.find((run) => run.id === selectId));
     }
   }
 
@@ -138,7 +152,29 @@ export function PayrollPage() {
     );
   }
 
-  async function createSalaryStructure(event: FormEvent<HTMLFormElement>) {
+  function beginRevision(structure: SalaryStructureResponse) {
+    setRevisingStructure(structure);
+    setCurrency(structure.currency);
+    setBasicPay(String(structure.basicPay));
+    setAllowanceTotal(String(structure.allowanceTotal));
+    setDeductionTotal(String(structure.deductionTotal));
+    setPfApplicable(structure.pfApplicable);
+    setPfContributionWage(String(structure.pfContributionWage ?? 0));
+    setEsiApplicable(structure.esiApplicable);
+    setEsiContributionWage(String(structure.esiContributionWage ?? 0));
+    setTdsAmount(String(structure.tdsAmount ?? 0));
+    setTaxRegime(structure.taxRegime ?? "");
+    setEffectiveFrom("");
+    setEffectiveTo("");
+    setError(undefined);
+  }
+
+  function cancelRevision() {
+    setRevisingStructure(undefined);
+    setEffectiveFrom(today());
+  }
+
+  async function saveSalaryStructure(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!organizationId || !selectedEmployeeId) {
       setError("Select an organization and employee first.");
@@ -148,30 +184,43 @@ export function PayrollPage() {
     setSavingStructure(true);
     setError(undefined);
     try {
-      await payrollApi.createSalaryStructure({
+      const salaryValues = {
         organizationId,
-        employeeId: selectedEmployeeId,
         currency: currency.trim().toUpperCase(),
         basicPay: Number(basicPay),
         allowanceTotal: Number(allowanceTotal),
         deductionTotal: Number(deductionTotal),
         pfApplicable,
-        pfContributionWage: pfApplicable
-          ? Number(pfContributionWage)
-          : null,
+        pfContributionWage: pfApplicable ? Number(pfContributionWage) : null,
         esiApplicable,
-        esiContributionWage: esiApplicable
-          ? Number(esiContributionWage)
-          : null,
+        esiContributionWage: esiApplicable ? Number(esiContributionWage) : null,
         tdsAmount: Number(tdsAmount),
         taxRegime: taxRegime || null,
         effectiveFrom,
-        effectiveTo: effectiveTo || null,
-        active: true,
-      });
+      };
+
+      if (revisingStructure) {
+        await payrollApi.supersedeSalaryStructure(
+          revisingStructure.id,
+          salaryValues,
+        );
+      } else {
+        await payrollApi.createSalaryStructure({
+          ...salaryValues,
+          employeeId: selectedEmployeeId,
+          effectiveTo: effectiveTo || null,
+          active: true,
+        });
+      }
+
       await refreshStructures();
+      setRevisingStructure(undefined);
+      setEffectiveFrom(today());
+      setEffectiveTo("");
     } catch (err) {
-      setError(`Salary structure could not be created: ${(err as Error).message}`);
+      setError(
+        `${revisingStructure ? "Salary revision" : "Salary structure"} could not be saved: ${(err as Error).message}`,
+      );
     } finally {
       setSavingStructure(false);
     }
@@ -299,7 +348,7 @@ export function PayrollPage() {
       {organizationId && !loading ? (
         <>
           <section className="panel">
-            <h2>Salary structures</h2>
+            <h2>Salary history</h2>
             <label>
               Employee
               <select
@@ -315,8 +364,21 @@ export function PayrollPage() {
               </select>
             </label>
 
-            {canManageStructures && selectedEmployeeId ? (
-              <form onSubmit={createSalaryStructure}>
+            {canManageStructures &&
+            selectedEmployeeId &&
+            (structures.length === 0 || revisingStructure) ? (
+              <form onSubmit={saveSalaryStructure}>
+                <h3>
+                  {revisingStructure
+                    ? `Revise salary — V${revisingStructure.versionNumber}`
+                    : "Create initial salary"}
+                </h3>
+                {revisingStructure ? (
+                  <p>
+                    The previous version will close automatically the day before
+                    the new effective date. Historical payroll is not edited.
+                  </p>
+                ) : null}
                 <label>
                   Currency
                   <input
@@ -445,22 +507,39 @@ export function PayrollPage() {
                     disabled={savingStructure}
                   />
                 </label>
-                <label>
-                  Effective to
-                  <input
-                    type="date"
-                    value={effectiveTo}
-                    onChange={(event) => setEffectiveTo(event.target.value)}
-                    disabled={savingStructure}
-                  />
-                </label>
+                {!revisingStructure ? (
+                  <label>
+                    Effective to
+                    <input
+                      type="date"
+                      value={effectiveTo}
+                      onChange={(event) => setEffectiveTo(event.target.value)}
+                      disabled={savingStructure}
+                    />
+                  </label>
+                ) : null}
                 <button
                   type="submit"
                   className="button-primary"
                   disabled={savingStructure}
                 >
-                  {savingStructure ? "Creating..." : "Create salary structure"}
+                  {savingStructure
+                    ? revisingStructure
+                      ? "Saving revision..."
+                      : "Creating..."
+                    : revisingStructure
+                      ? "Save revision"
+                      : "Create salary structure"}
                 </button>
+                {revisingStructure ? (
+                  <button
+                    type="button"
+                    disabled={savingStructure}
+                    onClick={cancelRevision}
+                  >
+                    Cancel revision
+                  </button>
+                ) : null}
               </form>
             ) : null}
 
@@ -469,12 +548,19 @@ export function PayrollPage() {
                 rows={structures as Array<Record<string, unknown>>}
                 fallback="No salary structures found for this employee."
                 columns={[
-                  { key: "currency", label: "Currency" },
+                  {
+                    key: "versionNumber",
+                    label: "Version",
+                    render: (row) => `V${Number(row.versionNumber ?? 1)}`,
+                  },
                   {
                     key: "basicPay",
                     label: "Basic pay",
                     render: (row) =>
-                      formatMoney(Number(row.basicPay), String(row.currency ?? "INR")),
+                      formatMoney(
+                        Number(row.basicPay),
+                        String(row.currency ?? "INR"),
+                      ),
                   },
                   {
                     key: "allowanceTotal",
@@ -494,14 +580,45 @@ export function PayrollPage() {
                         String(row.currency ?? "INR"),
                       ),
                   },
-                  { key: "effectiveFrom", label: "Effective from" },
-                  { key: "effectiveTo", label: "Effective to" },
+                  {
+                    key: "effectiveFrom",
+                    label: "Effective period",
+                    render: (row) =>
+                      `${String(row.effectiveFrom)} → ${row.effectiveTo ? String(row.effectiveTo) : "Open"}`,
+                  },
                   {
                     key: "active",
                     label: "Status",
-                    render: (row) => (
-                      <StatusBadge status={row.active ? "ACTIVE" : "INACTIVE"} />
-                    ),
+                    render: (row) => {
+                      if (!row.active) {
+                        return <StatusBadge status="INACTIVE" />;
+                      }
+                      return (
+                        <StatusBadge
+                          status={
+                            latestEligibleStructure?.id === String(row.id)
+                              ? "CURRENT"
+                              : "HISTORY"
+                          }
+                        />
+                      );
+                    },
+                  },
+                  {
+                    key: "id",
+                    label: "Action",
+                    render: (row) =>
+                      canManageStructures &&
+                      latestEligibleStructure?.id === String(row.id) ? (
+                        <button
+                          type="button"
+                          onClick={() => beginRevision(latestEligibleStructure)}
+                        >
+                          Revise salary
+                        </button>
+                      ) : (
+                        "—"
+                      ),
                   },
                 ]}
               />
@@ -560,8 +677,13 @@ export function PayrollPage() {
             <section className="panel">
               <h2>Run {selectedRun.payrollMonth}</h2>
               <ul className="detail-list">
-                <li><strong>Run ID:</strong> {selectedRun.id}</li>
-                <li><strong>Status:</strong> <StatusBadge status={selectedRun.status} /></li>
+                <li>
+                  <strong>Run ID:</strong> {selectedRun.id}
+                </li>
+                <li>
+                  <strong>Status:</strong>{" "}
+                  <StatusBadge status={selectedRun.status} />
+                </li>
               </ul>
               {canManageRuns && selectedRun.status === "DRAFT" ? (
                 <button
@@ -602,7 +724,8 @@ export function PayrollPage() {
                     key: "employeeId",
                     label: "Employee",
                     render: (row) =>
-                      employeeCodes.get(String(row.employeeId)) ?? String(row.employeeId),
+                      employeeCodes.get(String(row.employeeId)) ??
+                      String(row.employeeId),
                   },
                   {
                     key: "grossPay",
