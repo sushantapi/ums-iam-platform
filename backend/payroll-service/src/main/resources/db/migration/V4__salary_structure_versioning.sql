@@ -24,17 +24,18 @@ SELECT
 FROM hrms_salary_structures;
 
 UPDATE hrms_salary_structures
-SET
-    version_number = (
-        SELECT backfill.version_number
-        FROM hrms_salary_structure_version_backfill backfill
-        WHERE backfill.id = hrms_salary_structures.id
-    ),
-    supersedes_structure_id = (
-        SELECT backfill.supersedes_structure_id
-        FROM hrms_salary_structure_version_backfill backfill
-        WHERE backfill.id = hrms_salary_structures.id
-    );
+SET version_number = (
+    SELECT backfill.version_number
+    FROM hrms_salary_structure_version_backfill backfill
+    WHERE backfill.id = hrms_salary_structures.id
+);
+
+UPDATE hrms_salary_structures
+SET supersedes_structure_id = (
+    SELECT backfill.supersedes_structure_id
+    FROM hrms_salary_structure_version_backfill backfill
+    WHERE backfill.id = hrms_salary_structures.id
+);
 
 DROP TABLE hrms_salary_structure_version_backfill;
 
