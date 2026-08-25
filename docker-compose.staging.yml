@@ -1,0 +1,83 @@
+name: ums-iam-staging
+
+# Low-traffic staging/demo overlay for a ~12 GB ARM64 or AMD64 host.
+# Always compose this on top of docker-compose.prod.yml; it is not standalone.
+# The hard container limits below total about 9.6 GB, leaving host headroom for
+# Linux, Docker, page cache and short-lived startup/native memory spikes.
+
+x-staging-small-jvm: &staging-small-jvm
+  mem_limit: 384m
+  mem_reservation: 256m
+  environment:
+    JAVA_TOOL_OPTIONS: ${STAGING_SMALL_JAVA_TOOL_OPTIONS:--Xms64m -Xmx192m -XX:+UseG1GC -XX:MaxMetaspaceSize=96m -XX:+ExitOnOutOfMemoryError}
+
+x-staging-app-jvm: &staging-app-jvm
+  mem_limit: 512m
+  mem_reservation: 320m
+  environment:
+    JAVA_TOOL_OPTIONS: ${STAGING_APP_JAVA_TOOL_OPTIONS:--Xms64m -Xmx256m -XX:+UseG1GC -XX:MaxMetaspaceSize=128m -XX:+ExitOnOutOfMemoryError}
+
+services:
+  caddy:
+    mem_limit: 128m
+    mem_reservation: 64m
+
+  mysql:
+    mem_limit: 1536m
+    mem_reservation: 768m
+    command:
+      - --innodb-buffer-pool-size=512M
+      - --performance-schema=OFF
+      - --max-connections=80
+
+  rabbitmq:
+    mem_limit: 768m
+    mem_reservation: 384m
+    environment:
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: ${RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS:-+S 1:1 +sbwt none +sbwtdcpu none +sbwtdio none}
+
+  redis:
+    mem_limit: 256m
+    mem_reservation: 128m
+
+  discovery-service:
+    <<: *staging-small-jvm
+
+  config-service:
+    <<: *staging-small-jvm
+
+  authentication-service:
+    <<: *staging-app-jvm
+
+  user-service:
+    <<: *staging-app-jvm
+
+  authorization-service:
+    <<: *staging-app-jvm
+
+  organization-service:
+    <<: *staging-app-jvm
+
+  notification-service:
+    <<: *staging-app-jvm
+
+  audit-service:
+    <<: *staging-app-jvm
+
+  admin-service:
+    <<: *staging-app-jvm
+
+  employee-service:
+    <<: *staging-app-jvm
+
+  attendance-service:
+    <<: *staging-app-jvm
+
+  leave-service:
+    <<: *staging-app-jvm
+
+  payroll-service:
+    <<: *staging-app-jvm
+
+  api-gateway:
+    <<: *staging-app-jvm
