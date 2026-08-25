@@ -124,7 +124,8 @@ try {
 
     [int64]$totalLimitBytes = 0
     foreach ($entry in $expectedLimits.GetEnumerator()) {
-        $service = $config.services.($entry.Key)
+        $serviceProperty = $config.services.PSObject.Properties[$entry.Key]
+        $service = if ($null -eq $serviceProperty) { $null } else { $serviceProperty.Value }
         if ($null -eq $service) {
             $violations.Add("missing service $($entry.Key)")
             continue
