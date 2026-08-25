@@ -6,11 +6,12 @@ on:
       version:
         description: "Release version (vMAJOR.MINOR.PATCH)"
         required: true
-        default: "v1.1.0"
+        default: "v1.2.0"
         type: string
 
 permissions:
   contents: write
+  packages: read
 
 concurrency:
   group: release-${{ inputs.version }}
@@ -21,7 +22,7 @@ jobs:
     name: Create GitHub Release
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -38,7 +39,7 @@ jobs:
           set -euo pipefail
 
           if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Version must match vMAJOR.MINOR.PATCH, for example v1.1.0."
+            echo "::error::Version must match vMAJOR.MINOR.PATCH, for example v1.2.0."
             exit 1
           fi
 
@@ -58,6 +59,45 @@ jobs:
             echo "::error::Tag ${VERSION} already exists and will not be overwritten."
             exit 1
           fi
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify deployable images exist for this exact main SHA
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          image_prefix="ghcr.io/${GITHUB_REPOSITORY,,}"
+          source_sha="$GITHUB_SHA"
+          services=(
+            discovery-service config-service authentication-service user-service
+            authorization-service organization-service notification-service audit-service
+            admin-service employee-service attendance-service leave-service payroll-service api-gateway
+          )
+
+          for service in "${services[@]}"; do
+            version_image="${image_prefix}/${service}:${VERSION}"
+            sha_image="${image_prefix}/${service}:sha-${source_sha}"
+
+            if ! docker manifest inspect "$version_image" >/dev/null 2>&1; then
+              echo "::error::Missing release image: ${version_image}. Run Publish Service Images first."
+              exit 1
+            fi
+
+            if ! docker manifest inspect "$sha_image" >/dev/null 2>&1; then
+              echo "::error::Missing exact-SHA image: ${sha_image}. Images must be built from ${source_sha}."
+              exit 1
+            fi
+
+            echo "verified ${service}"
+          done
 
       - name: Create GitHub release
         shell: bash
