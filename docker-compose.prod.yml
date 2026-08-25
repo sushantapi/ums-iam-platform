@@ -1,0 +1,398 @@
+name: ums-iam-prod
+
+x-app-environment: &app-environment
+  SPRING_PROFILES_ACTIVE: prod
+  JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms128m -Xmx384m -XX:+UseG1GC}
+  CONFIG_SERVER_URL: http://config-service:8888
+  SPRING_CONFIG_IMPORT: configserver:http://config-service:8888
+  EUREKA_DEFAULT_ZONE: http://discovery-service:8761/eureka/
+  MYSQL_HOST: mysql
+  MYSQL_PORT: "3306"
+  MYSQL_USER: ${MYSQL_USER:?MYSQL_USER is required}
+  MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+  MYSQL_USE_SSL: ${MYSQL_USE_SSL:-false}
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+  RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+  INTERNAL_GATEWAY_SECRET: ${INTERNAL_GATEWAY_SECRET:?INTERNAL_GATEWAY_SECRET is required}
+  INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET is required}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+x-service-common: &service-common
+  restart: unless-stopped
+  networks:
+    - ums-network
+
+x-health-defaults: &health-defaults
+  interval: 15s
+  timeout: 10s
+  retries: 8
+  start_period: 120s
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: ums-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN is required}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+    volumes:
+      - ./deploy/production/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - ums-network
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.0
+    container_name: ums-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+      MYSQL_DATABASE: ${AUTH_DB_NAME:-auth_db}
+      MYSQL_USER: ${MYSQL_USER:?MYSQL_USER is required}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      AUTH_DB_NAME: ${AUTH_DB_NAME:-auth_db}
+      USER_DB_NAME: ${USER_DB_NAME:-user_db}
+      AUTHORIZATION_DB_NAME: ${AUTHORIZATION_DB_NAME:-authorization_db}
+      ORGANIZATION_DB_NAME: ${ORGANIZATION_DB_NAME:-organization_db}
+      EMPLOYEE_DB_NAME: ${EMPLOYEE_DB_NAME:-employee_db}
+      ATTENDANCE_DB_NAME: ${ATTENDANCE_DB_NAME:-attendance_db}
+      LEAVE_DB_NAME: ${LEAVE_DB_NAME:-leave_db}
+      PAYROLL_DB_NAME: ${PAYROLL_DB_NAME:-payroll_db}
+      NOTIFICATION_DB_NAME: ${NOTIFICATION_DB_NAME:-notification_db}
+      AUDIT_DB_NAME: ${AUDIT_DB_NAME:-audit_db}
+      ADMIN_DB_NAME: ${ADMIN_DB_NAME:-admin_db}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./deploy/production/mysql/init-databases.sh:/docker-entrypoint-initdb.d/20-create-service-databases.sh:ro
+    networks:
+      - ums-network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ums-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - ums-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 20s
+      timeout: 20s
+      retries: 8
+      start_period: 45s
+
+  redis:
+    image: redis:7-alpine
+    container_name: ums-redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ums-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  discovery-service:
+    <<: *service-common
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/discovery-service:${APP_VERSION:?APP_VERSION is required}
+    container_name: ums-discovery-service
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms96m -Xmx256m -XX:+UseG1GC}
+      SPRING_CLOUD_CONFIG_ENABLED: "false"
+      SPRING_CLOUD_CONFIG_IMPORT_CHECK_ENABLED: "false"
+    healthcheck:
+      <<: *health-defaults
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8761/actuator/health | grep -q '\"status\":\"UP\"'"]
+
+  config-service:
+    <<: *service-common
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/config-service:${APP_VERSION:?APP_VERSION is required}
+    container_name: ums-config-service
+    environment:
+      SPRING_PROFILES_ACTIVE: native
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms96m -Xmx256m -XX:+UseG1GC}
+      CONFIG_REPO_PATH: file:/config-repo
+      EUREKA_DEFAULT_ZONE: http://discovery-service:8761/eureka/
+    volumes:
+      - ./backend/config-repo:/config-repo:ro
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    healthcheck:
+      <<: *health-defaults
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8888/actuator/health | grep -q '\"status\":\"UP\"'"]
+
+  authentication-service:
+    <<: *service-common
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/authentication-service:${APP_VERSION:?APP_VERSION is required}
+    container_name: ums-authentication-service
+    environment:
+      <<: *app-environment
+      AUTH_DB_NAME: ${AUTH_DB_NAME:-auth_db}
+      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt/private_key.pem
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt/public_key.pem
+      JWT_ISSUER: ${JWT_ISSUER:-ums-iam-platform}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-ums-api-gateway}
+      JWT_KEY_ID: ${JWT_KEY_ID:?JWT_KEY_ID is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
+      JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-604800000}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?MFA_ENCRYPTION_KEY is required}
+      MFA_TOTP_ISSUER: ${MFA_TOTP_ISSUER:-UMS IAM}
+      PASSWORD_RESET_TTL_MINUTES: ${PASSWORD_RESET_TTL_MINUTES:-15}
+      PASSWORD_RESET_PAGE_URL: ${PASSWORD_RESET_PAGE_URL:?PASSWORD_RESET_PAGE_URL is required}
+    volumes:
+      - ./secrets/jwt:/run/secrets/jwt:ro
+    depends_on:
+      mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      config-service: { condition: service_healthy }
+      discovery-service: { condition: service_healthy }
+    healthcheck:
+      <<: *health-defaults
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8086/actuator/health | grep -q '\"status\":\"UP\"'"]
+
+  user-service:
+    <<: *service-common
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/user-service:${APP_VERSION:?APP_VERSION is required}
+    container_name: ums-user-service
+    environment:
+      <<: *app-environment
+      USER_DB_NAME: ${USER_DB_NAME:-user_db}
+    depends_on:
+      mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      config-service: { condition: service_healthy }
+      discovery-service: { condition: service_healthy }
+    healthcheck:
+      <<: *health-defaults
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"'"]
+
+  authorization-service:
+    <<: *service-common
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/authorization-service:${APP_VERSION:?APP_VERSION is required}
+    container_name: ums-authorization-service
+    environment:
+      <<: *app-environment
+      AUTHORIZATION_DB_NAME: ${AUTHORIZATION_DB_NAME:-authorization_db}
+    depends_on:
+      mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      config-service: { condition: service_healthy }
+      discovery-service: { condition: service_healthy }
+    healthcheck:
+      <<: *health-defaults
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8082/actuator/health | grep -q '\"status\":\"UP\"'"]
+
+  organization-service:
+    <<: *service-common
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/organization-service:${APP_VERSION:?APP_VERSION is required}
+    container_name: ums-organization-service
+    environment:
+      <<: *app-environment
+      ORGANIZATION_DB_NAME: ${ORGANIZATION_DB_NAME:-organization_db}
+      ORGANIZATION_LOGO_STORAGE_ROOT: /app/data/organization-assets
+    volumes:
+      - organization_assets:/app/data/organization-assets
+    depends_on:
+      mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      config-service: { condition: service_healthy }
+      discovery-service: { condition: service_healthy }
+    healthcheck:
+      <<: *health-defaults
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8087/actuator/health | grep -q '\"status\":\"UP\"'"]
+
+  notification-service:
+    <<: *service-common
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/notification-service:${APP_VERSION:?APP_VERSION is required}
+    container_name: ums-notification-service
+    environment:
+      <<: *app-environment
+      NOTIFICATION_DB_NAME: ${NOTIFICATION_DB_NAME:-notification_db}
+      MAIL_HOST: ${MAIL_HOST:?MAIL_HOST is required}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:?MAIL_USERNAME is required}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:?MAIL_PASSWORD is required}
+      MAIL_FROM: ${MAIL_FROM:?MAIL_FROM is required}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_STARTTLS_ENABLE: ${MAIL_STARTTLS_ENABLE:-true}
+      MAIL_STARTTLS_REQUIRED: ${MAIL_STARTTLS_REQUIRED:-true}
+    depends_on:
+      mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      config-service: { condition: service_healthy }
+      discovery-service: { condition: service_healthy }
+    healthcheck:
+      <<: *health-defaults
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8085/actuator/health | grep -q '\"status\":\"UP\"'"]
+
+  audit-service:
+    <<: *service-common
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/audit-service:${APP_VERSION:?APP_VERSION is required}
+    container_name: ums-audit-service
+    environment:
+      <<: *app-environment
+      AUDIT_DB_NAME: ${AUDIT_DB_NAME:-audit_db}
+    depends_on:
+      mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      config-service: { condition: service_healthy }
+      discovery-service: { condition: service_healthy }
+    healthcheck:
+      <<: *health-defaults
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8089/actuator/health | grep -q '\"status\":\"UP\"'"]
+
+  admin-service:
+    <<: *service-common
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/admin-service:${APP_VERSION:?APP_VERSION is required}
+    container_name: ums-admin-service
+    environment:
+      <<: *app-environment
+      ADMIN_DB_NAME: ${ADMIN_DB_NAME:-admin_db}
+    depends_on:
+      config-service: { condition: service_healthy }
+      discovery-service: { condition: service_healthy }
+    healthcheck:
+      <<: *health-defaults
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8088/actuator/health | grep -q '\"status\":\"UP\"'"]
+
+  employee-service:
+    <<: *service-common
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/employee-service:${APP_VERSION:?APP_VERSION is required}
+    container_name: ums-employee-service
+    environment:
+      <<: *app-environment
+      EMPLOYEE_DB_NAME: ${EMPLOYEE_DB_NAME:-employee_db}
+    depends_on:
+      mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      config-service: { condition: service_healthy }
+      discovery-service: { condition: service_healthy }
+      organization-service: { condition: service_healthy }
+    healthcheck:
+      <<: *health-defaults
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8095/actuator/health | grep -q '\"status\":\"UP\"'"]
+
+  attendance-service:
+    <<: *service-common
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/attendance-service:${APP_VERSION:?APP_VERSION is required}
+    container_name: ums-attendance-service
+    environment:
+      <<: *app-environment
+      ATTENDANCE_DB_NAME: ${ATTENDANCE_DB_NAME:-attendance_db}
+    depends_on:
+      mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      config-service: { condition: service_healthy }
+      discovery-service: { condition: service_healthy }
+      organization-service: { condition: service_healthy }
+      employee-service: { condition: service_healthy }
+    healthcheck:
+      <<: *health-defaults
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8096/actuator/health | grep -q '\"status\":\"UP\"'"]
+
+  leave-service:
+    <<: *service-common
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/leave-service:${APP_VERSION:?APP_VERSION is required}
+    container_name: ums-leave-service
+    environment:
+      <<: *app-environment
+      LEAVE_DB_NAME: ${LEAVE_DB_NAME:-leave_db}
+    depends_on:
+      mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      config-service: { condition: service_healthy }
+      discovery-service: { condition: service_healthy }
+      organization-service: { condition: service_healthy }
+      employee-service: { condition: service_healthy }
+    healthcheck:
+      <<: *health-defaults
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8097/actuator/health | grep -q '\"status\":\"UP\"'"]
+
+  payroll-service:
+    <<: *service-common
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/payroll-service:${APP_VERSION:?APP_VERSION is required}
+    container_name: ums-payroll-service
+    environment:
+      <<: *app-environment
+      PAYROLL_DB_NAME: ${PAYROLL_DB_NAME:-payroll_db}
+    depends_on:
+      mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      config-service: { condition: service_healthy }
+      discovery-service: { condition: service_healthy }
+      organization-service: { condition: service_healthy }
+      employee-service: { condition: service_healthy }
+    healthcheck:
+      <<: *health-defaults
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8098/actuator/health | grep -q '\"status\":\"UP\"'"]
+
+  api-gateway:
+    <<: *service-common
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/api-gateway:${APP_VERSION:?APP_VERSION is required}
+    container_name: ums-api-gateway
+    environment:
+      <<: *app-environment
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt/public_key.pem
+      JWT_ISSUER: ${JWT_ISSUER:-ums-iam-platform}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-ums-api-gateway}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - ./secrets/jwt:/run/secrets/jwt:ro
+    depends_on:
+      config-service: { condition: service_healthy }
+      discovery-service: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      <<: *health-defaults
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+
+volumes:
+  mysql_data:
+  rabbitmq_data:
+  redis_data:
+  organization_assets:
+  caddy_data:
+  caddy_config:
+
+networks:
+  ums-network:
+    driver: bridge
