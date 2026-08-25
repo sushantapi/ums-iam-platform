@@ -7,9 +7,15 @@ on:
       - "docker-compose.yml"
       - "docker-compose.hrms.yml"
       - "docker-compose.monitoring.yml"
+      - "docker-compose.prod.yml"
+      - "docker-compose.staging.yml"
+      - "deploy/production/**"
+      - "scripts/validate-production-compose.ps1"
+      - "scripts/validate-staging-compose.ps1"
       - "docs/releases/**"
       - "docs/architecture/**"
       - ".github/workflows/backend-ci.yml"
+      - ".github/workflows/publish-images.yml"
       - ".github/workflows/release.yml"
 
   pull_request:
@@ -129,6 +135,12 @@ jobs:
             config -q
 
           echo "Docker Compose configuration checks passed."
+
+      - name: Validate production deployment models
+        shell: pwsh
+        run: |
+          ./scripts/validate-production-compose.ps1
+          ./scripts/validate-staging-compose.ps1
 
       - name: Maven clean verify
         working-directory: backend
