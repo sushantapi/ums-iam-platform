@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1.7
 
-FROM eclipse-temurin:21-jdk AS build
+# Java artifacts are architecture-neutral. Compile them on the native build runner
+# even when Buildx is producing ARM64 runtime images, avoiding slow QEMU Maven builds.
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk AS build
 
 ENV MAVEN_OPTS="-Djava.net.preferIPv4Stack=true"
 
