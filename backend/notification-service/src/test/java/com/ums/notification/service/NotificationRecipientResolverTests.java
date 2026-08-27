@@ -44,12 +44,12 @@ class NotificationRecipientResolverTests {
 	}
 
 	@Test
-	void directoryRecipientIsUsedWhenEventHasNoEmail() {
+	void authDirectoryEmailIsUsedWhenEventHasNoEmail() {
 		UUID userId = UUID.randomUUID();
 		when(userDirectoryClient.getUser(userId, "test-internal-secret"))
-				.thenReturn(new UserDirectoryResponse(userId, "resolved@example.com", "Resolved", "User"));
+				.thenReturn(new UserDirectoryResponse(userId, "resolved@example.com"));
 
-		var recipient = resolver.resolve(userId, null, null);
+		var recipient = resolver.resolve(userId, null, "Resolved");
 
 		assertThat(recipient).isPresent();
 		assertThat(recipient.orElseThrow().email()).isEqualTo("resolved@example.com");
@@ -57,10 +57,22 @@ class NotificationRecipientResolverTests {
 	}
 
 	@Test
+	void authDirectoryEmailFallsBackToEmailAsDisplayName() {
+		UUID userId = UUID.randomUUID();
+		when(userDirectoryClient.getUser(userId, "test-internal-secret"))
+				.thenReturn(new UserDirectoryResponse(userId, "resolved@example.com"));
+
+		var recipient = resolver.resolve(userId, null, null);
+
+		assertThat(recipient).isPresent();
+		assertThat(recipient.orElseThrow().firstName()).isEqualTo("resolved@example.com");
+	}
+
+	@Test
 	void missingDirectoryEmailIsHandledWithoutDeliveryTarget() {
 		UUID userId = UUID.randomUUID();
 		when(userDirectoryClient.getUser(userId, "test-internal-secret"))
-				.thenReturn(new UserDirectoryResponse(userId, " ", "NoEmail", "User"));
+				.thenReturn(new UserDirectoryResponse(userId, " "));
 
 		assertThat(resolver.resolve(userId, null, null)).isEmpty();
 	}
