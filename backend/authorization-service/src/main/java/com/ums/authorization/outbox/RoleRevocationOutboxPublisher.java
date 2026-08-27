@@ -72,6 +72,8 @@ public class RoleRevocationOutboxPublisher {
 				.userId(outbox.getUserId())
 				.roleId(outbox.getRoleId())
 				.roleName(outbox.getRoleName())
+				.scopeType(outbox.getScopeType())
+				.scopeId(outbox.getScopeId())
 				.revokedBy(outbox.getRevokedBy())
 				.revokedAt(outbox.getRevokedAt())
 				.build();
