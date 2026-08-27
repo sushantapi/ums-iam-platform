@@ -23,6 +23,8 @@ public final class RabbitMQConstants {
 
 	public static final String AUTH_ROLE_REVOKED_QUEUE = "authentication.role.revoked.queue";
 
+	public static final String NOTIFICATION_ROLE_REVOKED_QUEUE = "notification.role.revoked.queue";
+
 	public static final String AUTH_ORGANIZATION_MFA_REQUIRED_QUEUE = "authentication.organization.mfa.required.queue";
 
 	/*
