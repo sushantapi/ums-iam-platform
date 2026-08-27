@@ -16,5 +16,7 @@ public enum NotificationType {
 
 	ROLE_ASSIGNED,
 
+	ROLE_REVOKED,
+
 	ACCOUNT_LOCKED
 }
