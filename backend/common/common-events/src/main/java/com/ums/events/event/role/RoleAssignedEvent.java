@@ -17,6 +17,8 @@ public class RoleAssignedEvent implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
+	private UUID eventId;
+
 	private UUID userId;
 
 	private UUID roleId;
@@ -25,6 +27,9 @@ public class RoleAssignedEvent implements Serializable {
 
 	private String email;
 	private String firstName;
+
+	private String scopeType;
+	private String scopeId;
 
 	private UUID assignedBy;
 
