@@ -55,6 +55,24 @@ public class EmailServiceImpl implements EmailService {
 		sendEmail("MFA_OTP", email, Map.of("name", email, "otp", otp));
 	}
 
+	@Override
+	public void sendRoleAssignedEmail(String email, String firstName, String roleName, String scopeType, String scopeId) {
+		sendEmail("ROLE_ASSIGNED", email, Map.of(
+				"name", firstName,
+				"roleName", roleName,
+				"scopeType", scopeType,
+				"scopeId", scopeId));
+	}
+
+	@Override
+	public void sendRoleRevokedEmail(String email, String firstName, String roleName, String scopeType, String scopeId) {
+		sendEmail("ROLE_REVOKED", email, Map.of(
+				"name", firstName,
+				"roleName", roleName,
+				"scopeType", scopeType,
+				"scopeId", scopeId));
+	}
+
 	private void sendEmail(String templateCode, String recipientEmail, Map<String, Object> variables) {
 		NotificationEvent event = createEvent(templateCode, recipientEmail, variables);
 		deliver(event, variables);
