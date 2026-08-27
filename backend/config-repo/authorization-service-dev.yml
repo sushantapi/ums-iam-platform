@@ -14,6 +14,12 @@ spring:
     enabled: true
     baseline-on-migrate: false
 
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: ${SPRING_RABBITMQ_USERNAME:${RABBITMQ_DEFAULT_USER:guest}}
+    password: ${SPRING_RABBITMQ_PASSWORD:${RABBITMQ_DEFAULT_PASS:guest}}
+
 internal:
   gateway:
     secret: ${INTERNAL_GATEWAY_SECRET:local-dev-gateway-secret-change-me}

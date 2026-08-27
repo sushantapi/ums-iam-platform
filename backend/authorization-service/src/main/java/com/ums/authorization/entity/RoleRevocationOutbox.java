@@ -50,6 +50,12 @@ public class RoleRevocationOutbox {
 	@Column(name = "role_name", length = 50, nullable = false)
 	private String roleName;
 
+	@Column(name = "scope_type", length = 32)
+	private String scopeType;
+
+	@Column(name = "scope_id", length = 128)
+	private String scopeId;
+
 	@JdbcTypeCode(SqlTypes.CHAR)
 	@Column(name = "revoked_by", length = 36)
 	private UUID revokedBy;

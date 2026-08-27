@@ -1,5 +1,6 @@
 package com.ums.notification.service.impl;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mail.SimpleMailMessage;
@@ -21,6 +23,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ums.events.event.organization.OrganizationInviteEvent;
 import com.ums.notification.entity.NotificationEvent;
+import com.ums.notification.enums.NotificationType;
 import com.ums.notification.service.NotificationAuditService;
 import com.ums.notification.service.NotificationEventService;
 import com.ums.notification.service.TemplateService;
@@ -64,6 +67,41 @@ class EmailServiceImplTests {
 
 		verify(eventService).markProcessed(42L);
 		verify(auditService).logSuccess("WELCOME_EMAIL", "ada@example.com", "Welcome");
+	}
+
+	@Test
+	void roleAssignedUsesPersistentRetryableNotificationPipeline() {
+		when(templateService.getSubject("ROLE_ASSIGNED")).thenReturn("Access updated");
+		when(templateService.buildTemplate(eq("ROLE_ASSIGNED"), any())).thenReturn("Role assigned");
+
+		emailService.sendRoleAssignedEmail(
+				"ada@example.com", "Ada", "ORG_ADMIN", "ORG", "org-123");
+
+		ArgumentCaptor<NotificationEvent> eventCaptor = ArgumentCaptor.forClass(NotificationEvent.class);
+		verify(eventService).save(eventCaptor.capture());
+		NotificationEvent persisted = eventCaptor.getValue();
+		assertThat(persisted.getNotificationType()).isEqualTo(NotificationType.ROLE_ASSIGNED);
+		assertThat(persisted.getTemplateCode()).isEqualTo("ROLE_ASSIGNED");
+		assertThat(persisted.getRecipientEmail()).isEqualTo("ada@example.com");
+		assertThat(persisted.getPayload()).contains("ORG_ADMIN", "ORG", "org-123");
+		verify(eventService).markProcessed(42L);
+	}
+
+	@Test
+	void roleRevokedUsesPersistentRetryableNotificationPipeline() {
+		when(templateService.getSubject("ROLE_REVOKED")).thenReturn("Access changed");
+		when(templateService.buildTemplate(eq("ROLE_REVOKED"), any())).thenReturn("Role revoked");
+
+		emailService.sendRoleRevokedEmail(
+				"ada@example.com", "Ada", "HR_MANAGER", "DEPARTMENT", "dept-7");
+
+		ArgumentCaptor<NotificationEvent> eventCaptor = ArgumentCaptor.forClass(NotificationEvent.class);
+		verify(eventService).save(eventCaptor.capture());
+		NotificationEvent persisted = eventCaptor.getValue();
+		assertThat(persisted.getNotificationType()).isEqualTo(NotificationType.ROLE_REVOKED);
+		assertThat(persisted.getTemplateCode()).isEqualTo("ROLE_REVOKED");
+		assertThat(persisted.getPayload()).contains("HR_MANAGER", "DEPARTMENT", "dept-7");
+		verify(eventService).markProcessed(42L);
 	}
 
 	@Test
