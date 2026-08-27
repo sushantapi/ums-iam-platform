@@ -1,7 +1,9 @@
 package com.ums.gateway.config;
 
+import java.util.Arrays;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -16,12 +18,21 @@ import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 @EnableWebFluxSecurity
 public class SecurityConfig {
 
+    private static final String DEFAULT_ALLOWED_ORIGINS =
+            "http://127.0.0.1:5174,http://localhost:5174";
+
+    private final List<String> allowedOrigins;
+
+    public SecurityConfig(
+            @Value("${gateway.cors.allowed-origins:" + DEFAULT_ALLOWED_ORIGINS + "}")
+            String allowedOrigins) {
+        this.allowedOrigins = parseAllowedOrigins(allowedOrigins);
+    }
+
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(
-                "http://127.0.0.1:5174",
-                "http://localhost:5174"));
+        configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of(
                 "GET",
                 "POST",
@@ -36,6 +47,19 @@ public class SecurityConfig {
                 new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    private List<String> parseAllowedOrigins(String configuredOrigins) {
+        List<String> origins = Arrays.stream(configuredOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isBlank())
+                .toList();
+
+        if (origins.isEmpty()) {
+            throw new IllegalStateException("gateway.cors.allowed-origins must contain at least one origin");
+        }
+
+        return origins;
     }
 
     @Bean

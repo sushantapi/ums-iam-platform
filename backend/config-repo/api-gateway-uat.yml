@@ -13,6 +13,10 @@ internal:
   gateway:
     secret: ${INTERNAL_GATEWAY_SECRET}
 
+gateway:
+  cors:
+    allowed-origins: ${GATEWAY_ALLOWED_ORIGINS}
+
 spring:
   data:
     redis:

@@ -11,6 +11,7 @@ $validationEnv = @{
     APP_VERSION             = 'v0.0.0-validation'
     API_DOMAIN              = 'api.example.invalid'
     ACME_EMAIL              = 'ops@example.invalid'
+    GATEWAY_ALLOWED_ORIGINS = 'https://app.example.invalid'
     MYSQL_ROOT_PASSWORD     = 'validation-root-password'
     MYSQL_USER              = 'ums_app'
     MYSQL_PASSWORD          = 'validation-app-password'

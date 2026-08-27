@@ -20,7 +20,7 @@ public class TestController {
 	@GetMapping("/welcome")
 	public String sendMail() {
 
-		emailService.sendWelcomeEmail("sushant843120@gmail.com", "Sushant");
+		emailService.sendWelcomeEmail("demo.user@example.test", "Demo User");
 
 		return "Email Sent";
 	}

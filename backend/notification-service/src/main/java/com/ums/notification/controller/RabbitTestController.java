@@ -24,8 +24,8 @@ public class RabbitTestController {
 	@PostMapping("/publish")
 	public String publish() {
 
-		UserRegisteredEvent event = UserRegisteredEvent.builder().email("sushant843120@gmail.com").firstName("Sushant")
-				.lastName("Kumar").build();
+		UserRegisteredEvent event = UserRegisteredEvent.builder().email("demo.user@example.test").firstName("Demo")
+				.lastName("User").build();
 
 		log.info("Publishing dev UserRegisteredEvent");
 

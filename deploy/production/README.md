@@ -45,6 +45,7 @@ chmod 600 deploy/production/.env
 ```
 
 Fill every blank secret/value. Never copy local development credentials into this file.
+Set `GATEWAY_ALLOWED_ORIGINS` to the comma-separated HTTPS origins that host the Admin Portal, for example `https://admin.example.com` or `https://admin.example.com,https://www.example.com`.
 
 Required secret material includes:
 

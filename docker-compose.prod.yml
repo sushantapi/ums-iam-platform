@@ -372,6 +372,7 @@ services:
       JWT_PUBLIC_KEY_PATH: /run/secrets/jwt/public_key.pem
       JWT_ISSUER: ${JWT_ISSUER:-ums-iam-platform}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-ums-api-gateway}
+      GATEWAY_ALLOWED_ORIGINS: ${GATEWAY_ALLOWED_ORIGINS:?GATEWAY_ALLOWED_ORIGINS is required}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: "6379"
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
