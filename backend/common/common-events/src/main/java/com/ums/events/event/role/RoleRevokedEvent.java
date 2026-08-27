@@ -27,6 +27,9 @@ public class RoleRevokedEvent implements Serializable {
 
 	private String roleName;
 
+	private String scopeType;
+	private String scopeId;
+
 	private UUID revokedBy;
 
 	private LocalDateTime revokedAt;
