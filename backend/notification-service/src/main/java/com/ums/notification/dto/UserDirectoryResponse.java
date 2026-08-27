@@ -2,5 +2,8 @@ package com.ums.notification.dto;
 
 import java.util.UUID;
 
-public record UserDirectoryResponse(UUID userId, String email, String firstName, String lastName) {
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+public record UserDirectoryResponse(UUID userId, String email) {
 }
