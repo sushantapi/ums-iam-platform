@@ -9,10 +9,10 @@ import org.springframework.web.bind.annotation.RequestHeader;
 
 import com.ums.notification.dto.UserDirectoryResponse;
 
-@FeignClient(name = "USER-SERVICE")
+@FeignClient(name = "AUTHENTICATION-SERVICE")
 public interface UserDirectoryClient {
 
-	@GetMapping("/api/v1/internal/users/{userId}")
+	@GetMapping("/api/v1/internal/auth/users/{userId}")
 	UserDirectoryResponse getUser(
 			@PathVariable UUID userId,
 			@RequestHeader("X-Internal-Service-Secret") String internalServiceSecret);
