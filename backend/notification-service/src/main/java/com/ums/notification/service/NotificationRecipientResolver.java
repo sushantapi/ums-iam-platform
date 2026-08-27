@@ -42,7 +42,7 @@ public class NotificationRecipientResolver {
 
 			return Optional.of(new NotificationRecipient(
 					user.email().trim(),
-					displayName(user.firstName(), user.email())));
+					displayName(eventFirstName, user.email())));
 		} catch (RuntimeException ex) {
 			log.error("Failed to resolve notification recipient userId={} failureType={}",
 					userId, ex.getClass().getSimpleName());
