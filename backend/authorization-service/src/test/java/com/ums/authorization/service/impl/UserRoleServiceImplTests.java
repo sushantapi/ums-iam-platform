@@ -31,10 +31,10 @@ class UserRoleServiceImplTests {
 	private UserRoleRepository userRoleRepository;
 
 	@Mock
-        private RoleRevocationOutboxRepository roleRevocationOutboxRepository;
+	private RoleRevocationOutboxRepository roleRevocationOutboxRepository;
 
-        @Mock
-        private AuditPublisher auditPublisher;
+	@Mock
+	private AuditPublisher auditPublisher;
 
 	@InjectMocks
 	private UserRoleServiceImpl userRoleService;
@@ -50,6 +50,8 @@ class UserRoleServiceImplTests {
 				.id(assignmentId)
 				.userId(userId)
 				.role(role)
+				.scopeType("ORG")
+				.scopeId("org-123")
 				.active(true)
 				.build();
 
@@ -68,6 +70,8 @@ class UserRoleServiceImplTests {
 		assertEquals(userId, outbox.getUserId());
 		assertEquals(roleId, outbox.getRoleId());
 		assertEquals("AUTH_ADMIN", outbox.getRoleName());
+		assertEquals("ORG", outbox.getScopeType());
+		assertEquals("org-123", outbox.getScopeId());
 		assertEquals(revokedBy, outbox.getRevokedBy());
 		assertEquals(RoleRevocationOutbox.STATUS_PENDING, outbox.getStatus());
 	}
