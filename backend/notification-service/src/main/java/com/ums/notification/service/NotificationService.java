@@ -4,6 +4,8 @@ import com.ums.events.event.EmailVerificationEvent;
 import com.ums.events.event.MfaOtpEvent;
 import com.ums.events.event.PasswordResetEvent;
 import com.ums.events.event.organization.OrganizationCreatedEvent;
+import com.ums.events.event.role.RoleAssignedEvent;
+import com.ums.events.event.role.RoleRevokedEvent;
 import com.ums.events.event.user.UserRegisteredEvent;
 
 public interface NotificationService {
@@ -18,4 +20,7 @@ public interface NotificationService {
 
 	void sendOrganizationCreatedEmail(OrganizationCreatedEvent event);
 
+	void processRoleAssigned(RoleAssignedEvent event);
+
+	void processRoleRevoked(RoleRevokedEvent event);
 }
