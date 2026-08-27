@@ -25,13 +25,12 @@ public class UserRoleServiceImpl implements UserRoleService {
 
 	private final UserRoleRepository userRoleRepository;
 
-        private final RoleRevocationOutboxRepository roleRevocationOutboxRepository;
+	private final RoleRevocationOutboxRepository roleRevocationOutboxRepository;
 
-        private final AuditPublisher auditPublisher;
+	private final AuditPublisher auditPublisher;
 
 	@Override
 	public List<UserRole> getUserRoles(UUID userId) {
-
 		return userRoleRepository.findByUserIdWithRole(userId);
 	}
 
@@ -50,7 +49,6 @@ public class UserRoleServiceImpl implements UserRoleService {
 
 	@Override
 	public UserRole assignRole(UserRole userRole) {
-
 		return userRoleRepository.save(userRole);
 	}
 
@@ -72,6 +70,8 @@ public class UserRoleServiceImpl implements UserRoleService {
 				.userId(assignment.getUserId())
 				.roleId(assignment.getRole().getId())
 				.roleName(assignment.getRole().getName())
+				.scopeType(assignment.getScopeType())
+				.scopeId(assignment.getScopeId())
 				.revokedBy(revokedBy)
 				.revokedAt(revokedAt)
 				.status(RoleRevocationOutbox.STATUS_PENDING)
@@ -79,31 +79,33 @@ public class UserRoleServiceImpl implements UserRoleService {
 
 		assignment.setActive(false);
 		userRoleRepository.save(assignment);
-                roleRevocationOutboxRepository.save(outbox);
+		roleRevocationOutboxRepository.save(outbox);
 
-                publishAuditEvent(AuditEvent.builder()
-                                .eventType("role.revoked")
-                                .serviceName("authorization-service")
-                                .userId(revokedBy == null ? null : revokedBy.toString())
-                                .action("ROLE_REVOKE")
-                                .entityType("ROLE_ASSIGNMENT")
-                                .entityId(assignment.getId().toString())
-                                .details("Revoked role " + assignment.getRole().getName()
-                                                + " from user " + assignment.getUserId())
-                                .timestamp(revokedAt)
-                                .build());
+		publishAuditEvent(AuditEvent.builder()
+				.eventType("role.revoked")
+				.serviceName("authorization-service")
+				.userId(revokedBy == null ? null : revokedBy.toString())
+				.action("ROLE_REVOKE")
+				.entityType("ROLE_ASSIGNMENT")
+				.entityId(assignment.getId().toString())
+				.details("Revoked role " + assignment.getRole().getName()
+						+ " from user " + assignment.getUserId()
+						+ " in scope " + assignment.getScopeType() + ":" + assignment.getScopeId())
+				.timestamp(revokedAt)
+				.build());
 
 		return assignment.getUserId();
 	}
-        private void publishAuditEvent(AuditEvent event) {
-                try {
-                        auditPublisher.publish(event);
-                } catch (Exception ex) {
-                        log.error(
-                                        "Failed to publish RBAC audit event eventType={} entityId={}",
-                                        event.getEventType(),
-                                        event.getEntityId(),
-                                        ex);
-                }
-        }
+
+	private void publishAuditEvent(AuditEvent event) {
+		try {
+			auditPublisher.publish(event);
+		} catch (Exception ex) {
+			log.error(
+					"Failed to publish RBAC audit event eventType={} entityId={}",
+					event.getEventType(),
+					event.getEntityId(),
+					ex);
+		}
+	}
 }
