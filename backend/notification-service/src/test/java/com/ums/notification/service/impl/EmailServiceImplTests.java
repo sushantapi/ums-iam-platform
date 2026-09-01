@@ -50,12 +50,12 @@ class EmailServiceImplTests {
 			event.setId(42L);
 			return event;
 		});
-		when(templateService.getSubject("WELCOME_EMAIL")).thenReturn("Welcome");
-		when(templateService.buildTemplate(eq("WELCOME_EMAIL"), any())).thenReturn("Hello Ada");
 	}
 
 	@Test
 	void marksSuccessfulDeliveryAsProcessed() {
+		stubWelcomeTemplate();
+
 		emailService.sendWelcomeEmail("ada@example.com", "Ada");
 
 		verify(eventService).markProcessed(42L);
@@ -64,6 +64,7 @@ class EmailServiceImplTests {
 
 	@Test
 	void persistsFailureWithoutRethrowingToRabbit() {
+		stubWelcomeTemplate();
 		doThrow(new IllegalStateException("SMTP unavailable"))
 				.when(mailSender)
 				.send(any(SimpleMailMessage.class));
@@ -76,5 +77,21 @@ class EmailServiceImplTests {
 				"ada@example.com",
 				"Welcome",
 				"SMTP unavailable");
+	}
+
+	@Test
+	void sendsRoleAssignedEmailWithRoleTemplate() {
+		when(templateService.getSubject("ROLE_ASSIGNED")).thenReturn("Role assigned");
+		when(templateService.buildTemplate(eq("ROLE_ASSIGNED"), any())).thenReturn("Hello Ada");
+
+		emailService.sendRoleAssignedEmail("ada@example.com", "Ada", "EMPLOYEE");
+
+		verify(eventService).markProcessed(42L);
+		verify(auditService).logSuccess("ROLE_ASSIGNED", "ada@example.com", "Role assigned");
+	}
+
+	private void stubWelcomeTemplate() {
+		when(templateService.getSubject("WELCOME_EMAIL")).thenReturn("Welcome");
+		when(templateService.buildTemplate(eq("WELCOME_EMAIL"), any())).thenReturn("Hello Ada");
 	}
 }

@@ -8,8 +8,10 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import com.ums.authorization.client.UserServiceClient;
 import com.ums.authorization.dto.AssignPermissionRequest;
 import com.ums.authorization.dto.AssignRoleRequest;
+import com.ums.authorization.dto.UserResponse;
 import com.ums.authorization.dto.UserAuthorizationResponse;
 import com.ums.authorization.dto.UserPermissionsResponse;
 import com.ums.authorization.entity.Permission;
@@ -49,19 +51,31 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 
 	private final RoleEventPublisher roleEventPublisher;
 
+	private final UserServiceClient userServiceClient;
+
 	@Override
 	public String assignRole(AssignRoleRequest request) {
 
 		Role role = roleService.getRoleByName(request.getRoleName());
+		String scopeType = normalizeScopeType(request.getScopeType());
+		String scopeId = normalizeScopeId(request.getScopeId());
 
-		boolean alreadyAssigned = userRoleRepository.existsByUserIdAndRole_Id(request.getUserId(), role.getId());
+		boolean alreadyAssigned = userRoleRepository.existsByUserIdAndRole_IdAndScopeTypeAndScopeIdAndActiveTrue(
+				request.getUserId(), role.getId(), scopeType, scopeId);
 
 		if (alreadyAssigned) {
 
 			throw new UserRoleAlreadyExistsException("Role already assigned to user");
 		}
 
-		UserRole userRole = UserRole.builder().userId(request.getUserId()).role(role).assignedAt(LocalDateTime.now())
+		UserRole userRole = UserRole.builder()
+				.userId(request.getUserId())
+				.role(role)
+				.assignedBy(request.getAssignedBy())
+				.scopeType(scopeType)
+				.scopeId(scopeId)
+				.active(true)
+				.assignedAt(LocalDateTime.now())
 				.build();
 
 		/*
@@ -72,12 +86,28 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 
 		userRoleService.assignRole(userRole);
 
-		RoleAssignedEvent event = RoleAssignedEvent.builder().userId(request.getUserId()).roleId(role.getId())
-				.roleName(role.getName()).assignedAt(LocalDateTime.now()).build();
+		RoleAssignedEvent event = buildRoleAssignedEvent(
+				request.getUserId(),
+				role,
+				request.getAssignedBy());
 
 		roleEventPublisher.publishRoleAssigned(event);
 
 		return "Role Assigned Successfully";
+	}
+
+	private String normalizeScopeType(String scopeType) {
+		if (scopeType == null || scopeType.isBlank()) {
+			return "PLATFORM";
+		}
+		return scopeType.trim().toUpperCase();
+	}
+
+	private String normalizeScopeId(String scopeId) {
+		if (scopeId == null || scopeId.isBlank()) {
+			return "*";
+		}
+		return scopeId.trim();
 	}
 
 	@Override
@@ -153,8 +183,7 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 
 		userRoleRepository.save(userRole);
 
-		RoleAssignedEvent event = RoleAssignedEvent.builder().userId(userId).roleId(defaultRole.getId())
-				.roleName(defaultRole.getName()).assignedAt(LocalDateTime.now()).build();
+		RoleAssignedEvent event = buildRoleAssignedEvent(userId, defaultRole, null);
 
 		roleEventPublisher.publishRoleAssigned(event);
 
@@ -182,6 +211,29 @@ public class AuthorizationServiceImpl implements AuthorizationService {
 		rolePermissionRepository.save(rolePermission);
 
 		return "Permission assigned successfully";
+	}
+
+	private RoleAssignedEvent buildRoleAssignedEvent(UUID userId, Role role, UUID assignedBy) {
+		UserResponse recipient = resolveRecipient(userId);
+
+		return RoleAssignedEvent.builder()
+				.userId(userId)
+				.roleId(role.getId())
+				.roleName(role.getName())
+				.email(recipient == null ? null : recipient.email())
+				.firstName(recipient == null ? null : recipient.firstName())
+				.assignedBy(assignedBy)
+				.assignedAt(LocalDateTime.now())
+				.build();
+	}
+
+	private UserResponse resolveRecipient(UUID userId) {
+		try {
+			return userServiceClient.getUser(userId);
+		} catch (RuntimeException ex) {
+			log.warn("Unable to enrich RoleAssignedEvent with recipient details for userId={}", userId, ex);
+			return null;
+		}
 	}
 
 }

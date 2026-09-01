@@ -232,6 +232,13 @@ public class EmailServiceImpl implements EmailService {
 		sendEmail("ORGANIZATION_CREATED", email, Map.of("organizationName", organizationName));
 	}
 
+	@Override
+	public void sendRoleAssignedEmail(String email, String firstName, String roleName) {
+
+		String recipientName = firstName == null || firstName.isBlank() ? email : firstName;
+		sendEmail("ROLE_ASSIGNED", email, Map.of("name", recipientName, "roleName", roleName));
+	}
+
 	private String maskEmail(String email) {
 		if (email == null || email.isBlank()) {
 			return "<blank>";

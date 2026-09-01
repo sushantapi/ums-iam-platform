@@ -17,5 +17,7 @@ public interface EmailService {
 
 	void sendOrganizationCreatedEmail(String email, String organizationName);
 
+	void sendRoleAssignedEmail(String email, String firstName, String roleName);
+
 	void retry(NotificationEvent event);
 }

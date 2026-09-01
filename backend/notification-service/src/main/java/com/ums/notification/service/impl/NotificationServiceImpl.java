@@ -6,6 +6,7 @@ import com.ums.events.event.EmailVerificationEvent;
 import com.ums.events.event.MfaOtpEvent;
 import com.ums.events.event.PasswordResetEvent;
 import com.ums.events.event.organization.OrganizationCreatedEvent;
+import com.ums.events.event.role.RoleAssignedEvent;
 import com.ums.events.event.user.UserRegisteredEvent;
 import com.ums.notification.service.EmailService;
 import com.ums.notification.service.NotificationService;
@@ -58,5 +59,19 @@ public class NotificationServiceImpl implements NotificationService {
 		log.info("Processing OrganizationCreatedEvent for organizationId={}", event.getOrganizationId());
 
 		emailService.sendOrganizationCreatedEmail(event.getOwnerEmail(), event.getOrganizationName());
+	}
+
+	@Override
+	public void processRoleAssigned(RoleAssignedEvent event) {
+
+		if (event.getEmail() == null || event.getEmail().isBlank()) {
+			log.warn("Skipping RoleAssignedEvent notification because recipient email is missing for userId={}",
+					event.getUserId());
+			return;
+		}
+
+		log.info("Processing RoleAssignedEvent for userId={} roleName={}", event.getUserId(), event.getRoleName());
+
+		emailService.sendRoleAssignedEmail(event.getEmail(), event.getFirstName(), event.getRoleName());
 	}
 }

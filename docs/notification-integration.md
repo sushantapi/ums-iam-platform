@@ -10,6 +10,10 @@ Notification delivery is event-driven. Frontend applications do not call `notifi
 | `organization-service` | `OrganizationCreatedEvent` | `organization.exchange` / `organization.created` | `notification.organization.created.queue` |
 | `authorization-service` | `RoleAssignedEvent` | `auth.exchange` / `role.assigned` | `role.assigned.queue` |
 
+`RoleAssignedEvent` is delivered as an email when `authorization-service` can resolve the target
+user from `user-service` and include `email` plus `firstName` in the event. If the lookup fails,
+role assignment still succeeds and notification-service logs a missing-recipient warning.
+
 ## Ready Auth Flows
 
 The shared contracts, bindings, queues, and consumers are ready for:
@@ -28,6 +32,8 @@ The authentication endpoints that create these events are still pending.
 4. Success marks the event `SENT` and writes a successful `notification_logs` row.
 5. Failure marks the event `FAILED`, writes a failed log, and acknowledges the Rabbit message.
 6. The scheduler retries failed events up to three times from their persisted payload.
+
+The `ROLE_ASSIGNED` email template is seeded by notification-service Flyway migration `V2`.
 
 ## Mail Configuration
 
